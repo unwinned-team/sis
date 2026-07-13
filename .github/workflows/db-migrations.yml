@@ -1,0 +1,58 @@
+name: DB Migrations
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "server/prisma/**"
+      - "server/prisma.config.ts"
+      - "server/package.json"
+      - "server/package-lock.json"
+      - ".github/workflows/db-migrations.yml"
+  pull_request:
+    paths:
+      - "server/prisma/**"
+      - "server/prisma.config.ts"
+      - "server/package.json"
+      - "server/package-lock.json"
+      - ".github/workflows/db-migrations.yml"
+  workflow_dispatch:
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: ice_shop_ci
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d ice_shop_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    defaults:
+      run:
+        working-directory: server
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ice_shop_ci
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - run: npm ci
+      - run: npx prisma migrate deploy
+      - run: npx prisma migrate status

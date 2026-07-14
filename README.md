@@ -1,3 +1,4 @@
+readme:
 ---
 
 # Smoky Ice Shop (сайт)

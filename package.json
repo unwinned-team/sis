@@ -1,0 +1,10 @@
+{
+  "name": "ice-shop",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -n srv,web -c blue,green \"cd server && npm run dev\" \"cd web && npm run dev\""
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.3"
+  }
+}

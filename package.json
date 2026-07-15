@@ -1,10 +1,53 @@
 {
   "name": "ice-shop",
   "private": true,
+  "type": "module",
   "scripts": {
-    "dev": "concurrently -n srv,web -c blue,green \"cd server && npm run dev\" \"cd web && npm run dev\""
+    "dev": "concurrently -n srv,web -c blue,green \"npm run server:dev\" \"npm run web:dev\"",
+    "web:dev": "cd web && vite",
+    "web:build": "cd web && tsc -b && vite build",
+    "web:lint": "cd web && eslint .",
+    "web:preview": "cd web && vite preview",
+    "server:dev": "cd server && tsx watch src/index.ts",
+    "server:check": "cd server && prisma validate && prisma generate && tsc --noEmit",
+    "server:db:generate": "cd server && prisma generate",
+    "server:db:push": "cd server && prisma db push",
+    "server:db:migrate": "cd server && prisma migrate dev",
+    "server:db:seed": "cd server && node prisma/seed.cjs",
+    "server:db:studio": "cd server && prisma studio"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.8.0",
+    "@prisma/client": "^7.8.0",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "pino": "^10.3.1",
+    "pino-pretty": "^13.1.3",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "react-router-dom": "^7.18.1",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
-    "concurrently": "^10.0.3"
+    "@eslint/js": "^10.0.1",
+    "@tailwindcss/vite": "^4.3.2",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.1.1",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.3",
+    "concurrently": "^10.0.3",
+    "eslint": "^10.6.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.3",
+    "globals": "^17.7.0",
+    "prisma": "^7.8.0",
+    "tailwindcss": "^4.3.2",
+    "tsx": "^4.23.1",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.62.0",
+    "vite": "^8.1.1"
   }
 }

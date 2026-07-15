@@ -21,8 +21,8 @@ const categories = [
   { id: "cat-tobacco", name: "Тютюн для кальяну", slug: "tobacco" },
   { id: "cat-bowls", name: "Чаші", slug: "bowls" },
   { id: "cat-coals", name: "Вугілля", slug: "coals" },
-  { id: "cat-vapes", name: "Вейпи", slug: "vapes" },
-  { id: "cat-liquids", name: "Рідини для вейпів", slug: "liquids" },
+  { id: "cat-vapes", name: "Pod-системи", slug: "vapes" },
+  { id: "cat-liquids", name: "Рідини для Pod-систем", slug: "liquids" },
   { id: "cat-accessories", name: "Аксесуари", slug: "accessories" },
 ];
 
@@ -135,7 +135,7 @@ const products = [
     id: "prod-vape-starter",
     categoryId: "cat-vapes",
     name: "Vaporesso XROS 3",
-    description: "Портативний POD-вейп, вбудована батарея 1000 мАг, змінні картриджі.",
+    description: "Портативна Pod-система, вбудована батарея 1000 мАг, змінні картриджі.",
     priceCents: 89000,
     imageUrl: "https://placehold.co/800x800/2d2d2d/eee?text=Vaporesso",
   },

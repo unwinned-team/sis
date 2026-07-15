@@ -45,14 +45,19 @@ jobs:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ice_shop_ci
 
     steps:
-      - uses: actions/checkout@v7
+      - name: Checkout
+        uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v6
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: npm
           cache-dependency-path: server/package-lock.json
 
-      - run: npm ci
-      - run: npx prisma migrate deploy
-      - run: npx prisma migrate status
+      - name: Install dependencies
+        run: npm ci
+      - name: Run migrations
+        run: npx prisma migrate deploy
+      - name: Check migration status
+        run: npx prisma migrate status

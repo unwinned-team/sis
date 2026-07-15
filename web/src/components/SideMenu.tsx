@@ -43,7 +43,7 @@ export function SideMenu({ isOpen, onClose }: SideMenuProps) {
       />
 
       <aside
-        className={`fixed inset-y-0 right-0 z-50 flex w-72 max-w-[85vw] flex-col bg-white shadow-2xl transition-transform duration-300 ${
+        className={`fixed inset-y-0 right-0 z-50 flex w-72 max-w-[85vw] flex-col border-l border-white/50 bg-white/85 shadow-2xl backdrop-blur-xl transition-transform duration-300 ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
         aria-hidden={!isOpen}

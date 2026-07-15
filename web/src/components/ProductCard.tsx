@@ -1,14 +1,9 @@
 import { Link } from 'react-router-dom';
 import type { Product } from '../types';
+import { formatPrice } from '../utils/format';
 
 interface ProductCardProps {
   product: Product;
-}
-
-function formatPrice(price: string): string {
-  const value = Number(price);
-  if (Number.isNaN(value)) return price;
-  return `${value.toLocaleString('uk-UA', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} ₴`;
 }
 
 export function ProductCard({ product }: ProductCardProps) {

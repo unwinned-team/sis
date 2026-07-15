@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getCategoryPopularProduct } from '../api/categories';
+import { formatPrice } from '../utils/format';
 import type { Category, Product } from '../types';
 
 interface CategoryPopoverProps {
@@ -34,7 +35,7 @@ export function CategoryPopover({ category, onClose }: CategoryPopoverProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div
-        className="w-full max-w-xs rounded-xl bg-white p-4 shadow-xl"
+        className="w-full max-w-xs rounded-2xl border border-white/50 bg-white/85 p-4 shadow-xl backdrop-blur-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">
@@ -61,7 +62,7 @@ export function CategoryPopover({ category, onClose }: CategoryPopoverProps) {
             />
             <div>
               <p className="font-medium text-slate-900">{product.name}</p>
-              <p className="text-sm text-slate-500">{product.price} грн</p>
+              <p className="text-sm text-slate-500">{formatPrice(product.price)}</p>
             </div>
           </div>
         )}

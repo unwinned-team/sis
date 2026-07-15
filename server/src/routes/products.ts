@@ -39,6 +39,31 @@ import {
 
 const router = Router();
 
+/**
+ * Detects a foreign-key error after a related record changed between our
+ * existence check and the database write. Recognizing both Prisma error shapes
+ * lets the routes return a useful 404 or 409 instead of a generic 500.
+ */
+function isForeignKeyConstraintViolation(error: unknown) {
+  if (typeof error !== "object" || error === null) {
+    return false;
+  }
+
+  const databaseError = error as {
+    code?: unknown;
+    name?: unknown;
+    cause?: { kind?: unknown };
+  };
+
+  return (
+    // Standard Prisma foreign-key error.
+    databaseError.code === "P2003" ||
+    // Same error returned directly by the PostgreSQL driver adapter.
+    (databaseError.name === "DriverAdapterError" &&
+      databaseError.cause?.kind === "ForeignKeyConstraintViolation")
+  );
+}
+
 // GET /api/products
 async function getProducts(req: Request, res: Response, next: NextFunction) {
   try {
@@ -57,11 +82,7 @@ async function getProducts(req: Request, res: Response, next: NextFunction) {
 }
 
 // GET /api/products/:id
-async function getProductById(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) {
+async function getProductById(req: Request, res: Response, next: NextFunction) {
   try {
     const parsed = productParamsSchema.safeParse(req.params);
 
@@ -85,16 +106,21 @@ async function getProductById(
 }
 
 // POST /api/products
-async function createProduct(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) {
+async function createProduct(req: Request, res: Response, next: NextFunction) {
   try {
     const parsed = createProductSchema.safeParse(req.body);
 
     if (!parsed.success) {
       return res.status(400).json({ errors: parsed.error.issues });
+    }
+
+    const category = await prisma.category.findUnique({
+      where: { id: parsed.data.categoryId },
+      select: { id: true },
+    });
+
+    if (!category) {
+      return res.status(404).json({ error: "Category not found" });
     }
 
     const product = await prisma.product.create({
@@ -104,16 +130,16 @@ async function createProduct(
 
     res.status(201).json(product);
   } catch (error) {
+    if (isForeignKeyConstraintViolation(error)) {
+      return res.status(404).json({ error: "Category not found" });
+    }
+
     next(error);
   }
 }
 
 // PUT /api/products/:id
-async function updateProduct(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) {
+async function updateProduct(req: Request, res: Response, next: NextFunction) {
   try {
     const parsedParams = productParamsSchema.safeParse(req.params);
 
@@ -135,6 +161,17 @@ async function updateProduct(
       return res.status(404).json({ error: "Product not found" });
     }
 
+    if (parsedBody.data.categoryId !== undefined) {
+      const category = await prisma.category.findUnique({
+        where: { id: parsedBody.data.categoryId },
+        select: { id: true },
+      });
+
+      if (!category) {
+        return res.status(404).json({ error: "Category not found" });
+      }
+    }
+
     const data = Object.fromEntries(
       Object.entries(parsedBody.data).filter(([_, v]) => v !== undefined),
     ) as Record<string, unknown>;
@@ -147,16 +184,16 @@ async function updateProduct(
 
     res.json(product);
   } catch (error) {
+    if (isForeignKeyConstraintViolation(error)) {
+      return res.status(404).json({ error: "Category not found" });
+    }
+
     next(error);
   }
 }
 
 // DELETE /api/products/:id
-async function deleteProduct(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) {
+async function deleteProduct(req: Request, res: Response, next: NextFunction) {
   try {
     const parsed = productParamsSchema.safeParse(req.params);
 
@@ -172,13 +209,28 @@ async function deleteProduct(
       return res.status(404).json({ error: "Product not found" });
     }
 
-    // ponytail: onDelete: Restrict на OrderItem — Prisma кинет ошибку если есть заказы,
-    // глобальный errorHandler отдаст 500. Если нужно человечное сообщение —
-    // ловить PrismaClientKnownRequestError по коду P2014.
+    const orderItems = await prisma.orderItem.count({
+      where: { productId: parsed.data.id },
+    });
+
+    if (orderItems > 0) {
+      return res.status(409).json({
+        error:
+          "Product cannot be deleted because it is used in existing orders",
+      });
+    }
+
     await prisma.product.delete({ where: { id: parsed.data.id } });
 
     res.status(204).end();
   } catch (error) {
+    if (isForeignKeyConstraintViolation(error)) {
+      return res.status(409).json({
+        error:
+          "Product cannot be deleted because it is used in existing orders",
+      });
+    }
+
     next(error);
   }
 }

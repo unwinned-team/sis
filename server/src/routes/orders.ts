@@ -119,6 +119,9 @@ async function createOrder(req: Request, res: Response, next: NextFunction) {
 
     res.status(201).json(order);
   } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2003") {
+      return next(httpError(404, "Customer or product not found"));
+    }
     next(error);
   }
 }

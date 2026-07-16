@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import { Router } from "express";
+import { Prisma } from "@prisma/client";
 import prisma from "../prisma.js";
 import {
   customerParamsSchema,
@@ -125,6 +126,11 @@ async function deleteCustomer(req: Request, res: Response, next: NextFunction) {
     await prisma.customer.delete({ where: { id: parsed.data.id } });
     res.status(204).end();
   } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2003") {
+      return res.status(409).json({
+        error: "Customer cannot be deleted because they have existing orders",
+      });
+    }
     next(error);
   }
 }

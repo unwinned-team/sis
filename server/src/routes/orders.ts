@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import { Router } from "express";
+import { Prisma } from "@prisma/client";
 import prisma from "../prisma.js";
 import {
   orderParamsSchema,
@@ -8,6 +9,11 @@ import {
 } from "../schemas/orders.js";
 
 const router = Router();
+const MAX_ORDER_TOTAL = new Prisma.Decimal("99999999.99");
+
+function httpError(status: number, message: string) {
+  return Object.assign(new Error(message), { status });
+}
 
 // GET /api/orders
 async function getOrders(_req: Request, res: Response, next: NextFunction) {
@@ -61,42 +67,54 @@ async function createOrder(req: Request, res: Response, next: NextFunction) {
 
     const { customerId, paymentMethod, items } = parsed.data;
 
-    const customer = await prisma.customer.findUnique({
-      where: { id: customerId },
-    });
-    if (!customer) {
-      return res.status(404).json({ error: "Customer not found" });
-    }
+    const order = await prisma.$transaction(async (tx) => {
+      const customer = await tx.customer.findUnique({ where: { id: customerId } });
+      if (!customer) {
+        throw httpError(404, "Customer not found");
+      }
 
-    const productIds = items.map((i) => i.productId);
-    const products = await prisma.product.findMany({
-      where: { id: { in: productIds } },
-    });
+      const productIds = items.map((item) => item.productId);
+      const products = await tx.product.findMany({
+        where: { id: { in: productIds } },
+      });
+      if (products.length !== productIds.length) {
+        throw httpError(404, "One or more products not found");
+      }
 
-    if (products.length !== productIds.length) {
-      return res.status(404).json({ error: "One or more products not found" });
-    }
+      const productMap = new Map(products.map((product) => [product.id, product]));
+      let totalAmount = new Prisma.Decimal(0);
+      const orderItems = items.map((item) => {
+        const product = productMap.get(item.productId)!;
+        totalAmount = totalAmount.add(product.price.mul(item.quantity));
+        return { productId: item.productId, quantity: item.quantity, price: product.price };
+      });
 
-    const productMap = new Map(products.map((p) => [p.id, p]));
-    let totalAmount = 0;
-    const orderItems = items.map((item) => {
-      const product = productMap.get(item.productId)!;
-      const price = product.price;
-      totalAmount += Number(price) * item.quantity;
-      return { productId: item.productId, quantity: item.quantity, price };
-    });
+      if (totalAmount.greaterThan(MAX_ORDER_TOTAL)) {
+        throw httpError(400, "Order total is too large");
+      }
 
-    const order = await prisma.order.create({
-      data: {
-        customerId,
-        paymentMethod,
-        totalAmount,
-        items: { create: orderItems },
-      },
-      include: {
-        customer: { select: { id: true, name: true, phone: true } },
-        items: { include: { product: true } },
-      },
+      if (paymentMethod === "BONUS") {
+        const debit = await tx.customer.updateMany({
+          where: { id: customerId, bonusBalance: { gte: totalAmount } },
+          data: { bonusBalance: { decrement: totalAmount } },
+        });
+        if (debit.count === 0) {
+          throw httpError(409, "Insufficient bonus balance");
+        }
+      }
+
+      return tx.order.create({
+        data: {
+          customerId,
+          paymentMethod,
+          totalAmount,
+          items: { create: orderItems },
+        },
+        include: {
+          customer: { select: { id: true, name: true, phone: true } },
+          items: { include: { product: true } },
+        },
+      });
     });
 
     res.status(201).json(order);
@@ -118,24 +136,48 @@ async function updateOrder(req: Request, res: Response, next: NextFunction) {
       return res.status(400).json({ errors: parsedBody.error.issues });
     }
 
-    const existing = await prisma.order.findUnique({
-      where: { id: parsedParams.data.id },
-    });
-    if (!existing) {
-      return res.status(404).json({ error: "Order not found" });
-    }
+    const { id } = parsedParams.data;
+    const { status } = parsedBody.data;
 
-    const data = Object.fromEntries(
-      Object.entries(parsedBody.data).filter(([_, v]) => v !== undefined),
-    ) as Record<string, unknown>;
+    const order = await prisma.$transaction(async (tx) => {
+      const existing = await tx.order.findUnique({ where: { id } });
+      if (!existing) {
+        throw httpError(404, "Order not found");
+      }
+      if (existing.status === "COMPLETED" && status !== "COMPLETED") {
+        throw httpError(409, "Completed orders cannot be changed");
+      }
 
-    const order = await prisma.order.update({
-      where: { id: parsedParams.data.id },
-      data,
-      include: {
-        customer: { select: { id: true, name: true, phone: true } },
-        items: { include: { product: true } },
-      },
+      if (existing.status !== "COMPLETED") {
+        const updated = await tx.order.updateMany({
+          where: { id, status: { not: "COMPLETED" } },
+          data: { status },
+        });
+
+        if (updated.count === 0) {
+          const current = await tx.order.findUnique({ where: { id } });
+          if (!current) {
+            throw httpError(404, "Order not found");
+          }
+          if (status !== "COMPLETED") {
+            throw httpError(409, "Completed orders cannot be changed");
+          }
+        } else if (status === "COMPLETED" && existing.paymentMethod !== "BONUS") {
+          const bonus = existing.totalAmount.mul("0.01").toDecimalPlaces(2);
+          await tx.customer.update({
+            where: { id: existing.customerId },
+            data: { bonusBalance: { increment: bonus } },
+          });
+        }
+      }
+
+      return tx.order.findUniqueOrThrow({
+        where: { id },
+        include: {
+          customer: { select: { id: true, name: true, phone: true } },
+          items: { include: { product: true } },
+        },
+      });
     });
 
     res.json(order);
@@ -152,20 +194,26 @@ async function deleteOrder(req: Request, res: Response, next: NextFunction) {
       return res.status(400).json({ errors: parsed.error.issues });
     }
 
-    const existing = await prisma.order.findUnique({
-      where: { id: parsed.data.id },
-    });
-    if (!existing) {
-      return res.status(404).json({ error: "Order not found" });
-    }
+    await prisma.$transaction(async (tx) => {
+      const existing = await tx.order.findUnique({ where: { id: parsed.data.id } });
+      if (!existing) {
+        throw httpError(404, "Order not found");
+      }
 
-    if (existing.status !== "NEW") {
-      return res.status(409).json({
-        error: "Only orders with status NEW can be cancelled",
+      const deleted = await tx.order.deleteMany({
+        where: { id: parsed.data.id, status: "NEW" },
       });
-    }
+      if (deleted.count === 0) {
+        throw httpError(409, "Only orders with status NEW can be cancelled");
+      }
 
-    await prisma.order.delete({ where: { id: parsed.data.id } });
+      if (existing.paymentMethod === "BONUS") {
+        await tx.customer.update({
+          where: { id: existing.customerId },
+          data: { bonusBalance: { increment: existing.totalAmount } },
+        });
+      }
+    });
     res.status(204).end();
   } catch (error) {
     next(error);

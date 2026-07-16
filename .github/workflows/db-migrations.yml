@@ -1,4 +1,4 @@
-name: DB Migrations
+name: Server DB Integration
 
 on:
   push:
@@ -6,6 +6,8 @@ on:
     paths:
       - "server/prisma/**"
       - "server/prisma.config.ts"
+      - "server/src/**"
+      - "server/tsconfig.json"
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/db-migrations.yml"
@@ -13,13 +15,15 @@ on:
     paths:
       - "server/prisma/**"
       - "server/prisma.config.ts"
+      - "server/src/**"
+      - "server/tsconfig.json"
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/db-migrations.yml"
   workflow_dispatch:
 
 jobs:
-  migrate:
+  integration:
     runs-on: ubuntu-latest
 
     services:
@@ -39,6 +43,7 @@ jobs:
 
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ice_shop_ci
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ice_shop_ci
 
     steps:
       - uses: actions/checkout@v7
@@ -54,3 +59,4 @@ jobs:
         working-directory: server
       - run: npx prisma migrate status
         working-directory: server
+      - run: npm run server:test:integration

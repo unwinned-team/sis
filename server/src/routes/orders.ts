@@ -5,11 +5,11 @@ import prisma from "../prisma.js";
 import {
   orderParamsSchema,
   createOrderSchema,
+  isOrderTotalValid,
   updateOrderSchema,
 } from "../schemas/orders.js";
 
 const router = Router();
-const MAX_ORDER_TOTAL = new Prisma.Decimal("99999999.99");
 
 function httpError(status: number, message: string) {
   return Object.assign(new Error(message), { status });
@@ -89,7 +89,7 @@ async function createOrder(req: Request, res: Response, next: NextFunction) {
         return { productId: item.productId, quantity: item.quantity, price: product.price };
       });
 
-      if (totalAmount.greaterThan(MAX_ORDER_TOTAL)) {
+      if (!isOrderTotalValid(totalAmount)) {
         throw httpError(400, "Order total is too large");
       }
 

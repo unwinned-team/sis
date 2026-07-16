@@ -1,8 +1,10 @@
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 
 const paymentMethodSchema = z.enum(["CARD", "CASH", "BONUS"]);
 const orderStatusSchema = z.enum(["NEW", "PROCESSING", "COMPLETED", "CANCELLED"]);
 const MAX_DATABASE_INT = 2_147_483_647;
+const MAX_ORDER_TOTAL = new Prisma.Decimal("99999999.99");
 
 export const orderParamsSchema = z.object({
   id: z.string().min(1, "Order ID is required"),
@@ -30,3 +32,7 @@ export const createOrderSchema = z.object({
 });
 
 export const updateOrderSchema = z.object({ status: orderStatusSchema }).strict();
+
+export function isOrderTotalValid(total: Prisma.Decimal) {
+  return total.lessThanOrEqualTo(MAX_ORDER_TOTAL);
+}

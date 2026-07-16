@@ -37,3 +37,4 @@ jobs:
 
       - run: npm ci
       - run: npm run server:check
+      - run: npm run server:test

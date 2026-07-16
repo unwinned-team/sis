@@ -1,33 +1,3 @@
-// Products router — mounted at /api/products
-//
-// GET /
-//   - optional query: ?categoryId=... (filter by category)
-//   - respond 200 with [{ id, name, price, imageUrl, category }] ordered by name
-//
-// GET /:id
-//   - validate params with productParamsSchema
-//   - respond 200 with product + category, or 404 if missing
-//
-// POST /
-//   - validate body with createProductSchema (name, description, price, categoryId, imageUrl)
-//   - create product in DB
-//   - respond 201 with created product
-//
-// PUT /:id
-//   - validate params with productParamsSchema, body with updateProductSchema
-//   - update product in DB, 404 if missing
-//   - respond 200 with updated product
-//
-// DELETE /:id
-//   - validate params with productParamsSchema
-//   - delete product from DB, 404 if missing
-//   - respond 204 no content
-//
-// GET /:id/related
-//   - validate params with productParamsSchema
-//   - find products in same category (excluding current), limit 4
-//   - respond 200 with related products, or 404 if product not found
-
 import type { Request, Response, NextFunction } from "express";
 import { Router } from "express";
 import prisma from "../prisma.js";

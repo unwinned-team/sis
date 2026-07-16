@@ -1,14 +1,3 @@
-// Categories router — mounted at /api/categories
-//
-// GET /
-//   - respond 200 with [{ id, name, slug }] ordered by name
-//
-// GET /:slug/popular-product
-//   - validate params with popularProductParamsSchema
-//   - find category by slug, 404 if missing
-//   - groupBy orderItem → SUM(quantity) desc, take 1
-//   - respond 200 with product + category, or 404 if no orders
-
 import type { Request, Response, NextFunction } from "express";
 import { Router } from "express";
 import prisma from "../prisma.js";

@@ -128,9 +128,9 @@ async function webRefresh(req: Request, res: Response, next: NextFunction) {
     }
 
     const rotated = await rotateRefreshToken(raw).catch((error) => {
-      // Токен мёртв (реплей/просрочка/отзыв) — чистим cookie, чтобы браузер
-      // не предъявлял его снова.
-      res.clearCookie(REFRESH_COOKIE_NAME, REFRESH_COOKIE_OPTIONS);
+      if ((error as { status?: number }).status === 401) {
+        res.clearCookie(REFRESH_COOKIE_NAME, REFRESH_COOKIE_OPTIONS);
+      }
       throw error;
     });
 

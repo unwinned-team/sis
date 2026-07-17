@@ -1,16 +1,15 @@
 import type { Product } from '../types';
 
 function formatAmount(value: number): string {
-  return value.toLocaleString('uk-UA', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  return value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 export function formatPrice(price: string): string {
   const value = Number(price);
   if (Number.isNaN(value)) return price;
-  return `${formatAmount(value)} ₴`;
+  return `₴${formatAmount(value)}`;
 }
 
-// Products with variants show every distinct variant price: "95/170/300 ₴"
 export function formatProductPrice(product: Product): string {
   const variantPrices = (product.variants ?? [])
     .map((variant) => Number(variant.price))
@@ -19,5 +18,9 @@ export function formatProductPrice(product: Product): string {
   if (variantPrices.length === 0) return formatPrice(product.price);
 
   const distinct = [...new Set(variantPrices)].sort((a, b) => a - b);
-  return `${distinct.map(formatAmount).join('/')} ₴`;
+  return `₴${distinct
+    .map((value) =>
+      value.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 }),
+    )
+    .join('/')}`;
 }

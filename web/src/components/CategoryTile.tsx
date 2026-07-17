@@ -11,7 +11,7 @@ export function CategoryTile({ category }: CategoryTileProps) {
       to={`/category/${category.slug}`}
       className="group flex flex-col overflow-hidden rounded-2xl border border-white/50 bg-white/40 shadow-sm backdrop-blur-md transition duration-200 md:hover:-translate-y-1 md:hover:shadow-xl"
     >
-      <div className="flex aspect-square items-center justify-center overflow-hidden bg-gradient-to-br from-emerald-100/40 to-sky-100/40">
+      <div className="flex aspect-square items-center justify-center overflow-hidden bg-gradient-to-br from-teal-100/40 to-sky-100/40">
         {category.imageUrl ? (
           <img
             src={category.imageUrl}

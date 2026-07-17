@@ -84,7 +84,7 @@ export function CategoryPage() {
               <section className="mt-8">
                 <div className="overflow-hidden rounded-3xl border border-white/60 bg-white/40 shadow-lg backdrop-blur-md">
                   <div className="grid sm:grid-cols-[minmax(0,20rem)_1fr]">
-                    <div className="aspect-square overflow-hidden bg-gradient-to-br from-emerald-100/40 to-sky-100/40">
+                    <div className="aspect-square overflow-hidden bg-gradient-to-br from-teal-100/40 to-sky-100/40">
                       <img
                         src={popularProduct.imageUrl}
                         alt={popularProduct.name}
@@ -92,7 +92,7 @@ export function CategoryPage() {
                       />
                     </div>
                     <div className="flex flex-col justify-center gap-3 p-6 sm:p-10">
-                      <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-emerald-200/70 bg-emerald-50/70 px-3 py-1 text-xs font-semibold text-emerald-700">
+                      <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-teal-200/70 bg-teal-50/70 px-3 py-1 text-xs font-semibold text-teal-700">
                         🔥 Хіт продажів категорії
                       </span>
                       <h2 className="text-xl font-bold text-slate-900 sm:text-2xl">

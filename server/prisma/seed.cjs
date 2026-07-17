@@ -1,5 +1,6 @@
 require("dotenv/config");
 
+const { randomBytes, scryptSync } = require("node:crypto");
 const { PrismaPg } = require("@prisma/adapter-pg");
 const { PrismaClient } = require("@prisma/client");
 
@@ -16,6 +17,27 @@ const prisma = new PrismaClient({
 const money = (cents) => (cents / 100).toFixed(2);
 const atNoon = (date) => new Date(`${date}T12:00:00.000Z`);
 
+// Тот же формат, что server/src/lib/password.ts: scrypt$N$r$p$<salt>$<hash>.
+function hashPassword(password) {
+  const salt = randomBytes(16);
+  const hash = scryptSync(password, salt, 64, {
+    N: 32768,
+    r: 8,
+    p: 1,
+    maxmem: 64 * 1024 * 1024,
+  });
+  return `scrypt$32768$8$1$${salt.toString("base64url")}$${hash.toString("base64url")}`;
+}
+
+const admin = {
+  id: "customer-admin",
+  name: "Ice-Shop Admin",
+  email: "admin@example.test",
+  role: "ADMIN",
+};
+
+const adminPassword = process.env.SEED_ADMIN_PASSWORD ?? "admin-dev-password";
+
 const categories = [
   { id: "cat-hookahs", name: "Кальяни", slug: "hookahs" },
   { id: "cat-tobacco", name: "Тютюн для кальяну", slug: "tobacco" },
@@ -31,7 +53,8 @@ const products = [
     id: "prod-kaljan-amstaff",
     categoryId: "cat-hookahs",
     name: "Kaljan Amstaff 580 Pro",
-    description: "Кальян середнього розміру з алюмінієвим шахтом, компактний та легкий.",
+    description:
+      "Кальян середнього розміру з алюмінієвим шахтом, компактний та легкий.",
     priceCents: 349000,
     imageUrl: "https://placehold.co/800x800/1a1a2e/eee?text=Amstaff",
   },
@@ -71,7 +94,8 @@ const products = [
     id: "prod-tobacco-fumari",
     categoryId: "cat-tobacco",
     name: "Fumari White Gummi",
-    description: "Солодкий гумовий ведмідь з лимоном. Міцність: легка. Об'єм: 100г.",
+    description:
+      "Солодкий гумовий ведмідь з лимоном. Міцність: легка. Об'єм: 100г.",
     priceCents: 22000,
     imageUrl: "https://placehold.co/800x800/533483/eee?text=Fumari",
   },
@@ -79,7 +103,8 @@ const products = [
     id: "prod-tobacco-darkside",
     categoryId: "cat-tobacco",
     name: "Darkside Cola",
-    description: "Тютюн з насиченим смаком коли. Міцність: середня. Об'єм: 200г.",
+    description:
+      "Тютюн з насиченим смаком коли. Міцність: середня. Об'єм: 200г.",
     priceCents: 28000,
     imageUrl: "https://placehold.co/800x800/e94560/111?text=Darkside",
   },
@@ -87,7 +112,8 @@ const products = [
     id: "prod-tobacco-alfakher",
     categoryId: "cat-tobacco",
     name: "Al Fakher Double Apple",
-    description: "Класичний подвійний яблуневий смак. Міцність: середня. Об'єм: 250г.",
+    description:
+      "Класичний подвійний яблуневий смак. Міцність: середня. Об'єм: 250г.",
     priceCents: 18000,
     imageUrl: "https://placehold.co/800x800/2d6a4f/eee?text=Al+Fakher",
   },
@@ -127,7 +153,8 @@ const products = [
     id: "prod-coal-natural",
     categoryId: "cat-coals",
     name: "Натуральне вугілля (1 кг)",
-    description: "Вугілля з букового дерева, без домішок. Потребує розпалювання.",
+    description:
+      "Вугілля з букового дерева, без домішок. Потребує розпалювання.",
     priceCents: 12000,
     imageUrl: "https://placehold.co/800x800/3d3d3d/eee?text=Natural+Coal",
   },
@@ -135,7 +162,8 @@ const products = [
     id: "prod-vape-starter",
     categoryId: "cat-vapes",
     name: "Vaporesso XROS 3",
-    description: "Портативна Pod-система, вбудована батарея 1000 мАг, змінні картриджі.",
+    description:
+      "Портативна Pod-система, вбудована батарея 1000 мАг, змінні картриджі.",
     priceCents: 89000,
     imageUrl: "https://placehold.co/800x800/2d2d2d/eee?text=Vaporesso",
   },
@@ -167,7 +195,8 @@ const products = [
     id: "prod-liquid-fruits",
     categoryId: "cat-liquids",
     name: "Jam Monster Strawberry",
-    description: "Полуниця з тостами та вершковим маслом. Нікотин: 3мг. Об'єм: 100мл.",
+    description:
+      "Полуниця з тостами та вершковим маслом. Нікотин: 3мг. Об'єм: 100мл.",
     priceCents: 32000,
     imageUrl: "https://placehold.co/800x800/e63946/eee?text=Jam+Monster",
   },
@@ -175,7 +204,8 @@ const products = [
     id: "prod-liquid-candy",
     categoryId: "cat-liquids",
     name: "Yogi Energy",
-    description: "Енергетичний напій з манго та гуавою. Нікотин: 6мг. Об'єм: 60мл.",
+    description:
+      "Енергетичний напій з манго та гуавою. Нікотин: 6мг. Об'єм: 60мл.",
     priceCents: 28000,
     imageUrl: "https://placehold.co/800x800/fca311/111?text=Yogi",
   },
@@ -301,7 +331,9 @@ const customers = [
   },
 ];
 
-const productsById = Object.fromEntries(products.map((product) => [product.id, product]));
+const productsById = Object.fromEntries(
+  products.map((product) => [product.id, product]),
+);
 
 const orders = [
   {
@@ -445,6 +477,14 @@ async function main() {
     await prisma.customer.create({ data: customer });
   }
 
+  // Единственный способ появления админа — регистрации в админы нет.
+  const passwordHash = hashPassword(adminPassword);
+  await prisma.customer.upsert({
+    where: { email: admin.email },
+    create: { ...admin, passwordHash },
+    update: { ...admin, passwordHash, isActive: true },
+  });
+
   for (const order of orders) {
     await prisma.order.create({
       data: {
@@ -470,7 +510,7 @@ async function main() {
   }
 
   console.log(
-    `Seeded ${categories.length} categories, ${products.length} products, ${variantCount} variants, ${customers.length} customers, ${orders.length} orders.`,
+    `Seeded ${categories.length} categories, ${products.length} products, ${variantCount} variants, ${customers.length} customers (+1 admin), ${orders.length} orders.`,
   );
 }
 

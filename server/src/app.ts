@@ -1,12 +1,21 @@
 import express, { type Request, type Response, type NextFunction } from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import log from "./logger.js";
 import apiRouter from "./routes/index.js";
 import errorHandler from "./middleware/errorHandler.js";
 
 const app = express();
 
-app.use(cors());
+// credentials: true — браузер шлёт/принимает refresh-cookie только при
+// явном origin (wildcard с credentials запрещён спекой CORS).
+app.use(
+  cors({
+    origin: process.env.CORS_ORIGIN ?? "http://localhost:5173",
+    credentials: true,
+  }),
+);
+app.use(cookieParser());
 app.use(express.json());
 
 app.use((req: Request, res: Response, next: NextFunction) => {
@@ -17,7 +26,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
-app.use("/api", apiRouter);
+app.use("/api/v1", apiRouter);
 app.use(errorHandler);
 
 export default app;

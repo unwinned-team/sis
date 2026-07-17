@@ -3,10 +3,10 @@ import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { randomUUID } from "node:crypto";
 import test, { after, afterEach, before, beforeEach } from "node:test";
-import app from "./app.js";
-import prisma from "./prisma.js";
-import { signAccessToken } from "./lib/jwt.js";
-import { hashPassword } from "./lib/password.js";
+import app from "../../src/app.js";
+import prisma from "../../src/prisma.js";
+import { signAccessToken } from "../../src/lib/jwt.js";
+import { hashPassword } from "../../src/lib/password.js";
 
 interface ApiResult {
   status: number;

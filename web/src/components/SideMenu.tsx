@@ -43,12 +43,12 @@ export function SideMenu({ isOpen, onClose }: SideMenuProps) {
       />
 
       <aside
-        className={`fixed inset-y-0 right-0 z-50 flex w-72 max-w-[85vw] flex-col border-l border-white/50 bg-white/85 shadow-2xl backdrop-blur-xl transition-transform duration-300 ${
+        className={`liquid-glass-panel fixed inset-y-0 right-0 z-50 flex w-72 max-w-[85vw] flex-col transition-transform duration-300 ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
         aria-hidden={!isOpen}
       >
-        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+        <div className="flex items-center justify-between border-b border-white/40 px-5 py-4">
           <h2 className="text-lg font-semibold text-slate-900">Меню</h2>
           <button
             type="button"
@@ -69,7 +69,7 @@ export function SideMenu({ isOpen, onClose }: SideMenuProps) {
                 <button
                   type="button"
                   onClick={() => handleCategoryClick(category)}
-                  className="block w-full rounded-lg px-3 py-2.5 text-left text-slate-700 hover:bg-slate-50"
+                  className="block w-full rounded-lg px-3 py-2.5 text-left text-slate-700 transition hover:bg-white/60"
                 >
                   {category.name}
                 </button>
@@ -78,18 +78,18 @@ export function SideMenu({ isOpen, onClose }: SideMenuProps) {
           </ul>
         </nav>
 
-        <div className="flex gap-2 border-t border-slate-100 p-4">
+        <div className="flex gap-2 border-t border-white/40 p-4">
           <button
             type="button"
             title="Скоро"
-            className="flex-1 rounded-lg border border-slate-200 py-2 text-sm font-medium text-slate-400"
+            className="flex-1 rounded-lg border border-white/60 bg-white/30 py-2 text-sm font-medium text-slate-500 backdrop-blur-sm"
           >
             Вхід
           </button>
           <button
             type="button"
             title="Скоро"
-            className="flex-1 rounded-lg bg-slate-100 py-2 text-sm font-medium text-slate-400"
+            className="flex-1 rounded-lg bg-white/60 py-2 text-sm font-medium text-slate-500"
           >
             Реєстрація
           </button>

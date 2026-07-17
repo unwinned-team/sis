@@ -73,7 +73,7 @@ function ProductDetails({ product }: ProductDetailsProps) {
   return (
     <section className="overflow-hidden rounded-3xl border border-white/60 bg-white/40 shadow-lg backdrop-blur-md">
       <div className="grid sm:grid-cols-[minmax(0,26rem)_1fr]">
-        <div className="aspect-square overflow-hidden bg-gradient-to-br from-emerald-100/40 to-sky-100/40">
+        <div className="aspect-square overflow-hidden bg-gradient-to-br from-teal-100/40 to-sky-100/40">
           <img src={product.imageUrl} alt={product.name} className="h-full w-full object-cover" />
         </div>
 
@@ -81,7 +81,7 @@ function ProductDetails({ product }: ProductDetailsProps) {
           {product.category && (
             <Link
               to={`/category/${product.category.slug}`}
-              className="inline-flex w-fit items-center rounded-full border border-emerald-200/70 bg-emerald-50/70 px-3 py-1 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100/80"
+              className="inline-flex w-fit items-center rounded-full border border-teal-200/70 bg-teal-50/70 px-3 py-1 text-xs font-semibold text-teal-700 transition hover:bg-teal-100/80"
             >
               {product.category.name}
             </Link>

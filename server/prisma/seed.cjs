@@ -213,6 +213,51 @@ const products = [
   },
 ];
 
+// Варіанти товарів: для рідин — смак × об'єм, для вугілля — лише розмір.
+// Смаки та розміри тимчасові (заглушки), їх відредагує власник магазину.
+const productVariants = [
+  {
+    productId: "prod-liquid-mint",
+    tastes: ["Крижана м'ята", "Ментол", "М'ята-лайм"],
+    sizes: [
+      { size: "10 мл", priceCents: 15000 },
+      { size: "30 мл", priceCents: 25000 },
+    ],
+  },
+  {
+    productId: "prod-liquid-fruits",
+    tastes: ["Полуниця", "Кавун", "Манго-маракуйя"],
+    sizes: [
+      { size: "10 мл", priceCents: 18000 },
+      { size: "30 мл", priceCents: 32000 },
+    ],
+  },
+  {
+    productId: "prod-liquid-candy",
+    tastes: ["Енергетик", "Кола-лимон", "Жуйка"],
+    sizes: [
+      { size: "10 мл", priceCents: 16000 },
+      { size: "30 мл", priceCents: 28000 },
+    ],
+  },
+  {
+    productId: "prod-coal-coco",
+    sizes: [
+      { size: "250 г", priceCents: 9500 },
+      { size: "500 г", priceCents: 17000 },
+      { size: "1 кг", priceCents: 30000 },
+    ],
+  },
+  {
+    productId: "prod-coal-natural",
+    sizes: [
+      { size: "500 г", priceCents: 7000 },
+      { size: "1 кг", priceCents: 12000 },
+      { size: "3 кг", priceCents: 33000 },
+    ],
+  },
+];
+
 const customers = [
   {
     id: "customer-olena",
@@ -359,6 +404,7 @@ async function main() {
   await prisma.orderItem.deleteMany();
   await prisma.order.deleteMany();
   await prisma.customer.deleteMany();
+  await prisma.productVariant.deleteMany();
   await prisma.product.deleteMany();
   await prisma.category.deleteMany();
 
@@ -375,6 +421,24 @@ async function main() {
         createdAt: atNoon("2026-07-01"),
       },
     });
+  }
+
+  let variantCount = 0;
+  for (const spec of productVariants) {
+    const tastes = spec.tastes ?? [null];
+    for (const taste of tastes) {
+      for (const { size, priceCents } of spec.sizes) {
+        await prisma.productVariant.create({
+          data: {
+            productId: spec.productId,
+            taste,
+            size,
+            price: money(priceCents),
+          },
+        });
+        variantCount += 1;
+      }
+    }
   }
 
   for (const customer of customers) {
@@ -406,7 +470,7 @@ async function main() {
   }
 
   console.log(
-    `Seeded ${categories.length} categories, ${products.length} products, ${customers.length} customers, ${orders.length} orders.`,
+    `Seeded ${categories.length} categories, ${products.length} products, ${variantCount} variants, ${customers.length} customers, ${orders.length} orders.`,
   );
 }
 

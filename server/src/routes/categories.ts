@@ -57,7 +57,7 @@ async function getCategoryPopularProduct(
 
     const product = await prisma.product.findUnique({
       where: { id: topItem[0]!.productId },
-      include: { category: true },
+      include: { category: true, variants: true },
     });
 
     res.json(product);

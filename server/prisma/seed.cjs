@@ -36,7 +36,11 @@ const admin = {
   role: "ADMIN",
 };
 
-const adminPassword = process.env.SEED_ADMIN_PASSWORD ?? "admin-dev-password";
+const adminPassword = process.env.SEED_ADMIN_PASSWORD;
+
+if (!adminPassword || adminPassword.trim() === "") {
+  throw new Error("SEED_ADMIN_PASSWORD is required");
+}
 
 const categories = [
   { id: "cat-hookahs", name: "Кальяни", slug: "hookahs" },

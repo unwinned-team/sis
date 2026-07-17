@@ -257,6 +257,49 @@ test("mobile refresh rotates via the body and rejects the previous token", async
   assert.equal(afterReplay.status, 401);
 });
 
+test("refresh rotation preserves the original session expiry", async () => {
+  const body = registerBody("absolute-expiry");
+  const registered = await api("POST", "/auth/mobile/register", { body });
+  const customer = await prisma.customer.findUniqueOrThrow({ where: { email: body.email } });
+  const original = await prisma.refreshToken.findFirstOrThrow({
+    where: { customerId: customer.id, revokedAt: null },
+  });
+
+  const rotated = await api("POST", "/auth/mobile/refresh", {
+    body: { refreshToken: registered.body.refreshToken },
+  });
+  assert.equal(rotated.status, 200);
+
+  const successor = await prisma.refreshToken.findFirstOrThrow({
+    where: { customerId: customer.id, revokedAt: null },
+  });
+  assert.equal(successor.expiresAt.getTime(), original.expiresAt.getTime());
+});
+
+test("simultaneous refresh treats the losing request as replay and revokes the successor", async () => {
+  const registered = await api("POST", "/auth/mobile/register", {
+    body: registerBody("concurrent-refresh"),
+  });
+  const body = { refreshToken: registered.body.refreshToken };
+
+  const results = await Promise.all([
+    api("POST", "/auth/mobile/refresh", { body }),
+    api("POST", "/auth/mobile/refresh", { body }),
+  ]);
+  const successful = results.find((result) => result.status === 200);
+
+  assert.deepEqual(
+    results.map((result) => result.status).sort(),
+    [200, 401],
+  );
+  assert.ok(successful?.body.refreshToken);
+
+  const afterReplay = await api("POST", "/auth/mobile/refresh", {
+    body: { refreshToken: successful.body.refreshToken },
+  });
+  assert.equal(afterReplay.status, 401);
+});
+
 test("refresh without a token and with an unknown token returns 401", async () => {
   const missing = await api("POST", "/auth/web/refresh");
   const unknown = await api("POST", "/auth/web/refresh", {

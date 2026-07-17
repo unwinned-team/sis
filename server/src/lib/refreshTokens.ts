@@ -43,49 +43,47 @@ export interface RotatedRefreshToken extends IssuedRefreshToken {
   customer: { id: string; role: Role };
 }
 
-export async function rotateRefreshToken(raw: string): Promise<RotatedRefreshToken> {
-  // Проверки и реплей-отзыв идут вне транзакции: throw внутри
-  // prisma.$transaction откатил бы и сам массовый отзыв токенов.
-  const existing = await prisma.refreshToken.findUnique({
-    where: { tokenHash: hashToken(raw) },
-    include: { customer: { select: { id: true, role: true, isActive: true } } },
-  });
-  if (!existing) {
-    throw httpError(401, "Invalid refresh token");
-  }
-  if (existing.expiresAt <= new Date()) {
-    throw httpError(401, "Invalid refresh token");
-  }
-  if (existing.revokedAt) {
-    // Реплей «сгоревшего» токена = признак кражи: выкидываем пользователя
-    // из системы на всех устройствах, дальше только логин по паролю.
-    await prisma.refreshToken.updateMany({
-      where: { customerId: existing.customerId, revokedAt: null },
-      data: { revokedAt: new Date() },
-    });
-    log.warn(
-      { customerId: existing.customerId, familyId: existing.familyId },
-      "Refresh token replay detected; all sessions revoked",
-    );
-    throw httpError(401, "Invalid refresh token");
-  }
-  if (!existing.customer.isActive) {
-    throw httpError(401, "Invalid refresh token");
-  }
+type RotationResult =
+  | { kind: "rotated"; token: RotatedRefreshToken }
+  | { kind: "replay"; customerId: string; familyId: string }
+  | { kind: "invalid" };
 
-  return prisma.$transaction(async (tx) => {
-    // updateMany с условием revokedAt: null — защита от двойной ротации
-    // конкурентными запросами (проигравший получает 401, не мутируя семью).
+export async function rotateRefreshToken(raw: string): Promise<RotatedRefreshToken> {
+  const result: RotationResult = await prisma.$transaction(async (tx) => {
+    const existing = await tx.refreshToken.findUnique({
+      where: { tokenHash: hashToken(raw) },
+      include: { customer: { select: { id: true, role: true, isActive: true } } },
+    });
+    if (!existing) {
+      return { kind: "invalid" };
+    }
+    if (existing.revokedAt) {
+      return {
+        kind: "replay",
+        customerId: existing.customerId,
+        familyId: existing.familyId,
+      };
+    }
+    if (existing.expiresAt <= new Date() || !existing.customer.isActive) {
+      return { kind: "invalid" };
+    }
+
+    // Условный update закрывает гонку между конкурентными refresh-запросами.
     const claimed = await tx.refreshToken.updateMany({
       where: { id: existing.id, revokedAt: null },
       data: { revokedAt: new Date() },
     });
     if (claimed.count === 0) {
-      throw httpError(401, "Invalid refresh token");
+      return {
+        kind: "replay",
+        customerId: existing.customerId,
+        familyId: existing.familyId,
+      };
     }
 
     const nextRaw = newRawToken();
-    const expiresAt = new Date(Date.now() + refreshTokenTtlMs(existing.customer.role));
+    // Вся семья живёт до исходного expiresAt: ротация не продлевает сессию бесконечно.
+    const expiresAt = existing.expiresAt;
     const successor = await tx.refreshToken.create({
       data: {
         tokenHash: hashToken(nextRaw),
@@ -101,11 +99,30 @@ export async function rotateRefreshToken(raw: string): Promise<RotatedRefreshTok
     });
 
     return {
-      raw: nextRaw,
-      expiresAt,
-      customer: { id: existing.customer.id, role: existing.customer.role },
+      kind: "rotated",
+      token: {
+        raw: nextRaw,
+        expiresAt,
+        customer: { id: existing.customer.id, role: existing.customer.role },
+      },
     };
   });
+
+  if (result.kind === "replay") {
+    // Отзыв идёт после транзакции, иначе исключение откатило бы updateMany.
+    await prisma.refreshToken.updateMany({
+      where: { customerId: result.customerId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    log.warn(
+      { customerId: result.customerId, familyId: result.familyId },
+      "Refresh token replay detected; all sessions revoked",
+    );
+  }
+  if (result.kind !== "rotated") {
+    throw httpError(401, "Invalid refresh token");
+  }
+  return result.token;
 }
 
 // Logout: отзывает всю семью предъявленного токена; неизвестный токен — no-op.

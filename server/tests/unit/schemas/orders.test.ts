@@ -5,7 +5,7 @@ import {
   createOrderSchema,
   isOrderTotalValid,
   updateOrderSchema,
-} from "./orders.js";
+} from "../../../src/schemas/orders.js";
 
 const item = { productId: "product-1", quantity: 1 };
 
@@ -46,14 +46,8 @@ test("order input rejects invalid PostgreSQL Int quantities", () => {
 });
 
 test("order total accepts Decimal(10,2) boundary and rejects overflow", () => {
-  assert.equal(
-    isOrderTotalValid(new Prisma.Decimal("99999999.99")),
-    true,
-  );
-  assert.equal(
-    isOrderTotalValid(new Prisma.Decimal("100000000.00")),
-    false,
-  );
+  assert.equal(isOrderTotalValid(new Prisma.Decimal("99999999.99")), true);
+  assert.equal(isOrderTotalValid(new Prisma.Decimal("100000000.00")), false);
 });
 
 test("order updates reject payment method changes", () => {

@@ -5,7 +5,8 @@ import test from "node:test";
 // (dotenv не перетирает уже установленные переменные окружения).
 process.env.JWT_ACCESS_SECRET = "integration-test-secret-0123456789abcdef";
 
-const { signAccessToken, verifyAccessToken } = await import("./jwt.js");
+const { signAccessToken, verifyAccessToken } =
+  await import("../../../src/lib/jwt.js");
 
 test("signed access token verifies and returns sub and role", async () => {
   const token = await signAccessToken({ sub: "customer-1", role: "ADMIN" });
@@ -18,10 +19,16 @@ test("tampered token is rejected", async () => {
   const token = await signAccessToken({ sub: "customer-1", role: "CUSTOMER" });
   const [header, body] = token.split(".");
   const forgedBody = Buffer.from(
-    JSON.stringify({ sub: "customer-1", role: "ADMIN", exp: Math.floor(Date.now() / 1000) + 900 }),
+    JSON.stringify({
+      sub: "customer-1",
+      role: "ADMIN",
+      exp: Math.floor(Date.now() / 1000) + 900,
+    }),
   ).toString("base64url");
 
-  await assert.rejects(verifyAccessToken(`${header}.${forgedBody}.${token.split(".")[2]}`));
+  await assert.rejects(
+    verifyAccessToken(`${header}.${forgedBody}.${token.split(".")[2]}`),
+  );
   await assert.rejects(verifyAccessToken(`${token}x`));
   await assert.rejects(verifyAccessToken(`${header}.${body}.`));
 });

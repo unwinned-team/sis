@@ -13,6 +13,7 @@ export interface ProductVariant {
   taste: string | null;
   size: string | null;
   price: string;
+  description?: string | null;
 }
 
 export interface Product {

@@ -4,7 +4,6 @@ import { formatProductPrice } from '../utils/format';
 
 interface ProductCardProps {
   product: Product;
-  // Hide the category label on pages already scoped to one category
   showCategory?: boolean;
 }
 

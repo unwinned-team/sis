@@ -51,6 +51,25 @@ function ProductDetails({ product }: ProductDetailsProps) {
 
   const price = selectedVariant?.price ?? product.price;
 
+  const description = useMemo(() => {
+    if (!selectedVariant) return product.description;
+    if (selectedVariant.description) return selectedVariant.description;
+
+    const sentences: string[] = [];
+    if (selectedVariant.taste) {
+      sentences.push(`Смак: ${selectedVariant.taste}.`);
+      const nicotine = product.description.match(/Нікотин:\s*[^.]+/i);
+      if (nicotine) sentences.push(`${nicotine[0].trim()}.`);
+    } else {
+      sentences.push(product.description);
+    }
+    if (selectedVariant.size) {
+      const label = selectedVariant.size.includes('мл') ? "Об'єм" : 'Розмір';
+      sentences.push(`${label}: ${selectedVariant.size}.`);
+    }
+    return sentences.join(' ');
+  }, [selectedVariant, product.description]);
+
   return (
     <section className="overflow-hidden rounded-3xl border border-white/60 bg-white/40 shadow-lg backdrop-blur-md">
       <div className="grid sm:grid-cols-[minmax(0,26rem)_1fr]">
@@ -72,7 +91,7 @@ function ProductDetails({ product }: ProductDetailsProps) {
             {product.name}
           </h1>
 
-          <p className="leading-relaxed text-slate-600">{product.description}</p>
+          <p className="leading-relaxed text-slate-600">{description}</p>
 
           <VariantChooser
             tastes={tastes}
@@ -137,7 +156,6 @@ export function ProductPage() {
 
         {product && !isLoading && (
           <>
-            {/* key remounts details so variant selection resets when navigating between products */}
             <ProductDetails key={product.id} product={product} />
 
             {relatedProducts.length > 0 && (

@@ -1,11 +1,4 @@
 import type { Category } from './category';
-export interface ProductVariant {
-  id: string;
-  productId: string;
-  taste: string | null;
-  size: string | null;
-  price: string;
-}
 
 export interface ProductVariant {
   id: string;
@@ -13,6 +6,7 @@ export interface ProductVariant {
   taste: string | null;
   size: string | null;
   price: string;
+  description?: string | null;
 }
 
 export interface Product {

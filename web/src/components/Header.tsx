@@ -18,7 +18,6 @@ export function Header() {
         </div>
       </header>
 
-      {/* Rendered outside <header>: its backdrop-filter would trap fixed descendants */}
       <SideMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
     </>
   );

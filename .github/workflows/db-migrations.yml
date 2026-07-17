@@ -44,6 +44,7 @@ jobs:
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ice_shop_ci
       TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ice_shop_ci
+      JWT_ACCESS_SECRET: ci-only-jwt-access-secret-0123456789abcdef
 
     steps:
       - uses: actions/checkout@v7

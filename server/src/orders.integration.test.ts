@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import test, { after, afterEach, before, beforeEach } from "node:test";
 import app from "./app.js";
 import prisma from "./prisma.js";
+import { signAccessToken } from "./lib/jwt.js";
 
 type PaymentMethod = "CARD" | "CASH" | "BONUS";
 
@@ -15,12 +16,14 @@ interface ApiResult {
 
 interface Fixture {
   customer: Awaited<ReturnType<typeof addCustomer>>;
+  customerToken: string;
   products: Awaited<ReturnType<typeof addCatalog>>;
 }
 
 let server: Server | undefined;
 let baseUrl = "";
 let prefix = "";
+let admin = { id: "", token: "" };
 
 async function dropRollbackTrigger() {
   await prisma.$executeRawUnsafe(
@@ -38,11 +41,24 @@ before(async () => {
     started.once("error", reject);
   });
   const address = server.address() as AddressInfo;
-  baseUrl = `http://127.0.0.1:${address.port}/api`;
+  baseUrl = `http://127.0.0.1:${address.port}/api/v1`;
 });
 
-beforeEach(() => {
+beforeEach(async () => {
   prefix = `it-${randomUUID()}`;
+  // requireAdmin проверяет роль в БД, поэтому админ существует как запись.
+  const adminCustomer = await prisma.customer.create({
+    data: {
+      id: `${prefix}-admin`,
+      name: `${prefix} admin`,
+      email: `${prefix}-admin@example.test`,
+      role: "ADMIN",
+    },
+  });
+  admin = {
+    id: adminCustomer.id,
+    token: await signAccessToken({ sub: adminCustomer.id, role: "ADMIN" }),
+  };
 });
 
 afterEach(async () => {
@@ -68,15 +84,15 @@ async function api(
   method: string,
   path: string,
   body?: Record<string, unknown>,
+  token?: string,
 ): Promise<ApiResult> {
   const response = await fetch(`${baseUrl}${path}`, {
     method,
-    ...(body === undefined
-      ? {}
-      : {
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(body),
-        }),
+    headers: {
+      ...(token === undefined ? {} : { authorization: `Bearer ${token}` }),
+      ...(body === undefined ? {} : { "content-type": "application/json" }),
+    },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
   const text = await response.text();
   return {
@@ -144,7 +160,8 @@ async function addFixture(
     ),
     addCatalog(suffix, options.prices),
   ]);
-  return { customer, products };
+  const customerToken = await signAccessToken({ sub: customer.id, role: "CUSTOMER" });
+  return { customer, customerToken, products };
 }
 
 function orderItems(fixture: Fixture, quantities?: number[]) {
@@ -154,16 +171,18 @@ function orderItems(fixture: Fixture, quantities?: number[]) {
   }));
 }
 
+// Заказ оформляется владельцем: customerId сервер берёт из токена.
 function postOrder(
   fixture: Fixture,
   paymentMethod: PaymentMethod,
   quantities?: number[],
 ) {
-  return api("POST", "/orders", {
-    customerId: fixture.customer.id,
-    paymentMethod,
-    items: orderItems(fixture, quantities),
-  });
+  return api(
+    "POST",
+    "/orders",
+    { paymentMethod, items: orderItems(fixture, quantities) },
+    fixture.customerToken,
+  );
 }
 
 async function expectBalance(customerId: string, expected: string) {
@@ -224,9 +243,12 @@ test("CARD and CASH orders award exactly 1% on first completion", async () => {
     const created = await postOrder(fixture, paymentMethod);
     assert.equal(created.status, 201);
 
-    const completed = await api("PUT", `/orders/${created.body.id}`, {
-      status: "COMPLETED",
-    });
+    const completed = await api(
+      "PUT",
+      `/orders/${created.body.id}`,
+      { status: "COMPLETED" },
+      admin.token,
+    );
 
     assert.equal(completed.status, 200);
     await expectBalance(fixture.customer.id, "1.00");
@@ -237,12 +259,18 @@ test("repeated COMPLETED does not award a bonus twice", async () => {
   const fixture = await addFixture({ prices: ["100.00"] });
   const created = await postOrder(fixture, "CARD");
 
-  const first = await api("PUT", `/orders/${created.body.id}`, {
-    status: "COMPLETED",
-  });
-  const second = await api("PUT", `/orders/${created.body.id}`, {
-    status: "COMPLETED",
-  });
+  const first = await api(
+    "PUT",
+    `/orders/${created.body.id}`,
+    { status: "COMPLETED" },
+    admin.token,
+  );
+  const second = await api(
+    "PUT",
+    `/orders/${created.body.id}`,
+    { status: "COMPLETED" },
+    admin.token,
+  );
 
   assert.equal(first.status, 200);
   assert.equal(second.status, 200);
@@ -253,9 +281,12 @@ test("completing a BONUS order does not award 1%", async () => {
   const fixture = await addFixture({ bonusBalance: "200.00", prices: ["100.00"] });
   const created = await postOrder(fixture, "BONUS");
 
-  const completed = await api("PUT", `/orders/${created.body.id}`, {
-    status: "COMPLETED",
-  });
+  const completed = await api(
+    "PUT",
+    `/orders/${created.body.id}`,
+    { status: "COMPLETED" },
+    admin.token,
+  );
 
   assert.equal(completed.status, 200);
   await expectBalance(fixture.customer.id, "100.00");
@@ -266,7 +297,12 @@ test("deleting a NEW BONUS order refunds the full amount", async () => {
   const created = await postOrder(fixture, "BONUS");
   await expectBalance(fixture.customer.id, "75.00");
 
-  const deleted = await api("DELETE", `/orders/${created.body.id}`);
+  const deleted = await api(
+    "DELETE",
+    `/orders/${created.body.id}`,
+    undefined,
+    fixture.customerToken,
+  );
 
   assert.equal(deleted.status, 204);
   assert.equal(
@@ -283,10 +319,20 @@ test("deleting PROCESSING or COMPLETED orders returns 409 and keeps them", async
       prices: ["10.00"],
     });
     const created = await postOrder(fixture, "CARD");
-    const updated = await api("PUT", `/orders/${created.body.id}`, { status });
+    const updated = await api(
+      "PUT",
+      `/orders/${created.body.id}`,
+      { status },
+      admin.token,
+    );
     assert.equal(updated.status, 200);
 
-    const deleted = await api("DELETE", `/orders/${created.body.id}`);
+    const deleted = await api(
+      "DELETE",
+      `/orders/${created.body.id}`,
+      undefined,
+      fixture.customerToken,
+    );
 
     assert.equal(deleted.status, 409);
     const saved = await prisma.order.findUnique({ where: { id: created.body.id } });
@@ -299,8 +345,8 @@ test("concurrent completion and deletion produce one valid final state", async (
   const created = await postOrder(fixture, "BONUS");
 
   const [completed, deleted] = await Promise.all([
-    api("PUT", `/orders/${created.body.id}`, { status: "COMPLETED" }),
-    api("DELETE", `/orders/${created.body.id}`),
+    api("PUT", `/orders/${created.body.id}`, { status: "COMPLETED" }, admin.token),
+    api("DELETE", `/orders/${created.body.id}`, undefined, fixture.customerToken),
   ]);
   const saved = await prisma.order.findUnique({ where: { id: created.body.id } });
 
@@ -336,6 +382,7 @@ test("OrderItem keeps its price after the product price changes", async () => {
     "PUT",
     `/products/${fixture.products[0]!.id}`,
     { price: 9.99 },
+    admin.token,
   );
   const savedItem = await prisma.orderItem.findFirstOrThrow({
     where: { orderId: created.body.id },
@@ -383,14 +430,56 @@ test("an error inside the transaction rolls back order and bonus debit", async (
   await expectBalance(fixture.customer.id, "10.00");
 });
 
+test("admin can create an order on behalf of a customer (POS)", async () => {
+  const fixture = await addFixture({ prices: ["10.00"] });
+
+  const result = await api(
+    "POST",
+    "/orders",
+    {
+      customerId: fixture.customer.id,
+      paymentMethod: "CASH",
+      items: orderItems(fixture),
+    },
+    admin.token,
+  );
+
+  assert.equal(result.status, 201);
+  assert.equal(result.body.customer.id, fixture.customer.id);
+});
+
+test("customerId in the body is ignored for customers", async () => {
+  const fixture = await addFixture({ prices: ["10.00"] });
+  const other = await addCustomer("-other");
+
+  const result = await api(
+    "POST",
+    "/orders",
+    {
+      customerId: other.id,
+      paymentMethod: "CARD",
+      items: orderItems(fixture),
+    },
+    fixture.customerToken,
+  );
+
+  assert.equal(result.status, 201);
+  assert.equal(result.body.customer.id, fixture.customer.id);
+});
+
 test("creating an order for a missing customer returns 404", async () => {
   const fixture = await addFixture();
 
-  const result = await api("POST", "/orders", {
-    customerId: `${prefix}-missing-customer`,
-    paymentMethod: "CARD",
-    items: orderItems(fixture),
-  });
+  const result = await api(
+    "POST",
+    "/orders",
+    {
+      customerId: `${prefix}-missing-customer`,
+      paymentMethod: "CARD",
+      items: orderItems(fixture),
+    },
+    admin.token,
+  );
 
   assert.equal(result.status, 404);
 });
@@ -398,11 +487,15 @@ test("creating an order for a missing customer returns 404", async () => {
 test("creating an order with a missing product returns 404", async () => {
   const fixture = await addFixture();
 
-  const result = await api("POST", "/orders", {
-    customerId: fixture.customer.id,
-    paymentMethod: "CARD",
-    items: [{ productId: `${prefix}-missing-product`, quantity: 1 }],
-  });
+  const result = await api(
+    "POST",
+    "/orders",
+    {
+      paymentMethod: "CARD",
+      items: [{ productId: `${prefix}-missing-product`, quantity: 1 }],
+    },
+    fixture.customerToken,
+  );
 
   assert.equal(result.status, 404);
 });
@@ -410,14 +503,20 @@ test("creating an order with a missing product returns 404", async () => {
 test("changing a completed order returns 409", async () => {
   const fixture = await addFixture();
   const created = await postOrder(fixture, "CARD");
-  const completed = await api("PUT", `/orders/${created.body.id}`, {
-    status: "COMPLETED",
-  });
+  const completed = await api(
+    "PUT",
+    `/orders/${created.body.id}`,
+    { status: "COMPLETED" },
+    admin.token,
+  );
   assert.equal(completed.status, 200);
 
-  const result = await api("PUT", `/orders/${created.body.id}`, {
-    status: "PROCESSING",
-  });
+  const result = await api(
+    "PUT",
+    `/orders/${created.body.id}`,
+    { status: "PROCESSING" },
+    admin.token,
+  );
 
   assert.equal(result.status, 409);
 });
@@ -427,12 +526,17 @@ test("duplicate email returns 409 for customer POST and PUT", async () => {
   const existing = await addCustomer("-email-existing", { email });
   const target = await addCustomer("-email-target");
 
-  const posted = await api("POST", "/customers", {
-    name: `${prefix} duplicate email`,
-    email,
-    phone: `${prefix}-email-post-phone`,
-  });
-  const updated = await api("PUT", `/customers/${target.id}`, { email });
+  const posted = await api(
+    "POST",
+    "/customers",
+    {
+      name: `${prefix} duplicate email`,
+      email,
+      phone: `${prefix}-email-post-phone`,
+    },
+    admin.token,
+  );
+  const updated = await api("PUT", `/customers/${target.id}`, { email }, admin.token);
 
   assert.ok(existing);
   assert.equal(posted.status, 409);
@@ -444,12 +548,17 @@ test("duplicate phone returns 409 for customer POST and PUT", async () => {
   const existing = await addCustomer("-phone-existing", { phone });
   const target = await addCustomer("-phone-target");
 
-  const posted = await api("POST", "/customers", {
-    name: `${prefix} duplicate phone`,
-    email: `${prefix}-phone-post@example.test`,
-    phone,
-  });
-  const updated = await api("PUT", `/customers/${target.id}`, { phone });
+  const posted = await api(
+    "POST",
+    "/customers",
+    {
+      name: `${prefix} duplicate phone`,
+      email: `${prefix}-phone-post@example.test`,
+      phone,
+    },
+    admin.token,
+  );
+  const updated = await api("PUT", `/customers/${target.id}`, { phone }, admin.token);
 
   assert.ok(existing);
   assert.equal(posted.status, 409);

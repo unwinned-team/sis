@@ -2,6 +2,7 @@ import { Link, useParams } from 'react-router-dom';
 import { Header } from '../components/Header';
 import { BackgroundOrbs } from '../components/BackgroundOrbs';
 import { BackButton } from '../components/BackButton';
+import { ProductCard } from '../components/ProductCard';
 import { useCategoryDetails } from '../hooks/useCategoryDetails';
 import { formatPrice } from '../utils/format';
 
@@ -21,13 +22,27 @@ function CategorySkeleton() {
           </div>
         </div>
       </div>
+      <div className="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
+        {Array.from({ length: 4 }, (_, index) => (
+          <div
+            key={index}
+            className="overflow-hidden rounded-2xl border border-white/60 bg-white/40 backdrop-blur-md"
+          >
+            <div className="aspect-square bg-slate-200/40" />
+            <div className="space-y-2 p-3">
+              <div className="h-4 w-3/4 rounded bg-white/60" />
+              <div className="h-5 w-1/2 rounded bg-white/60" />
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
 
 export function CategoryPage() {
   const { slug } = useParams<{ slug: string }>();
-  const { category, otherCategories, popularProduct, isLoading, notFound, error } =
+  const { category, otherCategories, popularProduct, products, isLoading, notFound, error } =
     useCategoryDetails(slug);
 
   return (
@@ -65,7 +80,7 @@ export function CategoryPage() {
               {category.name}
             </h1>
 
-            {popularProduct ? (
+            {popularProduct && (
               <section className="mt-8">
                 <div className="overflow-hidden rounded-3xl border border-white/60 bg-white/40 shadow-lg backdrop-blur-md">
                   <div className="grid sm:grid-cols-[minmax(0,20rem)_1fr]">
@@ -99,15 +114,27 @@ export function CategoryPage() {
                   </div>
                 </div>
               </section>
-            ) : (
-              <p className="mt-8 rounded-3xl border border-white/60 bg-white/40 px-6 py-10 text-center text-slate-500 shadow-sm backdrop-blur-md">
-                У цій категорії поки немає популярних товарів.
-              </p>
             )}
 
-            <p className="mt-6 text-center text-sm text-slate-400">
-              Повний асортимент категорії з'явиться тут незабаром.
-            </p>
+            <section className="mt-10 sm:mt-14">
+              <h2 className="heading-glow mb-5 text-center text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
+                Усі товари
+                <span className="ml-2 align-middle text-sm font-semibold text-slate-400">
+                  {products.length}
+                </span>
+              </h2>
+              {products.length > 0 ? (
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
+                  {products.map((product) => (
+                    <ProductCard key={product.id} product={product} showCategory={false} />
+                  ))}
+                </div>
+              ) : (
+                <p className="rounded-3xl border border-white/60 bg-white/40 px-6 py-10 text-center text-slate-500 shadow-sm backdrop-blur-md">
+                  У цій категорії поки немає товарів.
+                </p>
+              )}
+            </section>
 
             {otherCategories.length > 0 && (
               <section className="mt-10 sm:mt-14">

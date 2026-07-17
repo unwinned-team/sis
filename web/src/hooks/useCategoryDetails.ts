@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { getCategories, getCategoryPopularProduct } from '../api/categories';
+import { getProductsByCategory } from '../api/products';
 import type { Category, Product } from '../types';
 
 interface UseCategoryDetailsResult {
   category: Category | null;
   otherCategories: Category[];
   popularProduct: Product | null;
+  products: Product[];
   isLoading: boolean;
   notFound: boolean;
   error: string | null;
@@ -16,6 +18,7 @@ interface DetailsState {
   category: Category | null;
   otherCategories: Category[];
   popularProduct: Product | null;
+  products: Product[];
   notFound: boolean;
   error: string | null;
 }
@@ -25,6 +28,7 @@ const EMPTY_STATE: DetailsState = {
   category: null,
   otherCategories: [],
   popularProduct: null,
+  products: [],
   notFound: false,
   error: null,
 };
@@ -47,7 +51,10 @@ export function useCategoryDetails(slug: string | undefined): UseCategoryDetails
           return;
         }
 
-        const product = await getCategoryPopularProduct(slug).catch(() => null);
+        const [product, products] = await Promise.all([
+          getCategoryPopularProduct(slug).catch(() => null),
+          getProductsByCategory(current.id),
+        ]);
         if (cancelled) return;
 
         setState({
@@ -55,6 +62,7 @@ export function useCategoryDetails(slug: string | undefined): UseCategoryDetails
           category: current,
           otherCategories: categories.filter((item) => item.slug !== slug),
           popularProduct: product,
+          products,
           notFound: false,
           error: null,
         });
@@ -76,6 +84,7 @@ export function useCategoryDetails(slug: string | undefined): UseCategoryDetails
     category: isCurrent ? state.category : null,
     otherCategories: isCurrent ? state.otherCategories : [],
     popularProduct: isCurrent ? state.popularProduct : null,
+    products: isCurrent ? state.products : [],
     isLoading: slug !== undefined && !isCurrent,
     notFound: !slug || (isCurrent && state.notFound),
     error: isCurrent ? state.error : null,

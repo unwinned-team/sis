@@ -44,34 +44,36 @@ export interface RotatedRefreshToken extends IssuedRefreshToken {
 }
 
 export async function rotateRefreshToken(raw: string): Promise<RotatedRefreshToken> {
-  return prisma.$transaction(async (tx) => {
-    const existing = await tx.refreshToken.findUnique({
-      where: { tokenHash: hashToken(raw) },
-      include: { customer: { select: { id: true, role: true, isActive: true } } },
+  // Проверки и реплей-отзыв идут вне транзакции: throw внутри
+  // prisma.$transaction откатил бы и сам массовый отзыв токенов.
+  const existing = await prisma.refreshToken.findUnique({
+    where: { tokenHash: hashToken(raw) },
+    include: { customer: { select: { id: true, role: true, isActive: true } } },
+  });
+  if (!existing) {
+    throw httpError(401, "Invalid refresh token");
+  }
+  if (existing.expiresAt <= new Date()) {
+    throw httpError(401, "Invalid refresh token");
+  }
+  if (existing.revokedAt) {
+    // Реплей «сгоревшего» токена = признак кражи: выкидываем пользователя
+    // из системы на всех устройствах, дальше только логин по паролю.
+    await prisma.refreshToken.updateMany({
+      where: { customerId: existing.customerId, revokedAt: null },
+      data: { revokedAt: new Date() },
     });
-    if (!existing) {
-      throw httpError(401, "Invalid refresh token");
-    }
-    if (existing.expiresAt <= new Date()) {
-      throw httpError(401, "Invalid refresh token");
-    }
-    if (existing.revokedAt) {
-      // Реплей «сгоревшего» токена = признак кражи: выкидываем пользователя
-      // из системы на всех устройствах, дальше только логин по паролю.
-      await tx.refreshToken.updateMany({
-        where: { customerId: existing.customerId, revokedAt: null },
-        data: { revokedAt: new Date() },
-      });
-      log.warn(
-        { customerId: existing.customerId, familyId: existing.familyId },
-        "Refresh token replay detected; all sessions revoked",
-      );
-      throw httpError(401, "Invalid refresh token");
-    }
-    if (!existing.customer.isActive) {
-      throw httpError(401, "Invalid refresh token");
-    }
+    log.warn(
+      { customerId: existing.customerId, familyId: existing.familyId },
+      "Refresh token replay detected; all sessions revoked",
+    );
+    throw httpError(401, "Invalid refresh token");
+  }
+  if (!existing.customer.isActive) {
+    throw httpError(401, "Invalid refresh token");
+  }
 
+  return prisma.$transaction(async (tx) => {
     // updateMany с условием revokedAt: null — защита от двойной ротации
     // конкурентными запросами (проигравший получает 401, не мутируя семью).
     const claimed = await tx.refreshToken.updateMany({

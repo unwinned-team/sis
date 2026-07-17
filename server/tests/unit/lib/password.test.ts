@@ -67,6 +67,14 @@ test("malformed stored hashes are rejected without throwing", async () => {
   }
 });
 
+test("invalid scrypt parameters are rejected without throwing", async () => {
+  const salt = Buffer.alloc(16).toString("base64url");
+  const digest = Buffer.alloc(64).toString("base64url");
+  const stored = `scrypt$3$8$1$${salt}$${digest}`;
+
+  assert.equal(await verifyPassword("password", stored), false);
+});
+
 test("DUMMY_HASH is well-formed and never matches", async () => {
   assert.match(
     DUMMY_HASH,

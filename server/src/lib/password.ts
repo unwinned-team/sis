@@ -68,8 +68,12 @@ export async function verifyPassword(password: string, stored: string): Promise<
     return false;
   }
 
-  const actual = await scryptAsync(password, salt, expected.length, { N, r, p });
-  return timingSafeEqual(actual, expected);
+  try {
+    const actual = await scryptAsync(password, salt, expected.length, { N, r, p });
+    return timingSafeEqual(actual, expected);
+  } catch {
+    return false;
+  }
 }
 
 // Хэш случайного пароля: verify по нему всегда false, но с тем же временем

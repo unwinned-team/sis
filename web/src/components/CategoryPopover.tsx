@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getCategoryPopularProduct } from '../api/categories';
-import { formatPrice } from '../utils/format';
+import { formatProductPrice } from '../utils/format';
 import type { Category, Product } from '../types';
 
 interface CategoryPopoverProps {
@@ -62,7 +62,7 @@ export function CategoryPopover({ category, onClose }: CategoryPopoverProps) {
             />
             <div>
               <p className="font-medium text-slate-900">{product.name}</p>
-              <p className="text-sm text-slate-500">{formatPrice(product.price)}</p>
+              <p className="text-sm text-slate-500">{formatProductPrice(product)}</p>
             </div>
           </div>
         )}

@@ -1,12 +1,14 @@
 import { Link } from 'react-router-dom';
 import type { Product } from '../types';
-import { formatPrice } from '../utils/format';
+import { formatProductPrice } from '../utils/format';
 
 interface ProductCardProps {
   product: Product;
+  // Hide the category label on pages already scoped to one category
+  showCategory?: boolean;
 }
 
-export function ProductCard({ product }: ProductCardProps) {
+export function ProductCard({ product, showCategory = true }: ProductCardProps) {
   return (
     <Link
       to={`/product/${product.id}`}
@@ -21,12 +23,12 @@ export function ProductCard({ product }: ProductCardProps) {
         />
       </div>
       <div className="flex flex-1 flex-col gap-1 px-3 py-3">
-        {product.category && (
+        {showCategory && product.category && (
           <span className="text-xs font-medium text-emerald-600">{product.category.name}</span>
         )}
         <span className="line-clamp-2 text-sm font-semibold text-slate-800">{product.name}</span>
         <span className="mt-auto pt-1 text-base font-bold text-slate-900">
-          {formatPrice(product.price)}
+          {formatProductPrice(product)}
         </span>
       </div>
     </Link>

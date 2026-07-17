@@ -3,11 +3,6 @@ import { Prisma } from "@prisma/client";
 import log from "../logger.js";
 
 const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
-  if (err.name === "ZodError") {
-    res.status(400).json({ error: "Validation failed", details: err.issues });
-    return;
-  }
-
   if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
     res.status(409).json({ error: "A unique value already exists" });
     return;

@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import { Router } from "express";
 import prisma from "../prisma.js";
+import { requireAuth, requireAdmin } from "../middleware/auth.js";
 import {
   productParamsSchema,
   createProductSchema,
@@ -244,9 +245,9 @@ async function getRelatedProducts(
 
 router.get("/", getProducts);
 router.get("/:id", getProductById);
-router.post("/", createProduct);
-router.put("/:id", updateProduct);
-router.delete("/:id", deleteProduct);
+router.post("/", requireAuth, requireAdmin, createProduct);
+router.put("/:id", requireAuth, requireAdmin, updateProduct);
+router.delete("/:id", requireAuth, requireAdmin, deleteProduct);
 router.get("/:id/related", getRelatedProducts);
 
 export default router;

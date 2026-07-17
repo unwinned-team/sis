@@ -2,6 +2,7 @@ import type { Request, Response, NextFunction } from "express";
 import { Router } from "express";
 import { Prisma } from "@prisma/client";
 import prisma from "../prisma.js";
+import { requireAuth, requireAdmin } from "../middleware/auth.js";
 import {
   customerParamsSchema,
   createCustomerSchema,
@@ -9,6 +10,9 @@ import {
 } from "../schemas/customers.js";
 
 const router = Router();
+
+// Весь CRUD клиентов — back-office; самообслуживание через /api/v1/auth/me.
+router.use(requireAuth, requireAdmin);
 
 // GET /api/customers
 async function getCustomers(_req: Request, res: Response, next: NextFunction) {

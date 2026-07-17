@@ -3,6 +3,7 @@ import { Router } from "express";
 import { Prisma } from "@prisma/client";
 import prisma from "../prisma.js";
 import { httpError } from "../lib/httpError.js";
+import { requireAuth, requireAdmin } from "../middleware/auth.js";
 import {
   orderParamsSchema,
   createOrderSchema,
@@ -12,10 +13,12 @@ import {
 
 const router = Router();
 
-// GET /api/orders
-async function getOrders(_req: Request, res: Response, next: NextFunction) {
+// GET /api/v1/orders — ADMIN видит все, CUSTOMER только свои.
+async function getOrders(req: Request, res: Response, next: NextFunction) {
   try {
+    const user = req.user!;
     const orders = await prisma.order.findMany({
+      where: user.role === "ADMIN" ? {} : { customerId: user.id },
       include: {
         customer: { select: { id: true, name: true, phone: true } },
         items: { include: { product: true } },
@@ -28,7 +31,8 @@ async function getOrders(_req: Request, res: Response, next: NextFunction) {
   }
 }
 
-// GET /api/orders/:id
+// GET /api/v1/orders/:id — ADMIN или владелец; чужой заказ отвечает 404,
+// а не 403, чтобы не раскрывать существование id.
 async function getOrderById(req: Request, res: Response, next: NextFunction) {
   try {
     const parsed = orderParamsSchema.safeParse(req.params);
@@ -36,15 +40,16 @@ async function getOrderById(req: Request, res: Response, next: NextFunction) {
       return res.status(400).json({ errors: parsed.error.issues });
     }
 
+    const user = req.user!;
     const order = await prisma.order.findUnique({
       where: { id: parsed.data.id },
       include: {
-        customer: true,
+        customer: { select: { id: true, name: true, phone: true } },
         items: { include: { product: true } },
       },
     });
 
-    if (!order) {
+    if (!order || (user.role !== "ADMIN" && order.customer.id !== user.id)) {
       return res.status(404).json({ error: "Order not found" });
     }
 
@@ -54,7 +59,8 @@ async function getOrderById(req: Request, res: Response, next: NextFunction) {
   }
 }
 
-// POST /api/orders
+// POST /api/v1/orders — CUSTOMER всегда оформляет на себя (customerId из
+// токена, поле в теле игнорируется); ADMIN может передать customerId.
 async function createOrder(req: Request, res: Response, next: NextFunction) {
   try {
     const parsed = createOrderSchema.safeParse(req.body);
@@ -62,7 +68,10 @@ async function createOrder(req: Request, res: Response, next: NextFunction) {
       return res.status(400).json({ errors: parsed.error.issues });
     }
 
-    const { customerId, paymentMethod, items } = parsed.data;
+    const user = req.user!;
+    const { paymentMethod, items } = parsed.data;
+    const customerId =
+      user.role === "ADMIN" ? (parsed.data.customerId ?? user.id) : user.id;
 
     const order = await prisma.$transaction(async (tx) => {
       const customer = await tx.customer.findUnique({ where: { id: customerId } });
@@ -123,7 +132,8 @@ async function createOrder(req: Request, res: Response, next: NextFunction) {
   }
 }
 
-// PUT /api/orders/:id
+// PUT /api/v1/orders/:id — только ADMIN (back-office: смена статусов и
+// начисление 1% бонуса).
 async function updateOrder(req: Request, res: Response, next: NextFunction) {
   try {
     const parsedParams = orderParamsSchema.safeParse(req.params);
@@ -186,7 +196,8 @@ async function updateOrder(req: Request, res: Response, next: NextFunction) {
   }
 }
 
-// DELETE /api/orders/:id
+// DELETE /api/v1/orders/:id — ADMIN или владелец (отмена своего NEW-заказа);
+// чужой заказ отвечает 404, как и GET.
 async function deleteOrder(req: Request, res: Response, next: NextFunction) {
   try {
     const parsed = orderParamsSchema.safeParse(req.params);
@@ -194,9 +205,10 @@ async function deleteOrder(req: Request, res: Response, next: NextFunction) {
       return res.status(400).json({ errors: parsed.error.issues });
     }
 
+    const user = req.user!;
     await prisma.$transaction(async (tx) => {
       const existing = await tx.order.findUnique({ where: { id: parsed.data.id } });
-      if (!existing) {
+      if (!existing || (user.role !== "ADMIN" && existing.customerId !== user.id)) {
         throw httpError(404, "Order not found");
       }
 
@@ -220,10 +232,10 @@ async function deleteOrder(req: Request, res: Response, next: NextFunction) {
   }
 }
 
-router.get("/", getOrders);
-router.get("/:id", getOrderById);
-router.post("/", createOrder);
-router.put("/:id", updateOrder);
-router.delete("/:id", deleteOrder);
+router.get("/", requireAuth, getOrders);
+router.get("/:id", requireAuth, getOrderById);
+router.post("/", requireAuth, createOrder);
+router.put("/:id", requireAuth, requireAdmin, updateOrder);
+router.delete("/:id", requireAuth, deleteOrder);
 
 export default router;

@@ -11,7 +11,9 @@ export const orderParamsSchema = z.object({
 });
 
 export const createOrderSchema = z.object({
-  customerId: z.string().min(1, "Customer ID is required"),
+  // CUSTOMER: игнорируется, id берётся из токена. ADMIN: заказ от имени
+  // клиента (POS-сценарий); без поля — заказ на самого админа.
+  customerId: z.string().min(1, "Customer ID is required").optional(),
   paymentMethod: paymentMethodSchema,
   items: z
     .array(

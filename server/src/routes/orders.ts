@@ -2,6 +2,7 @@ import type { Request, Response, NextFunction } from "express";
 import { Router } from "express";
 import { Prisma } from "@prisma/client";
 import prisma from "../prisma.js";
+import { httpError } from "../lib/httpError.js";
 import {
   orderParamsSchema,
   createOrderSchema,
@@ -10,10 +11,6 @@ import {
 } from "../schemas/orders.js";
 
 const router = Router();
-
-function httpError(status: number, message: string) {
-  return Object.assign(new Error(message), { status });
-}
 
 // GET /api/orders
 async function getOrders(_req: Request, res: Response, next: NextFunction) {

@@ -9,6 +9,11 @@ if (!connectionString) {
 }
 
 const adapter = new PrismaPg({ connectionString });
-const prisma = new PrismaClient({ adapter });
+// Глобальный omit защищает от утечки секретов через include/select по всем
+// запросам; логин переопределяет per-query через omit: { passwordHash: false }.
+const prisma = new PrismaClient({
+  adapter,
+  omit: { customer: { passwordHash: true, totpSecret: true } },
+});
 
 export default prisma;

@@ -42,7 +42,7 @@ async function getProducts(req: Request, res: Response, next: NextFunction) {
     const products = await prisma.product.findMany({
       where: categoryId ? { categoryId: String(categoryId) } : {},
       orderBy: { name: "asc" },
-      include: { category: true },
+      include: { category: true, variants: true },
     });
 
     res.json(products);
@@ -62,7 +62,7 @@ async function getProductById(req: Request, res: Response, next: NextFunction) {
 
     const product = await prisma.product.findUnique({
       where: { id: parsed.data.id },
-      include: { category: true },
+      include: { category: true, variants: true },
     });
 
     if (!product) {

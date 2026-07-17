@@ -4,7 +4,7 @@ import { BackgroundOrbs } from '../components/BackgroundOrbs';
 import { BackButton } from '../components/BackButton';
 import { ProductCard } from '../components/ProductCard';
 import { useCategoryDetails } from '../hooks/useCategoryDetails';
-import { formatPrice } from '../utils/format';
+import { formatProductPrice } from '../utils/format';
 
 function CategorySkeleton() {
   return (
@@ -102,7 +102,7 @@ export function CategoryPage() {
                         {popularProduct.description}
                       </p>
                       <p className="text-2xl font-bold text-slate-900">
-                        {formatPrice(popularProduct.price)}
+                        {formatProductPrice(popularProduct)}
                       </p>
                       <Link
                         to={`/product/${popularProduct.id}`}

@@ -7,6 +7,14 @@ export interface ProductVariant {
   price: string;
 }
 
+export interface ProductVariant {
+  id: string;
+  productId: string;
+  taste: string | null;
+  size: string | null;
+  price: string;
+}
+
 export interface Product {
   id: string;
   name: string;

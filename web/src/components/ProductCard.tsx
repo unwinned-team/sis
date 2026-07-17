@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import type { Product } from '../types';
-import { formatPrice } from '../utils/format';
+import { formatProductPrice } from '../utils/format';
 
 interface ProductCardProps {
   product: Product;
@@ -28,7 +28,7 @@ export function ProductCard({ product, showCategory = true }: ProductCardProps) 
         )}
         <span className="line-clamp-2 text-sm font-semibold text-slate-800">{product.name}</span>
         <span className="mt-auto pt-1 text-base font-bold text-slate-900">
-          {formatPrice(product.price)}
+          {formatProductPrice(product)}
         </span>
       </div>
     </Link>

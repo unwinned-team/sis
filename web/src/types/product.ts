@@ -1,4 +1,11 @@
 import type { Category } from './category';
+export interface ProductVariant {
+  id: string;
+  productId: string;
+  taste: string | null;
+  size: string | null;
+  price: string;
+}
 
 export interface Product {
   id: string;
@@ -9,4 +16,5 @@ export interface Product {
   imageUrl: string;
   createdAt: string;
   category?: Category;
+  variants?: ProductVariant[];
 }

@@ -17,6 +17,7 @@ app.use(
 );
 app.use(cookieParser());
 app.use(express.json());
+app.use("/uploads", express.static("uploads"));
 
 app.use((req: Request, res: Response, next: NextFunction) => {
   const start = Date.now();

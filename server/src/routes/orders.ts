@@ -74,7 +74,9 @@ async function createOrder(req: Request, res: Response, next: NextFunction) {
       user.role === "ADMIN" ? (parsed.data.customerId ?? user.id) : user.id;
 
     const order = await prisma.$transaction(async (tx) => {
-      const customer = await tx.customer.findUnique({ where: { id: customerId } });
+      const customer = await tx.customer.findUnique({
+        where: { id: customerId },
+      });
       if (!customer) {
         throw httpError(404, "Customer not found");
       }
@@ -87,12 +89,18 @@ async function createOrder(req: Request, res: Response, next: NextFunction) {
         throw httpError(404, "One or more products not found");
       }
 
-      const productMap = new Map(products.map((product) => [product.id, product]));
+      const productMap = new Map(
+        products.map((product) => [product.id, product]),
+      );
       let totalAmount = new Prisma.Decimal(0);
       const orderItems = items.map((item) => {
         const product = productMap.get(item.productId)!;
         totalAmount = totalAmount.add(product.price.mul(item.quantity));
-        return { productId: item.productId, quantity: item.quantity, price: product.price };
+        return {
+          productId: item.productId,
+          quantity: item.quantity,
+          price: product.price,
+        };
       });
 
       if (!isOrderTotalValid(totalAmount)) {
@@ -125,7 +133,10 @@ async function createOrder(req: Request, res: Response, next: NextFunction) {
 
     res.status(201).json(order);
   } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2003") {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2003"
+    ) {
       return next(httpError(404, "Customer or product not found"));
     }
     next(error);
@@ -172,22 +183,32 @@ async function updateOrder(req: Request, res: Response, next: NextFunction) {
           if (status !== "COMPLETED") {
             throw httpError(409, "Completed orders cannot be changed");
           }
-        } else if (status === "COMPLETED" && existing.paymentMethod !== "BONUS") {
+        } else if (
+          status === "COMPLETED" &&
+          existing.paymentMethod !== "BONUS"
+        ) {
           const bonus = existing.totalAmount.mul("0.01").toDecimalPlaces(2);
           await tx.customer.update({
             where: { id: existing.customerId },
             data: { bonusBalance: { increment: bonus } },
           });
         }
-      }
 
-      return tx.order.findUniqueOrThrow({
-        where: { id },
-        include: {
-          customer: { select: { id: true, name: true, phone: true } },
-          items: { include: { product: true } },
-        },
-      });
+        if (status === "CANCELLED" && existing.paymentMethod === "BONUS") {
+          await tx.customer.update({
+            where: { id: existing.customerId },
+            data: { bonusBalance: { increment: existing.totalAmount } },
+          });
+        }
+
+        return tx.order.findUniqueOrThrow({
+          where: { id },
+          include: {
+            customer: { select: { id: true, name: true, phone: true } },
+            items: { include: { product: true } },
+          },
+        });
+      }
     });
 
     res.json(order);
@@ -207,8 +228,13 @@ async function deleteOrder(req: Request, res: Response, next: NextFunction) {
 
     const user = req.user!;
     await prisma.$transaction(async (tx) => {
-      const existing = await tx.order.findUnique({ where: { id: parsed.data.id } });
-      if (!existing || (user.role !== "ADMIN" && existing.customerId !== user.id)) {
+      const existing = await tx.order.findUnique({
+        where: { id: parsed.data.id },
+      });
+      if (
+        !existing ||
+        (user.role !== "ADMIN" && existing.customerId !== user.id)
+      ) {
         throw httpError(404, "Order not found");
       }
 

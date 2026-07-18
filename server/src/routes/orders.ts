@@ -150,7 +150,7 @@ async function updateOrder(req: Request, res: Response, next: NextFunction) {
     const { status } = parsedBody.data;
 
     const VALID_TRANSITIONS: Record<string, string[]> = {
-      NEW: ["PROCESSING", "CANCELLED"],
+      NEW: ["PROCESSING", "COMPLETED", "CANCELLED"],
       PROCESSING: ["COMPLETED", "CANCELLED"],
       COMPLETED: [],
       CANCELLED: [],
@@ -160,6 +160,18 @@ async function updateOrder(req: Request, res: Response, next: NextFunction) {
       const existing = await tx.order.findUnique({ where: { id } });
       if (!existing) {
         throw httpError(404, "Order not found");
+      }
+
+      // Идемпотентный повтор (ретрай клиента): тот же статус — 200 без побочных
+      // эффектов, до начисления/возврата бонусов дело не доходит.
+      if (status === existing.status) {
+        return tx.order.findUniqueOrThrow({
+          where: { id },
+          include: {
+            customer: { select: { id: true, name: true, phone: true } },
+            items: { include: { product: true } },
+          },
+        });
       }
 
       const allowed = VALID_TRANSITIONS[existing.status];
@@ -173,6 +185,10 @@ async function updateOrder(req: Request, res: Response, next: NextFunction) {
       });
 
       if (updated.count === 0) {
+        const current = await tx.order.findUnique({ where: { id } });
+        if (!current) {
+          throw httpError(404, "Order not found");
+        }
         throw httpError(409, "Order was concurrently modified");
       }
 

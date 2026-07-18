@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useCategories } from '../hooks/useCategories';
+import { useAuth } from '../hooks/useAuth';
 import { CategoryPopover } from './CategoryPopover';
 import type { Category } from '../types';
 
@@ -13,6 +14,7 @@ const DOUBLE_CLICK_DELAY_MS = 250;
 
 export function SideMenu({ isOpen, onClose }: SideMenuProps) {
   const { categories, isLoading, error } = useCategories();
+  const { user, logout } = useAuth();
   const [activeCategory, setActiveCategory] = useState<Category | null>(null);
   const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const navigate = useNavigate();
@@ -78,21 +80,40 @@ export function SideMenu({ isOpen, onClose }: SideMenuProps) {
           </ul>
         </nav>
 
-        <div className="flex gap-2 border-t border-white/40 p-4">
-          <button
-            type="button"
-            title="Скоро"
-            className="flex-1 rounded-lg border border-white/60 bg-white/30 py-2 text-sm font-medium text-slate-500 backdrop-blur-sm"
-          >
-            Вхід
-          </button>
-          <button
-            type="button"
-            title="Скоро"
-            className="flex-1 rounded-lg bg-white/60 py-2 text-sm font-medium text-slate-500"
-          >
-            Реєстрація
-          </button>
+        <div className="border-t border-white/40 p-4">
+          {user ? (
+            <div className="flex flex-col gap-2">
+              <p className="truncate text-sm font-semibold text-slate-800">{user.name}</p>
+              {user.email && <p className="truncate text-xs text-slate-500">{user.email}</p>}
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  void logout();
+                }}
+                className="mt-1 rounded-lg bg-white/60 py-2 text-sm font-medium text-slate-700 transition hover:bg-white/80"
+              >
+                Вийти
+              </button>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <Link
+                to="/auth"
+                onClick={onClose}
+                className="flex-1 rounded-lg border border-white/60 bg-white/30 py-2 text-center text-sm font-medium text-slate-700 backdrop-blur-sm transition hover:bg-white/50"
+              >
+                Вхід
+              </Link>
+              <Link
+                to="/auth?mode=register"
+                onClick={onClose}
+                className="flex-1 rounded-lg bg-white/60 py-2 text-center text-sm font-medium text-slate-700 transition hover:bg-white/80"
+              >
+                Реєстрація
+              </Link>
+            </div>
+          )}
         </div>
       </aside>
 

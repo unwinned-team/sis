@@ -149,43 +149,46 @@ async function updateOrder(req: Request, res: Response, next: NextFunction) {
     const { id } = parsedParams.data;
     const { status } = parsedBody.data;
 
+    const VALID_TRANSITIONS: Record<string, string[]> = {
+      NEW: ["PROCESSING", "CANCELLED"],
+      PROCESSING: ["COMPLETED", "CANCELLED"],
+      COMPLETED: [],
+      CANCELLED: [],
+    };
+
     const order = await prisma.$transaction(async (tx) => {
       const existing = await tx.order.findUnique({ where: { id } });
       if (!existing) {
         throw httpError(404, "Order not found");
       }
-      if (existing.status === "COMPLETED" && status !== "COMPLETED") {
-        throw httpError(409, "Completed orders cannot be changed");
+
+      const allowed = VALID_TRANSITIONS[existing.status];
+      if (!allowed?.includes(status)) {
+        throw httpError(409, `Cannot transition from ${existing.status} to ${status}`);
       }
 
-      if (existing.status !== "COMPLETED") {
-        const updated = await tx.order.updateMany({
-          where: { id, status: { not: "COMPLETED" } },
-          data: { status },
+      const updated = await tx.order.updateMany({
+        where: { id, status: existing.status },
+        data: { status },
+      });
+
+      if (updated.count === 0) {
+        throw httpError(409, "Order was concurrently modified");
+      }
+
+      if (status === "COMPLETED" && existing.paymentMethod !== "BONUS") {
+        const bonus = existing.totalAmount.mul("0.01").toDecimalPlaces(2);
+        await tx.customer.update({
+          where: { id: existing.customerId },
+          data: { bonusBalance: { increment: bonus } },
         });
+      }
 
-        if (updated.count === 0) {
-          const current = await tx.order.findUnique({ where: { id } });
-          if (!current) {
-            throw httpError(404, "Order not found");
-          }
-          if (status !== "COMPLETED") {
-            throw httpError(409, "Completed orders cannot be changed");
-          }
-        } else if (status === "COMPLETED" && existing.paymentMethod !== "BONUS") {
-          const bonus = existing.totalAmount.mul("0.01").toDecimalPlaces(2);
-          await tx.customer.update({
-            where: { id: existing.customerId },
-            data: { bonusBalance: { increment: bonus } },
-          });
-        }
-
-        if (status === "CANCELLED" && existing.paymentMethod === "BONUS") {
-          await tx.customer.update({
-            where: { id: existing.customerId },
-            data: { bonusBalance: { increment: existing.totalAmount } },
-          });
-        }
+      if (status === "CANCELLED" && existing.paymentMethod === "BONUS") {
+        await tx.customer.update({
+          where: { id: existing.customerId },
+          data: { bonusBalance: { increment: existing.totalAmount } },
+        });
       }
 
       return tx.order.findUniqueOrThrow({

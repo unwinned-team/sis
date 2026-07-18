@@ -44,6 +44,19 @@ export function fetchCurrentUser(accessToken: string): Promise<AuthUser> {
   return apiRequest<AuthUser>('/auth/me', { accessToken });
 }
 
+export interface UpdateProfileInput {
+  name?: string;
+  phone?: string | null;
+}
+
+export function updateProfile(accessToken: string, input: UpdateProfileInput): Promise<AuthUser> {
+  return apiRequest<AuthUser>('/auth/me', {
+    method: 'PATCH',
+    body: input,
+    accessToken,
+  });
+}
+
 export function logoutUser(): Promise<void> {
   return apiRequest<void>('/auth/logout', {
     method: 'POST',

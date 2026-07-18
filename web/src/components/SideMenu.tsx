@@ -85,6 +85,13 @@ export function SideMenu({ isOpen, onClose }: SideMenuProps) {
             <div className="flex flex-col gap-2">
               <p className="truncate text-sm font-semibold text-slate-800">{user.name}</p>
               {user.email && <p className="truncate text-xs text-slate-500">{user.email}</p>}
+              <Link
+                to="/account"
+                onClick={onClose}
+                className="mt-1 rounded-lg border border-white/60 bg-white/30 py-2 text-center text-sm font-medium text-slate-700 backdrop-blur-sm transition hover:bg-white/50"
+              >
+                Особистий кабінет
+              </Link>
               <button
                 type="button"
                 onClick={() => {

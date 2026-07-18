@@ -18,7 +18,7 @@ export async function apiGet<T>(path: string): Promise<T> {
 }
 
 interface ApiRequestOptions {
-  method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
   accessToken?: string | null;
   withCredentials?: boolean;

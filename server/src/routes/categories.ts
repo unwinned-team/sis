@@ -1,7 +1,13 @@
 import type { Request, Response, NextFunction } from "express";
 import { Router } from "express";
 import prisma from "../prisma.js";
-import { popularProductParamsSchema } from "../schemas/categories.js";
+import { requireAuth, requireAdmin } from "../middleware/auth.js";
+import {
+  popularProductParamsSchema,
+  createCategorySchema,
+  updateCategorySchema,
+  categoryParamsSchema,
+} from "../schemas/categories.js";
 
 const router = Router();
 
@@ -10,7 +16,7 @@ async function getCategories(_req: Request, res: Response, next: NextFunction) {
   try {
     const categories = await prisma.category.findMany({
       orderBy: { name: "asc" },
-      select: { id: true, name: true, slug: true },
+      select: { id: true, name: true, slug: true, imageUrl: true },
     });
 
     res.json(categories);
@@ -66,7 +72,94 @@ async function getCategoryPopularProduct(
   }
 }
 
+async function createCategory(req: Request, res: Response, next: NextFunction) {
+  try {
+    const parsed = createCategorySchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ errors: parsed.error.issues });
+    }
+
+    const category = await prisma.category.create({
+      data: {
+        name: parsed.data.name,
+        slug: parsed.data.slug,
+        ...(parsed.data.imageUrl !== undefined && {
+          imageUrl: parsed.data.imageUrl,
+        }),
+      },
+      select: { id: true, name: true, slug: true, imageUrl: true },
+    });
+
+    res.status(201).json(category);
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function updateCategory(req: Request, res: Response, next: NextFunction) {
+  try {
+    const paramsParsed = categoryParamsSchema.safeParse(req.params);
+    if (!paramsParsed.success) {
+      return res.status(400).json({ errors: paramsParsed.error.issues });
+    }
+
+    const bodyParsed = updateCategorySchema.safeParse(req.body);
+    if (!bodyParsed.success) {
+      return res.status(400).json({ errors: bodyParsed.error.issues });
+    }
+
+    const { name, slug, imageUrl } = bodyParsed.data;
+
+    const category = await prisma.category.update({
+      where: { slug: paramsParsed.data.slug },
+      data: {
+        ...(name !== undefined && { name }),
+        ...(slug !== undefined && { slug }),
+        ...(imageUrl !== undefined && { imageUrl }),
+      },
+      select: { id: true, name: true, slug: true, imageUrl: true },
+    });
+
+    res.json(category);
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function deleteCategory(req: Request, res: Response, next: NextFunction) {
+  try {
+    const parsed = categoryParamsSchema.safeParse(req.params);
+    if (!parsed.success) {
+      return res.status(400).json({ errors: parsed.error.issues });
+    }
+
+    const category = await prisma.category.findUnique({
+      where: { slug: parsed.data.slug },
+      select: { id: true, _count: { select: { products: true } } },
+    });
+
+    if (!category) {
+      return res.status(404).json({ error: "Category not found" });
+    }
+
+    if (category._count.products > 0) {
+      return res
+        .status(409)
+        .json({ error: "Cannot delete category with existing products" });
+    }
+
+    await prisma.category.delete({ where: { id: category.id } });
+
+    res.status(204).end();
+  } catch (error) {
+    next(error);
+  }
+}
+
 router.get("/", getCategories);
 router.get("/:slug/popular-product", getCategoryPopularProduct);
+router.post("/", requireAuth, requireAdmin, createCategory);
+router.put("/:slug", requireAuth, requireAdmin, updateCategory);
+router.delete("/:slug", requireAuth, requireAdmin, deleteCategory);
 
 export default router;

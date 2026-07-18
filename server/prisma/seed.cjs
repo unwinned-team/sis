@@ -64,7 +64,7 @@ const products = [
     description:
       "Кальян середнього розміру з алюмінієвим шахтом, компактний та легкий.",
     priceCents: 349000,
-    imageUrl: "https://placehold.co/800x800/1a1a2e/eee?text=Amstaff",
+    imageUrl: "/products/hookahs/amstaff.jpg",
   },
   {
     id: "prod-kaljan-oduman",
@@ -72,7 +72,7 @@ const products = [
     name: "Oduman Ignis",
     description: "Кальян з нержавіючої сталі, сучасний дизайн, легке чищення.",
     priceCents: 529000,
-    imageUrl: "https://placehold.co/800x800/16213e/eee?text=Oduman",
+    imageUrl: "/products/hookahs/oduman.jpg",
   },
   {
     id: "prod-kaljan-amy",
@@ -80,7 +80,7 @@ const products = [
     name: "Amy Deluxe SS-04",
     description: "Німецька якість, сталевий кальян з мінімалістичним дизайном.",
     priceCents: 799000,
-    imageUrl: "https://placehold.co/800x800/0f3460/eee?text=Amy+Deluxe",
+    imageUrl: "/products/hookahs/amy.jpg",
   },
   {
     id: "prod-kaljan-travel",
@@ -88,7 +88,7 @@ const products = [
     name: "Кальян міні (для подорожей)",
     description: "Компактний складний кальян, ідеальний для поїздок.",
     priceCents: 189000,
-    imageUrl: "https://placehold.co/800x800/1a1a2e/eee?text=Travel",
+    imageUrl: "/products/hookahs/travel.jpg",
   },
   {
     id: "prod-kaljan-storm",
@@ -96,7 +96,7 @@ const products = [
     name: "Storm Mini",
     description: "Мінімалістичний настільний кальян, висота 35 см.",
     priceCents: 225000,
-    imageUrl: "https://placehold.co/800x800/2c3e50/eee?text=Storm+Mini",
+    imageUrl: "/products/hookahs/storm.jpg",
   },
   {
     id: "prod-kaljan-union",
@@ -104,7 +104,7 @@ const products = [
     name: "Union Sleek",
     description: "Преміальний кальян з матовим покриттям та широкою шахтою.",
     priceCents: 649000,
-    imageUrl: "https://placehold.co/800x800/34495e/eee?text=Union+Sleek",
+    imageUrl: "/products/hookahs/union.jpg",
   },
   {
     id: "prod-kaljan-alpha",
@@ -112,7 +112,7 @@ const products = [
     name: "Alpha Hookah X",
     description: "Німецький кальян з преміальної сталі, ідеальна тяга, висота 65 см.",
     priceCents: 899000,
-    imageUrl: "https://placehold.co/800x800/1b2838/eee?text=Alpha+X",
+    imageUrl: "/products/hookahs/alpha.jpg",
   },
   {
     id: "prod-kaljan-dschinni",
@@ -120,7 +120,7 @@ const products = [
     name: "Dschinni Skyline",
     description: "Сучасний дизайн, підсвітка, алюмінієва шахта 60 см.",
     priceCents: 459000,
-    imageUrl: "https://placehold.co/800x800/2c3e50/eee?text=Dschinni",
+    imageUrl: "/products/hookahs/dschinni.jpg",
   },
   {
     id: "prod-kaljan-mattpear",
@@ -128,7 +128,7 @@ const products = [
     name: "MattPear",
     description: "Ручна робота, матове скло, унікальний дизайн, висота 50 см.",
     priceCents: 1299000,
-    imageUrl: "https://placehold.co/800x800/4a235a/eee?text=MattPear",
+    imageUrl: "/products/hookahs/mattpear.jpg",
   },
   {
     id: "prod-kaljan-na-grani",
@@ -136,7 +136,7 @@ const products = [
     name: "Na Grani Medium",
     description: "Український бренд, гранований дизайн, алюміній + скло.",
     priceCents: 349000,
-    imageUrl: "https://placehold.co/800x800/1a5276/eee?text=Na+Grani",
+    imageUrl: "/products/hookahs/na-grani.jpg",
   },
 
   // ── Tobacco (12) ──

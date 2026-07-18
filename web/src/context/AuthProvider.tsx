@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { loginUser, logoutUser, registerUser, restoreSession } from '../api/auth';
+import {
+  loginUser,
+  logoutUser,
+  registerUser,
+  restoreSession,
+  updateProfile as updateProfileRequest,
+} from '../api/auth';
+import type { UpdateProfileInput } from '../api/auth';
 import type { AuthUser } from '../types';
 import { AuthContext } from './auth-context';
 
@@ -42,6 +49,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return session.user;
   }, []);
 
+  const updateProfile = useCallback(
+    async (input: UpdateProfileInput) => {
+      if (!state.accessToken) {
+        throw new Error('Not authenticated');
+      }
+      const user = await updateProfileRequest(state.accessToken, input);
+      setState((prev) => ({ ...prev, user }));
+      return user;
+    },
+    [state.accessToken],
+  );
+
   const logout = useCallback(async () => {
     await logoutUser().catch(() => undefined);
     setState({ user: null, accessToken: null, isReady: true });
@@ -54,9 +73,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isReady: state.isReady,
       login,
       register,
+      updateProfile,
       logout,
     }),
-    [state, login, register, logout],
+    [state, login, register, updateProfile, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

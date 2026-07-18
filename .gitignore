@@ -26,4 +26,8 @@ coverage
 .idea
 .DS_Store
 
+# Uploaded files
+server/uploads/*
+!server/uploads/.gitkeep
+
 .github/

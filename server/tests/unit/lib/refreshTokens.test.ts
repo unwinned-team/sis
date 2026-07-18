@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { refreshTokenTtlMs } from "../../../src/lib/refreshTokens.js";
+import { refreshTokenTtlMs } from "../../../src/lib/tokenTtl.js";
 
 // Зафиксировано в ТЗ (AGENTS.md): refresh админа живёт 12 часов, клиента — 30 дней.
 test("customer refresh session lasts 30 days", () => {

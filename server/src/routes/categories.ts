@@ -108,6 +108,15 @@ async function updateCategory(req: Request, res: Response, next: NextFunction) {
       return res.status(400).json({ errors: bodyParsed.error.issues });
     }
 
+    const existing = await prisma.category.findUnique({
+      where: { slug: paramsParsed.data.slug },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      return res.status(404).json({ error: "Category not found" });
+    }
+
     const { name, slug, imageUrl } = bodyParsed.data;
 
     const category = await prisma.category.update({

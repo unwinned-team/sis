@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { Request, Response } from "express";
 import { Prisma } from "@prisma/client";
+import multer from "multer";
 import errorHandler from "../../../src/middleware/errorHandler.js";
 import { httpError } from "../../../src/lib/httpError.js";
 
@@ -30,6 +31,14 @@ test("unique constraint violation (P2002) maps to 409", () => {
   const { statusCode, payload } = handle(err);
   assert.equal(statusCode, 409);
   assert.deepEqual(payload, { error: "A unique value already exists" });
+});
+
+test("multer file-size limit maps to 413, other multer errors to 400", () => {
+  const oversized = handle(new multer.MulterError("LIMIT_FILE_SIZE", "image"));
+  assert.equal(oversized.statusCode, 413);
+
+  const unexpected = handle(new multer.MulterError("LIMIT_UNEXPECTED_FILE", "image"));
+  assert.equal(unexpected.statusCode, 400);
 });
 
 test("httpError status and message pass through for client errors", () => {

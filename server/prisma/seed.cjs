@@ -17,7 +17,6 @@ const prisma = new PrismaClient({
 const money = (cents) => (cents / 100).toFixed(2);
 const atNoon = (date) => new Date(`${date}T12:00:00.000Z`);
 
-// Тот же формат, что server/src/lib/password.ts: scrypt$N$r$p$<salt>$<hash>.
 function hashPassword(password) {
   const salt = randomBytes(16);
   const hash = scryptSync(password, salt, 64, {
@@ -50,9 +49,14 @@ const categories = [
   { id: "cat-vapes", name: "Pod-системи", slug: "vapes" },
   { id: "cat-liquids", name: "Рідини для Pod-систем", slug: "liquids" },
   { id: "cat-accessories", name: "Аксесуари", slug: "accessories" },
+  { id: "cat-hoses", name: "Шланги та мундштуки", slug: "hoses" },
+  { id: "cat-nic-salts", name: "Нікотинові солі", slug: "nic-salts" },
+  { id: "cat-disposables", name: "Одноразові сигарети", slug: "disposables" },
+  { id: "cat-cleaning", name: "Догляд та обслуговування", slug: "cleaning" },
 ];
 
 const products = [
+  // ── Hookahs (10) ──
   {
     id: "prod-kaljan-amstaff",
     categoryId: "cat-hookahs",
@@ -86,6 +90,56 @@ const products = [
     priceCents: 189000,
     imageUrl: "https://placehold.co/800x800/1a1a2e/eee?text=Travel",
   },
+  {
+    id: "prod-kaljan-storm",
+    categoryId: "cat-hookahs",
+    name: "Storm Mini",
+    description: "Мінімалістичний настільний кальян, висота 35 см.",
+    priceCents: 225000,
+    imageUrl: "https://placehold.co/800x800/2c3e50/eee?text=Storm+Mini",
+  },
+  {
+    id: "prod-kaljan-union",
+    categoryId: "cat-hookahs",
+    name: "Union Sleek",
+    description: "Преміальний кальян з матовим покриттям та широкою шахтою.",
+    priceCents: 649000,
+    imageUrl: "https://placehold.co/800x800/34495e/eee?text=Union+Sleek",
+  },
+  {
+    id: "prod-kaljan-alpha",
+    categoryId: "cat-hookahs",
+    name: "Alpha Hookah X",
+    description: "Німецький кальян з преміальної сталі, ідеальна тяга, висота 65 см.",
+    priceCents: 899000,
+    imageUrl: "https://placehold.co/800x800/1b2838/eee?text=Alpha+X",
+  },
+  {
+    id: "prod-kaljan-dschinni",
+    categoryId: "cat-hookahs",
+    name: "Dschinni Skyline",
+    description: "Сучасний дизайн, підсвітка, алюмінієва шахта 60 см.",
+    priceCents: 459000,
+    imageUrl: "https://placehold.co/800x800/2c3e50/eee?text=Dschinni",
+  },
+  {
+    id: "prod-kaljan-mattpear",
+    categoryId: "cat-hookahs",
+    name: "MattPear",
+    description: "Ручна робота, матове скло, унікальний дизайн, висота 50 см.",
+    priceCents: 1299000,
+    imageUrl: "https://placehold.co/800x800/4a235a/eee?text=MattPear",
+  },
+  {
+    id: "prod-kaljan-na-grani",
+    categoryId: "cat-hookahs",
+    name: "Na Grani Medium",
+    description: "Український бренд, гранований дизайн, алюміній + скло.",
+    priceCents: 349000,
+    imageUrl: "https://placehold.co/800x800/1a5276/eee?text=Na+Grani",
+  },
+
+  // ── Tobacco (12) ──
   {
     id: "prod-tobacco-starbuzz",
     categoryId: "cat-tobacco",
@@ -122,6 +176,77 @@ const products = [
     imageUrl: "https://placehold.co/800x800/2d6a4f/eee?text=Al+Fakher",
   },
   {
+    id: "prod-tobacco-musthave",
+    categoryId: "cat-tobacco",
+    name: "MustHave Pinkman",
+    description:
+      "Солодкий грейпфрут та лічі. Міцність: вище середньої. Об'єм: 200г.",
+    priceCents: 35000,
+    imageUrl: "https://placehold.co/800x800/e91e63/111?text=MustHave",
+  },
+  {
+    id: "prod-tobacco-satyr",
+    categoryId: "cat-tobacco",
+    name: "Satyr Mango Lassi",
+    description:
+      "Манго та йогурт, вершковий смак. Міцність: середня. Об'єм: 200г.",
+    priceCents: 29000,
+    imageUrl: "https://placehold.co/800x800/ff9800/111?text=Satyr",
+  },
+  {
+    id: "prod-tobacco-nakhla",
+    categoryId: "cat-tobacco",
+    name: "Nakhla Mix",
+    description: "Східна суміш трав та фруктів. Міцність: міцний. Об'єм: 250г.",
+    priceCents: 15000,
+    imageUrl: "https://placehold.co/800x800/795548/eee?text=Nakhla",
+  },
+  {
+    id: "prod-tobacco-element",
+    categoryId: "cat-tobacco",
+    name: "Element Air",
+    description:
+      "Легкий тютюн з ніжним фруктовим ароматом. Міцність: легка. Об'єм: 100г.",
+    priceCents: 21000,
+    imageUrl: "https://placehold.co/800x800/4caf50/111?text=Element",
+  },
+  {
+    id: "prod-tobacco-bonche",
+    categoryId: "cat-tobacco",
+    name: "Bonche Mint",
+    description:
+      "Свіжа м'ята з холодком, ідеальна для міксів. Міцність: легка. Об'єм: 200г.",
+    priceCents: 26000,
+    imageUrl: "https://placehold.co/800x800/00bcd4/111?text=Bonche",
+  },
+  {
+    id: "prod-tobacco-trifecta",
+    categoryId: "cat-tobacco",
+    name: "Trifecta Dark",
+    description:
+      "Темний лист, насичена нікотинова база. Міцність: міцна. Об'єм: 250г.",
+    priceCents: 38000,
+    imageUrl: "https://placehold.co/800x800/212121/eee?text=Trifecta",
+  },
+  {
+    id: "prod-tobacco-adalya",
+    categoryId: "cat-tobacco",
+    name: "Adalya Love 66",
+    description: "Полуниця, персик, кавун та м'ята. Міцність: легка. Об'єм: 200г.",
+    priceCents: 25000,
+    imageUrl: "https://placehold.co/800x800/e91e63/111?text=Adalya",
+  },
+  {
+    id: "prod-tobacco-chabacco",
+    categoryId: "cat-tobacco",
+    name: "Chabacco Orange",
+    description: "Соковитий апельсин з льодяним холодком. Міцність: середня. Об'єм: 200г.",
+    priceCents: 27000,
+    imageUrl: "https://placehold.co/800x800/ff6f00/111?text=Chabacco",
+  },
+
+  // ── Bowls (10) ──
+  {
     id: "prod-bowl-clay",
     categoryId: "cat-bowls",
     name: "Глиняна чаша (traditional)",
@@ -146,6 +271,64 @@ const products = [
     imageUrl: "https://placehold.co/800x800/555/eee?text=HMD",
   },
   {
+    id: "prod-bowl-silicone",
+    categoryId: "cat-bowls",
+    name: "Силіконова чаша",
+    description: "Гнучка силіконова чаша, не б'ється, зручна для подорожей.",
+    priceCents: 12000,
+    imageUrl: "https://placehold.co/800x800/26a69a/111?text=Silicone",
+  },
+  {
+    id: "prod-bowl-glass",
+    categoryId: "cat-bowls",
+    name: "Скляна чаша",
+    description: "Прозора скляна чаша, естетичний вигляд, нейтральний смак.",
+    priceCents: 18000,
+    imageUrl: "https://placehold.co/800x800/80deea/111?text=Glass",
+  },
+  {
+    id: "prod-bowl-vortex",
+    categoryId: "cat-bowls",
+    name: "Vortex bowl",
+    description: "Vortex-чаша з спіральною тягою, рівномірне прокурювання.",
+    priceCents: 20000,
+    imageUrl: "https://placehold.co/800x800/7b1fa2/eee?text=Vortex",
+  },
+  {
+    id: "prod-bowl-oblako",
+    categoryId: "cat-bowls",
+    name: "Oblako L",
+    description: "Глиняна чаша від російського виробника, глибока, розрахована на 20-30г тютюну.",
+    priceCents: 12000,
+    imageUrl: "https://placehold.co/800x800/a1887f/111?text=Oblako",
+  },
+  {
+    id: "prod-bowl-kong",
+    categoryId: "cat-bowls",
+    name: "Kong Phunnel",
+    description: "Міцна phunnel-чаша з кераміки, не вбирає запахи, 25г.",
+    priceCents: 16000,
+    imageUrl: "https://placehold.co/800x800/795548/eee?text=Kong",
+  },
+  {
+    id: "prod-bowl-ethros",
+    categoryId: "cat-bowls",
+    name: "Ethros",
+    description: "Глиняна чаша ромбоподібної форми, відмінний розподіл жару.",
+    priceCents: 14000,
+    imageUrl: "https://placehold.co/800x800/bf360c/eee?text=Ethros",
+  },
+  {
+    id: "prod-bowl-werkbund",
+    categoryId: "cat-bowls",
+    name: "Werkbund",
+    description: "Німецька глиняна чаша з глазур'ю, рівномірне прокурювання.",
+    priceCents: 22000,
+    imageUrl: "https://placehold.co/800x800/5d4037/eee?text=Werkbund",
+  },
+
+  // ── Coals (10) ──
+  {
     id: "prod-coal-coco",
     categoryId: "cat-coals",
     name: "Кокосове вугілля (25 шт)",
@@ -162,6 +345,74 @@ const products = [
     priceCents: 12000,
     imageUrl: "https://placehold.co/800x800/3d3d3d/eee?text=Natural+Coal",
   },
+  {
+    id: "prod-coal-tablet",
+    categoryId: "cat-coals",
+    name: "Таблетоване вугілля (10 шт)",
+    description:
+      "Пресоване вугілля у формі таблеток, швидке запалювання, 30-40 хв жару.",
+    priceCents: 6000,
+    imageUrl: "https://placehold.co/800x800/1a1a1a/eee?text=Tablet+Coal",
+  },
+  {
+    id: "prod-coal-electric",
+    categoryId: "cat-coals",
+    name: "Електричний нагрівач (калауд)",
+    description:
+      "Багаторазовий електричний нагрівач для чаші, без золи та диму.",
+    priceCents: 45000,
+    imageUrl: "https://placehold.co/800x800/455a64/eee?text=Electric+Heater",
+  },
+  {
+    id: "prod-coal-bamboo",
+    categoryId: "cat-coals",
+    name: "Бамбукове вугілля (20 шт)",
+    description: "Екологічне вугілля з бамбука, швидко запалюється, без запаху.",
+    priceCents: 8500,
+    imageUrl: "https://placehold.co/800x800/33691e/eee?text=Bamboo",
+  },
+  {
+    id: "prod-coal-premium",
+    categoryId: "cat-coals",
+    name: "Преміум кокосове вугілля (30 шт)",
+    description: "Кокосове вугілля преміум-класу, жар 50-70 хв, мінімум золи.",
+    priceCents: 14000,
+    imageUrl: "https://placehold.co/800x800/1b5e20/eee?text=Premium+Coal",
+  },
+  {
+    id: "prod-coal-cube",
+    categoryId: "cat-coals",
+    name: "Кубикове вугілля (26 мм, 20 шт)",
+    description: "Великі кубики 26 мм, довготривалий жар до 80 хв.",
+    priceCents: 11000,
+    imageUrl: "https://placehold.co/800x800/212121/eee?text=Cube+26mm",
+  },
+  {
+    id: "prod-coal-flat",
+    categoryId: "cat-coals",
+    name: "Пластинчасте вугілля (10 шт)",
+    description: "Тонке пластинчасте вугілля для швидкого розкурювання.",
+    priceCents: 7000,
+    imageUrl: "https://placehold.co/800x800/424242/eee?text=Flat+Coal",
+  },
+  {
+    id: "prod-coal-titanium",
+    categoryId: "cat-coals",
+    name: "Titanium Coconut Coals (30 шт)",
+    description: "Преміальні кокосові вугілля Titanium, жар 60+ хв.",
+    priceCents: 16000,
+    imageUrl: "https://placehold.co/800x800/37474f/eee?text=Titanium",
+  },
+  {
+    id: "prod-coal-charcoal",
+    categoryId: "cat-coals",
+    name: "Деревне вугілля для тандиру (1 кг)",
+    description: "Велике деревне вугілля для тандиру та грилю, не для кальяну.",
+    priceCents: 9000,
+    imageUrl: "https://placehold.co/800x800/3e2723/eee?text=Charcoal",
+  },
+
+  // ── Vapes (12) ──
   {
     id: "prod-vape-starter",
     categoryId: "cat-vapes",
@@ -188,6 +439,81 @@ const products = [
     imageUrl: "https://placehold.co/800x800/162447/eee?text=SMOK",
   },
   {
+    id: "prod-vape-caliburn",
+    categoryId: "cat-vapes",
+    name: "Caliburn G3",
+    description: "Тонка pod-система, 900 мАг, зарядка Type-C.",
+    priceCents: 79000,
+    imageUrl: "https://placehold.co/800x800/2e7d32/eee?text=Caliburn+G3",
+  },
+  {
+    id: "prod-vape-oxva",
+    categoryId: "cat-vapes",
+    name: "OXVA Xlim Pro 2",
+    description:
+      "Регульована потужність 5-30Вт, змінні випарники, 1500 мАг.",
+    priceCents: 99000,
+    imageUrl: "https://placehold.co/800x800/6a1b9a/eee?text=OXVA",
+  },
+  {
+    id: "prod-vape-lostvape",
+    categoryId: "cat-vapes",
+    name: "Lost Vape URSA Nano 3",
+    description: "Мініатюрна pod-система з підігрівом 1-5 Вт, 1000 мАг.",
+    priceCents: 85000,
+    imageUrl: "https://placehold.co/800x800/004d40/eee?text=Lost+Vape",
+  },
+  {
+    id: "prod-vape-aspire",
+    categoryId: "cat-vapes",
+    name: "Aspire PockeX",
+    description: "Проста та надійна AIO-система, 1500 мАг, 2 мл картридж.",
+    priceCents: 69000,
+    imageUrl: "https://placehold.co/800x800/1565c0/eee?text=Aspire",
+  },
+  {
+    id: "prod-vape-innokin",
+    categoryId: "cat-vapes",
+    name: "Innokin Endura T18 II",
+    description: "Легка стартова pod-система, 1000 мАг, MTL-тяга.",
+    priceCents: 55000,
+    imageUrl: "https://placehold.co/800x800/00838f/eee?text=Innokin",
+  },
+  {
+    id: "prod-vape-smoant",
+    categoryId: "cat-vapes",
+    name: "Smoant Pasito 2",
+    description: "Універсальна pod-система з змінними котушками, 1100 мАг.",
+    priceCents: 75000,
+    imageUrl: "https://placehold.co/800x800/4e342e/eee?text=Smoant",
+  },
+  {
+    id: "prod-vape-dovpo",
+    categoryId: "cat-vapes",
+    name: "Dovpo Topside Lite",
+    description: "Бокс-мод з верхнім заповненням, 21700 акумулятор, 90 Вт.",
+    priceCents: 189000,
+    imageUrl: "https://placehold.co/800x800/263238/eee?text=Dovpo",
+  },
+  {
+    id: "prod-vape-vandy",
+    categoryId: "cat-vapes",
+    name: "Vandy Vape Pulse 3",
+    description: "Легкий squonk-мод, 95 Вт, під зарядку 18650/20700/21700.",
+    priceCents: 169000,
+    imageUrl: "https://placehold.co/800x800/311b92/eee?text=Vandy+Vape",
+  },
+  {
+    id: "prod-vape-wotofo",
+    categoryId: "cat-vapes",
+    name: "Wotofo Profile AIO",
+    description: "Вбудований mesh-випарник, 2000 мАг, регульована потужність.",
+    priceCents: 110000,
+    imageUrl: "https://placehold.co/800x800/01579b/eee?text=Wotofo",
+  },
+
+  // ── Liquids (12) ──
+  {
     id: "prod-liquid-mint",
     categoryId: "cat-liquids",
     name: "Naked 100 Menthol",
@@ -213,6 +539,80 @@ const products = [
     priceCents: 28000,
     imageUrl: "https://placehold.co/800x800/fca311/111?text=Yogi",
   },
+  {
+    id: "prod-liquid-blueberry",
+    categoryId: "cat-liquids",
+    name: "Blueberry Ice",
+    description: "Чорниця з м'ятою. Нікотин: 3мг. Об'єм: 60мл.",
+    priceCents: 26000,
+    imageUrl: "https://placehold.co/800x800/3f51b5/eee?text=Blueberry+Ice",
+  },
+  {
+    id: "prod-liquid-mango",
+    categoryId: "cat-liquids",
+    name: "Mango Peach",
+    description: "Манго та персик. Нікотин: 6мг. Об'єм: 60мл.",
+    priceCents: 27000,
+    imageUrl: "https://placehold.co/800x800/ff5722/111?text=Mango+Peach",
+  },
+  {
+    id: "prod-liquid-grape",
+    categoryId: "cat-liquids",
+    name: "Grape Ice",
+    description: "Виноград з льодяним холодком. Нікотин: 3мг. Об'єм: 100мл.",
+    priceCents: 30000,
+    imageUrl: "https://placehold.co/800x800/9c27b0/eee?text=Grape+Ice",
+  },
+  {
+    id: "prod-liquid-watermelon",
+    categoryId: "cat-liquids",
+    name: "Watermelon Chill",
+    description: "Кавунова свіжість. Нікотин: 0мг. Об'єм: 60мл.",
+    priceCents: 24000,
+    imageUrl: "https://placehold.co/800x800/4caf50/111?text=Watermelon",
+  },
+  {
+    id: "prod-liquid-tobacco",
+    categoryId: "cat-liquids",
+    name: "Tobacco Blend Classic",
+    description: "Класичний тютюновий смак. Нікотин: 12мг. Об'єм: 30мл.",
+    priceCents: 22000,
+    imageUrl: "https://placehold.co/800x800/5d4037/eee?text=Tobacco",
+  },
+  {
+    id: "prod-liquid-strawberry",
+    categoryId: "cat-liquids",
+    name: "Strawberry Kiwi",
+    description: "Полуниця з ківі. Нікотин: 3мг. Об'єм: 60мл.",
+    priceCents: 26000,
+    imageUrl: "https://placehold.co/800x800/f06292/111?text=Strawberry+Kiwi",
+  },
+  {
+    id: "prod-liquid-lemon",
+    categoryId: "cat-liquids",
+    name: "Lemon Tart",
+    description: "Лимонний пиріг з безе. Нікотин: 0мг. Об'єм: 60мл.",
+    priceCents: 28000,
+    imageUrl: "https://placehold.co/800x800/fff176/111?text=Lemon+Tart",
+  },
+  {
+    id: "prod-liquid-pineapple",
+    categoryId: "cat-liquids",
+    name: "Pineapple Coconut",
+    description: "Ананас з кокосом. Нікотин: 3мг. Об'єм: 100мл.",
+    priceCents: 31000,
+    imageUrl: "https://placehold.co/800x800/fff59d/111?text=Pineapple",
+  },
+  {
+    id: "prod-liquid-cream",
+    categoryId: "cat-liquids",
+    name: "Vanilla Cream",
+    description: "Ванільний крем з карамеллю. Нікотин: 6мг. Об'єм: 60мл.",
+    priceCents: 27000,
+    imageUrl: "https://placehold.co/800x800/bcaaa4/111?text=Vanilla",
+  },
+
+  // ── Accessories (12) ──
   {
     id: "prod-acc-hose",
     categoryId: "cat-accessories",
@@ -245,11 +645,423 @@ const products = [
     priceCents: 1200,
     imageUrl: "https://placehold.co/800x800/adb5bd/333?text=Screen",
   },
+  {
+    id: "prod-acc-case",
+    categoryId: "cat-accessories",
+    name: "Кейс для кальяну",
+    description: "Алюмінієвий кейс для транспортування, внутрішній поролон.",
+    priceCents: 55000,
+    imageUrl: "https://placehold.co/800x800/616161/eee?text=Case",
+  },
+  {
+    id: "prod-acc-stem",
+    categoryId: "cat-accessories",
+    name: "Шахта для кальяну (50 см)",
+    description: "Замінна шахта з нержавіючої сталі, 50 см.",
+    priceCents: 18000,
+    imageUrl: "https://placehold.co/800x800/78909c/111?text=Stem",
+  },
+  {
+    id: "prod-acc-diffusor",
+    categoryId: "cat-accessories",
+    name: "Дифузор для шахти",
+    description: "Силіконовий дифузор для шахти, додаткове пом'якшення тяги.",
+    priceCents: 3000,
+    imageUrl: "https://placehold.co/800x800/80cbc4/111?text=Diffusor",
+  },
+  {
+    id: "prod-acc-seal",
+    categoryId: "cat-accessories",
+    name: "Ущільнювальні кільця (5 шт)",
+    description: "Набір силіконових кілець для різних з'єднань кальяну.",
+    priceCents: 1500,
+    imageUrl: "https://placehold.co/800x800/b2dfdb/111?text=Seal+Rings",
+  },
+  {
+    id: "prod-acc-adaptor",
+    categoryId: "cat-accessories",
+    name: "Адаптер для чаші (24→18 мм)",
+    description: "Перехідник з 24 мм на 18 мм для сумісності чаш.",
+    priceCents: 2000,
+    imageUrl: "https://placehold.co/800x800/d7ccc8/111?text=Adaptor",
+  },
+  {
+    id: "prod-acc-base",
+    categoryId: "cat-accessories",
+    name: "Основа для кальяну",
+    description: "Силіконова стійка основа, антиковзна, для всіх типів кальянів.",
+    priceCents: 4000,
+    imageUrl: "https://placehold.co/800x800/424242/eee?text=Base",
+  },
+  {
+    id: "prod-acc-bag",
+    categoryId: "cat-accessories",
+    name: "Сумка для кальяну",
+    description: "Тканинна сумка для перенесення кальяну, розмір 80×25 см.",
+    priceCents: 25000,
+    imageUrl: "https://placehold.co/800x800/5d4037/eee?text=Bag",
+  },
+  {
+    id: "prod-acc-grommet",
+    categoryId: "cat-accessories",
+    name: "Гуммет (10 шт)",
+    description: "Силіконові гуммети для чаші, комплект 10 шт різних діаметрів.",
+    priceCents: 1000,
+    imageUrl: "https://placehold.co/800x800/e0e0e0/111?text=Grommet",
+  },
+
+  // ── Hoses (10) ──
+  {
+    id: "prod-hose-silicone",
+    categoryId: "cat-hoses",
+    name: "Силіконовий шланг преміум",
+    description: "Преміальний силіконовий шланг з дерев'яною ручкою, 1.5 м.",
+    priceCents: 5500,
+    imageUrl: "https://placehold.co/800x800/8d6e63/eee?text=Premium+Hose",
+  },
+  {
+    id: "prod-hose-leather",
+    categoryId: "cat-hoses",
+    name: "Шкіряний шланг",
+    description: "Шланг в шкіряному обплетенні, стильний вигляд, 1.2 м.",
+    priceCents: 12000,
+    imageUrl: "https://placehold.co/800x800/a1887f/111?text=Leather+Hose",
+  },
+  {
+    id: "prod-hose-mouth",
+    categoryId: "cat-hoses",
+    name: "Мундштук скляний",
+    description:
+      "Скляний мундштук ручної роботи, різьба 14 мм, нейтральний смак.",
+    priceCents: 8000,
+    imageUrl: "https://placehold.co/800x800/80cbc4/111?text=Glass+Mouth",
+  },
+  {
+    id: "prod-hose-color",
+    categoryId: "cat-hoses",
+    name: "Силіконовий шланг кольоровий",
+    description: "Яскравий силіконовий шланг, 1.2 м, вибір кольору.",
+    priceCents: 4000,
+    imageUrl: "https://placehold.co/800x800/e53935/eee?text=Color+Hose",
+  },
+  {
+    id: "prod-hose-rubber",
+    categoryId: "cat-hoses",
+    name: "Гумовий шланг",
+    description: "Класичний гумовий шланг, міцний, 1.5 м.",
+    priceCents: 3000,
+    imageUrl: "https://placehold.co/800x800/333/eee?text=Rubber+Hose",
+  },
+  {
+    id: "prod-hose-long",
+    categoryId: "cat-hoses",
+    name: "Силіконовий шланг довгий (2 м)",
+    description: "Довгий силіконовий шланг для великих компаній, 2 м.",
+    priceCents: 6000,
+    imageUrl: "https://placehold.co/800x800/666/eee?text=Long+Hose",
+  },
+  {
+    id: "prod-hose-glass-mouth",
+    categoryId: "cat-hoses",
+    name: "Мундштук скляний гнутий",
+    description: "Гнутий скляний мундштук ручної роботи, різьба 14 мм.",
+    priceCents: 9500,
+    imageUrl: "https://placehold.co/800x800/4dd0e1/111?text=Curved+Glass",
+  },
+  {
+    id: "prod-hose-wood-mouth",
+    categoryId: "cat-hoses",
+    name: "Мундштук дерев'яний",
+    description: "Дерев'яний мундштук з нержавіючої вставки, 14 мм.",
+    priceCents: 7000,
+    imageUrl: "https://placehold.co/800x800/8d6e63/eee?text=Wood+Mouth",
+  },
+  {
+    id: "prod-hose-acrylic-mouth",
+    categoryId: "cat-hoses",
+    name: "Мундштук акриловий",
+    description: "Легкий акриловий мундштук, різьба 14 мм, різні кольори.",
+    priceCents: 3500,
+    imageUrl: "https://placehold.co/800x800/ffb74d/111?text=Acrylic",
+  },
+  {
+    id: "prod-hose-adaptor",
+    categoryId: "cat-hoses",
+    name: "Перехідник для шланга",
+    description: "Адаптер для підключення шланга до кальяну, 2 шт.",
+    priceCents: 2500,
+    imageUrl: "https://placehold.co/800x800/90a4ae/111?text=Hose+Adaptor",
+  },
+
+  // ── Nic Salts (10) ──
+  {
+    id: "prod-salt-mango",
+    categoryId: "cat-nic-salts",
+    name: "Mango Salt 20мг",
+    description: "Манго, нікотинові солі 20мг/мл. Об'єм: 30мл.",
+    priceCents: 20000,
+    imageUrl: "https://placehold.co/800x800/ffb300/111?text=Mango+Salt",
+  },
+  {
+    id: "prod-salt-mint",
+    categoryId: "cat-nic-salts",
+    name: "Mint Salt 20мг",
+    description: "М'ята, нікотинові солі 20мг/мл. Об'єм: 30мл.",
+    priceCents: 20000,
+    imageUrl: "https://placehold.co/800x800/00acc1/111?text=Mint+Salt",
+  },
+  {
+    id: "prod-salt-lychee",
+    categoryId: "cat-nic-salts",
+    name: "Lychee Ice Salt 35мг",
+    description: "Лічі з холодком, нікотинові солі 35мг/мл. Об'єм: 30мл.",
+    priceCents: 22000,
+    imageUrl: "https://placehold.co/800x800/e040fb/111?text=Lychee+Salt",
+  },
+  {
+    id: "prod-salt-grape",
+    categoryId: "cat-nic-salts",
+    name: "Grape Salt 20мг",
+    description: "Виноград, нікотинові солі 20мг/мл. Об'єм: 30мл.",
+    priceCents: 20000,
+    imageUrl: "https://placehold.co/800x800/7e57c2/eee?text=Grape+Salt",
+  },
+  {
+    id: "prod-salt-strawberry",
+    categoryId: "cat-nic-salts",
+    name: "Strawberry Salt 20мг",
+    description: "Полуниця, нікотинові солі 20мг/мл. Об'єм: 30мл.",
+    priceCents: 20000,
+    imageUrl: "https://placehold.co/800x800/e57373/111?text=Strawberry+Salt",
+  },
+  {
+    id: "prod-salt-blueberry",
+    categoryId: "cat-nic-salts",
+    name: "Blueberry Salt 35мг",
+    description: "Чорниця, нікотинові солі 35мг/мл. Об'єм: 30мл.",
+    priceCents: 22000,
+    imageUrl: "https://placehold.co/800x800/5c6bc0/eee?text=Blueberry+Salt",
+  },
+  {
+    id: "prod-salt-watermelon",
+    categoryId: "cat-nic-salts",
+    name: "Watermelon Salt 20мг",
+    description: "Кавун, нікотинові солі 20мг/мл. Об'єм: 30мл.",
+    priceCents: 20000,
+    imageUrl: "https://placehold.co/800x800/81c784/111?text=Watermelon+Salt",
+  },
+  {
+    id: "prod-salt-peach",
+    categoryId: "cat-nic-salts",
+    name: "Peach Salt 35мг",
+    description: "Персик, нікотинові солі 35мг/мл. Об'єм: 30мл.",
+    priceCents: 22000,
+    imageUrl: "https://placehold.co/800x800/ffab91/111?text=Peach+Salt",
+  },
+  {
+    id: "prod-salt-menthol",
+    categoryId: "cat-nic-salts",
+    name: "Menthol Salt 50мг",
+    description: "Ментол, нікотинові солі 50мг/мл. Об'єм: 30мл.",
+    priceCents: 25000,
+    imageUrl: "https://placehold.co/800x800/00acc1/111?text=Menthol+50",
+  },
+  {
+    id: "prod-salt-tobacco",
+    categoryId: "cat-nic-salts",
+    name: "Tobacco Salt 20мг",
+    description: "Тютюн, нікотинові солі 20мг/мл. Об'єм: 30мл.",
+    priceCents: 20000,
+    imageUrl: "https://placehold.co/800x800/6d4c41/eee?text=Tobacco+Salt",
+  },
+
+  // ── Disposables (10) ──
+  {
+    id: "prod-dispo-elf",
+    categoryId: "cat-disposables",
+    name: "Elf Bar 600",
+    description:
+      "Одноразова електронна сигарета, 600 тяг, 20мг нікотину, 10 смаків.",
+    priceCents: 15000,
+    imageUrl: "https://placehold.co/800x800/3949ab/eee?text=Elf+Bar+600",
+  },
+  {
+    id: "prod-dispo-hqd",
+    categoryId: "cat-disposables",
+    name: "HQD Cuvie Plus",
+    description: "Компактна одноразка, 1200 тяг, 50мг нікотину, 6 смаків.",
+    priceCents: 18000,
+    imageUrl: "https://placehold.co/800x800/c62828/eee?text=HQD+Cuvie",
+  },
+  {
+    id: "prod-dispo-iget",
+    categoryId: "cat-disposables",
+    name: "iGet Legend",
+    description: "Одноразова система, 3500 тяг, акумулятор 1500мАг.",
+    priceCents: 35000,
+    imageUrl: "https://placehold.co/800x800/283593/eee?text=iGet+Legend",
+  },
+  {
+    id: "prod-dispo-fume",
+    categoryId: "cat-disposables",
+    name: "Fume Ultra",
+    description:
+      "Потужна одноразка, 5000 тяг, 5% нікотину, регульована тяга.",
+    priceCents: 42000,
+    imageUrl: "https://placehold.co/800x800/4e342e/eee?text=Fume+Ultra",
+  },
+  {
+    id: "prod-dispo-elf-5000",
+    categoryId: "cat-disposables",
+    name: "Elf Bar 5000",
+    description: "Одноразка з 5000 тяг, 15 мл рідини, 5% нікотину, акумулятор 650 мАг.",
+    priceCents: 28000,
+    imageUrl: "https://placehold.co/800x800/1a237e/eee?text=Elf+Bar+5000",
+  },
+  {
+    id: "prod-dispo-hayati",
+    categoryId: "cat-disposables",
+    name: "Hayati Pro Max",
+    description: "Потужна одноразка, 4000 тяг, регульована тяга, 20 смаків.",
+    priceCents: 32000,
+    imageUrl: "https://placehold.co/800x800/b71c1c/eee?text=Hayati",
+  },
+  {
+    id: "prod-dispo-crystal",
+    categoryId: "cat-disposables",
+    name: "Crystal 3000",
+    description: "Одноразова сигарета, 3000 тяг, 10 смаків, 5% нікотину.",
+    priceCents: 22000,
+    imageUrl: "https://placehold.co/800x800/ff8f00/111?text=Crystal",
+  },
+  {
+    id: "prod-dispo-dinner",
+    categoryId: "cat-disposables",
+    name: "Dinner Lady",
+    description: "Одноразка від відомого бренду, 600 тяг, 12 смаків.",
+    priceCents: 16000,
+    imageUrl: "https://placehold.co/800x800/ad1457/eee?text=Dinner+Lady",
+  },
+  {
+    id: "prod-dispo-ske",
+    categoryId: "cat-disposables",
+    name: "SKE Crystal Bar",
+    description: "Компактна одноразка, 600 тяг, 20мг нікотину, 10 смаків.",
+    priceCents: 14000,
+    imageUrl: "https://placehold.co/800x800/00695c/eee?text=SKE+Crystal",
+  },
+  {
+    id: "prod-dispo-goldbar",
+    categoryId: "cat-disposables",
+    name: "Gold Bar",
+    description: "Преміальна одноразка, 800 тяг, унікальні смаки, дизайн метал.",
+    priceCents: 19000,
+    imageUrl: "https://placehold.co/800x800/f57f17/111?text=Gold+Bar",
+  },
+
+  // ── Cleaning (12) ──
+  {
+    id: "prod-clean-brush",
+    categoryId: "cat-cleaning",
+    name: "Йоршик для миття шахти",
+    description:
+      "Гнучкий йоршик з нейлону для чищення шахти кальяну, довжина 70 см.",
+    priceCents: 4500,
+    imageUrl: "https://placehold.co/800x800/607d8b/eee?text=Cleaning+Brush",
+  },
+  {
+    id: "prod-clean-wipes",
+    categoryId: "cat-cleaning",
+    name: "Серветки для догляду (50 шт)",
+    description: "Вологі серветки для чищення кальяну та аксесуарів.",
+    priceCents: 1500,
+    imageUrl: "https://placehold.co/800x800/90a4ae/111?text=Wipes",
+  },
+  {
+    id: "prod-clean-set",
+    categoryId: "cat-cleaning",
+    name: "Набір для чищення кальяну",
+    description:
+      "Повний набір: йоршик, серветки, рідина для чищення, 3 предмети.",
+    priceCents: 12000,
+    imageUrl: "https://placehold.co/800x800/546e7a/eee?text=Cleaning+Kit",
+  },
+  {
+    id: "prod-clean-liquid",
+    categoryId: "cat-cleaning",
+    name: "Рідина для чищення (500 мл)",
+    description: "Спеціальна рідина для видалення нальоту та запаху з кальяну.",
+    priceCents: 8000,
+    imageUrl: "https://placehold.co/800x800/4db6ac/111?text=Clean+Liquid",
+  },
+  {
+    id: "prod-clean-sponge",
+    categoryId: "cat-cleaning",
+    name: "Губки для чищення (5 шт)",
+    description: "Абразивні губки для чищення чаш та колби, 5 шт.",
+    priceCents: 2000,
+    imageUrl: "https://placehold.co/800x800/80cbc4/111?text=Sponges",
+  },
+  {
+    id: "prod-clean-brush-small",
+    categoryId: "cat-cleaning",
+    name: "Йоршик малий (30 см)",
+    description: "Короткий йоршик для чищення портів та з'єднань, 30 см.",
+    priceCents: 2500,
+    imageUrl: "https://placehold.co/800x800/78909c/111?text=Small+Brush",
+  },
+  {
+    id: "prod-clean-brush-silicone",
+    categoryId: "cat-cleaning",
+    name: "Йоршик силіконовий",
+    description: "Гнучкий силіконовий йоршик, не дряпає поверхні, 60 см.",
+    priceCents: 3500,
+    imageUrl: "https://placehold.co/800x800/4fc3f7/111?text=Silicone+Brush",
+  },
+  {
+    id: "prod-clean-tube",
+    categoryId: "cat-cleaning",
+    name: "Трубчастий йоршик",
+    description: "Довгий трубчастий йоршик для чищення шлангів, 1.5 м.",
+    priceCents: 3000,
+    imageUrl: "https://placehold.co/800x800/90caf9/111?text=Tube+Brush",
+  },
+  {
+    id: "prod-clean-nozzle",
+    categoryId: "cat-cleaning",
+    name: "Набір насадок для чищення",
+    description: "5 різних насадок для важкодоступних місць кальяну.",
+    priceCents: 5000,
+    imageUrl: "https://placehold.co/800x800/b39ddb/111?text=Nozzle+Set",
+  },
+  {
+    id: "prod-clean-set-premium",
+    categoryId: "cat-cleaning",
+    name: "Набір для чищення преміум",
+    description: "Професійний набір: рідина, спрей, 3 йоршики, серветки, рукавички.",
+    priceCents: 22000,
+    imageUrl: "https://placehold.co/800x800/37474f/eee?text=Premium+Kit",
+  },
+  {
+    id: "prod-clean-cloth",
+    categoryId: "cat-cleaning",
+    name: "Мікрофібра для полірування",
+    description: "Серветка з мікрофібри для полірування колби та металу.",
+    priceCents: 1800,
+    imageUrl: "https://placehold.co/800x800/e0e0e0/111?text=Microfiber",
+  },
+  {
+    id: "prod-clean-decalcifier",
+    categoryId: "cat-cleaning",
+    name: "Засіб від накипу (300 мл)",
+    description: "Рідина для видалення вапняного нальоту зі скляних колб.",
+    priceCents: 6000,
+    imageUrl: "https://placehold.co/800x800/a5d6a7/111?text=Decalcifier",
+  },
 ];
 
-// Варіанти товарів: для рідин — смак × об'єм, для вугілля — лише розмір.
-// Смаки та розміри тимчасові (заглушки), їх відредагує власник магазину.
 const productVariants = [
+  // ── Liquids ──
   {
     productId: "prod-liquid-mint",
     tastes: ["Крижана м'ята", "Ментол", "М'ята-лайм"],
@@ -275,6 +1087,80 @@ const productVariants = [
     ],
   },
   {
+    productId: "prod-liquid-blueberry",
+    tastes: ["Чорниця", "Чорниця-лайм", "Чорниця-малина"],
+    sizes: [
+      { size: "10 мл", priceCents: 15000 },
+      { size: "30 мл", priceCents: 26000 },
+    ],
+  },
+  {
+    productId: "prod-liquid-mango",
+    tastes: ["Манго", "Манго-персик", "Манго-маракуйя"],
+    sizes: [
+      { size: "10 мл", priceCents: 16000 },
+      { size: "30 мл", priceCents: 27000 },
+    ],
+  },
+  {
+    productId: "prod-liquid-grape",
+    tastes: ["Виноград", "Виноград-яблуко", "Виноград-кавун"],
+    sizes: [
+      { size: "10 мл", priceCents: 17000 },
+      { size: "30 мл", priceCents: 30000 },
+    ],
+  },
+  {
+    productId: "prod-liquid-watermelon",
+    tastes: ["Кавун", "Кавун-димчастий", "Кавун-полуниця"],
+    sizes: [
+      { size: "10 мл", priceCents: 14000 },
+      { size: "30 мл", priceCents: 24000 },
+    ],
+  },
+  {
+    productId: "prod-liquid-tobacco",
+    tastes: ["Тютюн класичний", "Тютюн-горіх", "Тютюн-карамель"],
+    sizes: [
+      { size: "10 мл", priceCents: 13000 },
+      { size: "30 мл", priceCents: 22000 },
+    ],
+  },
+  {
+    productId: "prod-liquid-strawberry",
+    tastes: ["Полуниця", "Полуниця-ківі", "Полуниця-лайм"],
+    sizes: [
+      { size: "10 мл", priceCents: 15000 },
+      { size: "30 мл", priceCents: 26000 },
+    ],
+  },
+  {
+    productId: "prod-liquid-lemon",
+    tastes: ["Лимон", "Лимон-безe", "Лимон-лайм"],
+    sizes: [
+      { size: "10 мл", priceCents: 16000 },
+      { size: "30 мл", priceCents: 28000 },
+    ],
+  },
+  {
+    productId: "prod-liquid-pineapple",
+    tastes: ["Ананас", "Ананас-кокос", "Ананас-манго"],
+    sizes: [
+      { size: "10 мл", priceCents: 17000 },
+      { size: "30 мл", priceCents: 31000 },
+    ],
+  },
+  {
+    productId: "prod-liquid-cream",
+    tastes: ["Ваніль", "Ваніль-карамель", "Ваніль-кокос"],
+    sizes: [
+      { size: "10 мл", priceCents: 15000 },
+      { size: "30 мл", priceCents: 27000 },
+    ],
+  },
+
+  // ── Coals ──
+  {
     productId: "prod-coal-coco",
     sizes: [
       { size: "250 г", priceCents: 9500 },
@@ -288,6 +1174,135 @@ const productVariants = [
       { size: "500 г", priceCents: 7000 },
       { size: "1 кг", priceCents: 12000 },
       { size: "3 кг", priceCents: 33000 },
+    ],
+  },
+  {
+    productId: "prod-coal-tablet",
+    sizes: [
+      { size: "10 шт", priceCents: 6000 },
+      { size: "30 шт", priceCents: 16000 },
+      { size: "60 шт", priceCents: 28000 },
+    ],
+  },
+  {
+    productId: "prod-coal-bamboo",
+    sizes: [
+      { size: "10 шт", priceCents: 4500 },
+      { size: "20 шт", priceCents: 8500 },
+      { size: "40 шт", priceCents: 15000 },
+    ],
+  },
+  {
+    productId: "prod-coal-premium",
+    sizes: [
+      { size: "15 шт", priceCents: 7500 },
+      { size: "30 шт", priceCents: 14000 },
+      { size: "60 шт", priceCents: 26000 },
+    ],
+  },
+  {
+    productId: "prod-coal-cube",
+    sizes: [
+      { size: "10 шт", priceCents: 6000 },
+      { size: "20 шт", priceCents: 11000 },
+      { size: "40 шт", priceCents: 20000 },
+    ],
+  },
+  {
+    productId: "prod-coal-flat",
+    sizes: [
+      { size: "10 шт", priceCents: 7000 },
+      { size: "20 шт", priceCents: 13000 },
+    ],
+  },
+  {
+    productId: "prod-coal-titanium",
+    sizes: [
+      { size: "15 шт", priceCents: 9000 },
+      { size: "30 шт", priceCents: 16000 },
+      { size: "60 шт", priceCents: 30000 },
+    ],
+  },
+
+  // ── Nic Salts ──
+  {
+    productId: "prod-salt-mango",
+    tastes: ["Манго", "Манго-маракуйя", "Манго-персик"],
+    sizes: [
+      { size: "10 мл", priceCents: 12000 },
+      { size: "30 мл", priceCents: 20000 },
+    ],
+  },
+  {
+    productId: "prod-salt-mint",
+    tastes: ["М'ята", "М'ята-лайм", "М'ята-виноград"],
+    sizes: [
+      { size: "10 мл", priceCents: 12000 },
+      { size: "30 мл", priceCents: 20000 },
+    ],
+  },
+  {
+    productId: "prod-salt-lychee",
+    tastes: ["Лічі", "Лічі-малина", "Лічі-лайм"],
+    sizes: [
+      { size: "10 мл", priceCents: 13000 },
+      { size: "30 мл", priceCents: 22000 },
+    ],
+  },
+  {
+    productId: "prod-salt-grape",
+    tastes: ["Виноград", "Виноград-м'ята", "Виноград-яблуко"],
+    sizes: [
+      { size: "10 мл", priceCents: 12000 },
+      { size: "30 мл", priceCents: 20000 },
+    ],
+  },
+  {
+    productId: "prod-salt-strawberry",
+    tastes: ["Полуниця", "Полуниця-лайм", "Полуниця-кавун"],
+    sizes: [
+      { size: "10 мл", priceCents: 12000 },
+      { size: "30 мл", priceCents: 20000 },
+    ],
+  },
+  {
+    productId: "prod-salt-blueberry",
+    tastes: ["Чорниця", "Чорниця-малина", "Чорниця-гранат"],
+    sizes: [
+      { size: "10 мл", priceCents: 13000 },
+      { size: "30 мл", priceCents: 22000 },
+    ],
+  },
+  {
+    productId: "prod-salt-watermelon",
+    tastes: ["Кавун", "Кавун-димчастий", "Кавун-полуниця"],
+    sizes: [
+      { size: "10 мл", priceCents: 12000 },
+      { size: "30 мл", priceCents: 20000 },
+    ],
+  },
+  {
+    productId: "prod-salt-peach",
+    tastes: ["Персик", "Персик-абрикос", "Персик-маракуйя"],
+    sizes: [
+      { size: "10 мл", priceCents: 13000 },
+      { size: "30 мл", priceCents: 22000 },
+    ],
+  },
+  {
+    productId: "prod-salt-menthol",
+    tastes: ["Ментол", "Ментол-лайм", "Ментол-евкаліпт"],
+    sizes: [
+      { size: "10 мл", priceCents: 14000 },
+      { size: "30 мл", priceCents: 25000 },
+    ],
+  },
+  {
+    productId: "prod-salt-tobacco",
+    tastes: ["Тютюн", "Тютюн-горіх", "Тютюн-карамель"],
+    sizes: [
+      { size: "10 мл", priceCents: 12000 },
+      { size: "30 мл", priceCents: 20000 },
     ],
   },
 ];
@@ -333,6 +1348,38 @@ const customers = [
     bonusBalance: "15.00",
     createdAt: atNoon("2026-07-01"),
   },
+  {
+    id: "customer-ivan",
+    name: "Іван Гриценко",
+    email: "ivan@example.com",
+    phone: "+380501110006",
+    bonusBalance: "500.00",
+    createdAt: atNoon("2026-07-03"),
+  },
+  {
+    id: "customer-natalia",
+    name: "Наталія Кравчук",
+    email: "natalia@example.com",
+    phone: "+380501110007",
+    bonusBalance: "30.00",
+    createdAt: atNoon("2026-07-05"),
+  },
+  {
+    id: "customer-oleksandr",
+    name: "Олександр Лисенко",
+    email: "oleksandr@example.com",
+    phone: "+380501110008",
+    bonusBalance: "0.00",
+    createdAt: atNoon("2026-07-07"),
+  },
+  {
+    id: "customer-yulia",
+    name: "Юлія Савченко",
+    email: "yulia@example.com",
+    phone: "+380501110009",
+    bonusBalance: "90.00",
+    createdAt: atNoon("2026-07-09"),
+  },
 ];
 
 const productsById = Object.fromEntries(
@@ -340,6 +1387,7 @@ const productsById = Object.fromEntries(
 );
 
 const orders = [
+  // ── Existing orders ──
   {
     id: "order-hookah-set",
     customerId: "customer-olena",
@@ -424,6 +1472,224 @@ const orders = [
       { productId: "prod-liquid-fruits", quantity: 1 },
     ],
   },
+
+  // ── New orders ──
+  {
+    id: "order-nic-salts",
+    customerId: "customer-ivan",
+    paymentMethod: "CARD",
+    status: "PROCESSING",
+    createdAt: atNoon("2026-07-14"),
+    items: [
+      { productId: "prod-salt-mango", quantity: 2 },
+      { productId: "prod-salt-mint", quantity: 1 },
+      { productId: "prod-dispo-elf", quantity: 3 },
+    ],
+  },
+  {
+    id: "order-cleaning-kit",
+    customerId: "customer-natalia",
+    paymentMethod: "CARD",
+    status: "COMPLETED",
+    createdAt: atNoon("2026-07-15"),
+    items: [
+      { productId: "prod-clean-set", quantity: 1 },
+      { productId: "prod-clean-brush", quantity: 2 },
+      { productId: "prod-acc-hose", quantity: 1 },
+    ],
+  },
+  {
+    id: "order-disposables-bulk",
+    customerId: "customer-oleksandr",
+    paymentMethod: "CASH",
+    status: "NEW",
+    createdAt: atNoon("2026-07-15"),
+    items: [
+      { productId: "prod-dispo-hqd", quantity: 5 },
+      { productId: "prod-dispo-iget", quantity: 2 },
+    ],
+  },
+  {
+    id: "order-premium-tobacco",
+    customerId: "customer-yulia",
+    paymentMethod: "CARD",
+    status: "COMPLETED",
+    createdAt: atNoon("2026-07-15"),
+    items: [
+      { productId: "prod-tobacco-musthave", quantity: 1 },
+      { productId: "prod-tobacco-trifecta", quantity: 1 },
+      { productId: "prod-tobacco-satyr", quantity: 2 },
+      { productId: "prod-bowl-silicone", quantity: 1 },
+    ],
+  },
+  {
+    id: "order-hoses",
+    customerId: "customer-dmytro",
+    paymentMethod: "CARD",
+    status: "PROCESSING",
+    createdAt: atNoon("2026-07-16"),
+    items: [
+      { productId: "prod-hose-leather", quantity: 1 },
+      { productId: "prod-hose-silicone", quantity: 2 },
+      { productId: "prod-hose-mouth", quantity: 2 },
+    ],
+  },
+  {
+    id: "order-caliburn-kit",
+    customerId: "customer-ivan",
+    paymentMethod: "BONUS",
+    status: "COMPLETED",
+    createdAt: atNoon("2026-07-16"),
+    items: [
+      { productId: "prod-vape-caliburn", quantity: 1 },
+      { productId: "prod-liquid-grape", quantity: 2 },
+      { productId: "prod-salt-lychee", quantity: 1 },
+    ],
+  },
+  {
+    id: "order-electric-coal",
+    customerId: "customer-maria",
+    paymentMethod: "CARD",
+    status: "NEW",
+    createdAt: atNoon("2026-07-17"),
+    items: [
+      { productId: "prod-coal-electric", quantity: 1 },
+      { productId: "prod-bowl-vortex", quantity: 1 },
+      { productId: "prod-tobacco-element", quantity: 2 },
+    ],
+  },
+  {
+    id: "order-large-mixed",
+    customerId: "customer-artem",
+    paymentMethod: "CARD",
+    status: "COMPLETED",
+    createdAt: atNoon("2026-07-17"),
+    items: [
+      { productId: "prod-kaljan-storm", quantity: 1 },
+      { productId: "prod-kaljan-union", quantity: 1 },
+      { productId: "prod-bowl-glass", quantity: 2 },
+      { productId: "prod-coal-tablet", quantity: 1 },
+      { productId: "prod-acc-case", quantity: 1 },
+    ],
+  },
+  {
+    id: "order-zero-nic",
+    customerId: "customer-natalia",
+    paymentMethod: "CASH",
+    status: "NEW",
+    createdAt: atNoon("2026-07-18"),
+    items: [
+      { productId: "prod-liquid-watermelon", quantity: 3 },
+      { productId: "prod-liquid-tobacco", quantity: 1 },
+      { productId: "prod-vape-lostvape", quantity: 1 },
+    ],
+  },
+  {
+    id: "order-alpha-premium",
+    customerId: "customer-ivan",
+    paymentMethod: "CARD",
+    status: "COMPLETED",
+    createdAt: atNoon("2026-07-18"),
+    items: [
+      { productId: "prod-kaljan-alpha", quantity: 1 },
+      { productId: "prod-bowl-oblako", quantity: 1 },
+      { productId: "prod-coal-titanium", quantity: 2 },
+      { productId: "prod-hose-leather", quantity: 1 },
+    ],
+  },
+  {
+    id: "order-salts-bulk",
+    customerId: "customer-oleksandr",
+    paymentMethod: "CARD",
+    status: "PROCESSING",
+    createdAt: atNoon("2026-07-18"),
+    items: [
+      { productId: "prod-salt-strawberry", quantity: 2 },
+      { productId: "prod-salt-blueberry", quantity: 2 },
+      { productId: "prod-salt-menthol", quantity: 1 },
+      { productId: "prod-salt-tobacco", quantity: 1 },
+    ],
+  },
+  {
+    id: "order-cleaning-premium",
+    customerId: "customer-yulia",
+    paymentMethod: "CARD",
+    status: "COMPLETED",
+    createdAt: atNoon("2026-07-18"),
+    items: [
+      { productId: "prod-clean-set-premium", quantity: 1 },
+      { productId: "prod-clean-liquid", quantity: 2 },
+      { productId: "prod-clean-decalcifier", quantity: 1 },
+      { productId: "prod-clean-cloth", quantity: 3 },
+    ],
+  },
+  {
+    id: "order-disposables-mixed",
+    customerId: "customer-natalia",
+    paymentMethod: "CASH",
+    status: "NEW",
+    createdAt: atNoon("2026-07-18"),
+    items: [
+      { productId: "prod-dispo-elf-5000", quantity: 2 },
+      { productId: "prod-dispo-hayati", quantity: 1 },
+      { productId: "prod-dispo-crystal", quantity: 3 },
+      { productId: "prod-dispo-ske", quantity: 2 },
+    ],
+  },
+  {
+    id: "order-hoses-accessories",
+    customerId: "customer-artem",
+    paymentMethod: "CARD",
+    status: "COMPLETED",
+    createdAt: atNoon("2026-07-18"),
+    items: [
+      { productId: "prod-hose-color", quantity: 2 },
+      { productId: "prod-hose-long", quantity: 1 },
+      { productId: "prod-hose-glass-mouth", quantity: 2 },
+      { productId: "prod-hose-adaptor", quantity: 1 },
+      { productId: "prod-acc-diffusor", quantity: 2 },
+    ],
+  },
+  {
+    id: "order-vape-new",
+    customerId: "customer-dmytro",
+    paymentMethod: "CARD",
+    status: "PROCESSING",
+    createdAt: atNoon("2026-07-18"),
+    items: [
+      { productId: "prod-vape-smoant", quantity: 1 },
+      { productId: "prod-vape-innokin", quantity: 1 },
+      { productId: "prod-liquid-strawberry", quantity: 2 },
+      { productId: "prod-liquid-lemon", quantity: 1 },
+    ],
+  },
+  {
+    id: "order-bowl-collection",
+    customerId: "customer-maria",
+    paymentMethod: "BONUS",
+    status: "NEW",
+    createdAt: atNoon("2026-07-18"),
+    items: [
+      { productId: "prod-bowl-ethros", quantity: 1 },
+      { productId: "prod-bowl-werkbund", quantity: 1 },
+      { productId: "prod-bowl-kong", quantity: 1 },
+      { productId: "prod-acc-grommet", quantity: 2 },
+      { productId: "prod-acc-seal", quantity: 1 },
+    ],
+  },
+  {
+    id: "order-na-grani",
+    customerId: "customer-ivan",
+    paymentMethod: "CARD",
+    status: "PROCESSING",
+    createdAt: atNoon("2026-07-18"),
+    items: [
+      { productId: "prod-kaljan-na-grani", quantity: 1 },
+      { productId: "prod-coal-bamboo", quantity: 2 },
+      { productId: "prod-coal-premium", quantity: 1 },
+      { productId: "prod-tobacco-adalya", quantity: 2 },
+    ],
+  },
 ];
 
 function orderTotalCents(order) {
@@ -481,7 +1747,6 @@ async function main() {
     await prisma.customer.create({ data: customer });
   }
 
-  // Единственный способ появления админа — регистрации в админы нет.
   const passwordHash = hashPassword(adminPassword);
   await prisma.customer.upsert({
     where: { email: admin.email },

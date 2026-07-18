@@ -179,6 +179,13 @@ async function updateOrder(req: Request, res: Response, next: NextFunction) {
             data: { bonusBalance: { increment: bonus } },
           });
         }
+
+        if (status === "CANCELLED" && existing.paymentMethod === "BONUS") {
+          await tx.customer.update({
+            where: { id: existing.customerId },
+            data: { bonusBalance: { increment: existing.totalAmount } },
+          });
+        }
       }
 
       return tx.order.findUniqueOrThrow({

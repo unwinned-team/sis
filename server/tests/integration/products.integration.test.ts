@@ -204,7 +204,7 @@ test("product create validates the body with 400", async () => {
     createBody(category.id, { price: 10.001 }),
     createBody(category.id, { price: 100_000_000 }),
     createBody(category.id, { price: "12.50" }),
-    createBody(category.id, { imageUrl: "not-a-url" }),
+    createBody(category.id, { imageUrl: "" }),
     createBody(category.id, { name: "" }),
     createBody(category.id, { description: "" }),
   ]) {
@@ -264,7 +264,7 @@ test("product update answers 404 for a missing product or category and 400 for a
   });
   assert.equal(missingCategory.status, 404);
 
-  for (const body of [{ name: "" }, { price: 10.001 }, { imageUrl: "not-a-url" }]) {
+  for (const body of [{ name: "" }, { price: 10.001 }, { imageUrl: "" }]) {
     const result = await api("PUT", `/products/${product.id}`, { token, body });
     assert.equal(result.status, 400, JSON.stringify(body));
   }
@@ -273,7 +273,7 @@ test("product update answers 404 for a missing product or category and 400 for a
   assert.equal(untouched.categoryId, category.id);
 });
 
-test("admin deletes an unordered product; ordered products answer 409", async () => {
+test("admin deletes an unordered product; ordered products are archived", async () => {
   const token = await addAdmin();
   const category = await addCategory("del");
   const free = await addProduct("free", category.id);
@@ -294,10 +294,17 @@ test("admin deletes an unordered product; ordered products answer 409", async ()
   assert.equal(deleted.status, 204);
   assert.equal(await prisma.product.count({ where: { id: free.id } }), 0);
 
-  // История заказов важнее каталога: продукт из заказов удалить нельзя.
-  const blocked = await api("DELETE", `/products/${ordered.id}`, { token });
-  assert.equal(blocked.status, 409);
-  assert.equal(await prisma.product.count({ where: { id: ordered.id } }), 1);
+  // История заказов важнее каталога: продукт из заказов не удаляется,
+  // а архивируется и пропадает из публичной выдачи.
+  const archived = await api("DELETE", `/products/${ordered.id}`, { token });
+  assert.equal(archived.status, 200);
+  assert.equal(archived.body.archived, true);
+
+  const persisted = await prisma.product.findUniqueOrThrow({ where: { id: ordered.id } });
+  assert.equal(persisted.isArchived, true);
+
+  const publicRead = await api("GET", `/products/${ordered.id}`);
+  assert.equal(publicRead.status, 404);
 
   const missing = await api("DELETE", `/products/${free.id}`, { token });
   assert.equal(missing.status, 404);

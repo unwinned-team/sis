@@ -65,6 +65,7 @@ const products = [
       "Кальян середнього розміру з алюмінієвим шахтом, компактний та легкий.",
     priceCents: 349000,
     imageUrl: "/products/hookahs/amstaff.jpg",
+    isArchived: true,
   },
   {
     id: "prod-kaljan-oduman",
@@ -137,6 +138,7 @@ const products = [
     description: "Український бренд, гранований дизайн, алюміній + скло.",
     priceCents: 349000,
     imageUrl: "/products/hookahs/na-grani.jpg",
+    isAvailable: false,
   },
 
   // ── Tobacco (12) ──

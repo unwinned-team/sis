@@ -51,7 +51,7 @@ async function getCategoryPopularProduct(
 
     const topItem = await prisma.orderItem.groupBy({
       by: ["productId"],
-      where: { product: { categoryId: category.id } },
+      where: { product: { categoryId: category.id, isArchived: false } },
       _sum: { quantity: true },
       orderBy: { _sum: { quantity: "desc" } },
       take: 1,
@@ -61,10 +61,14 @@ async function getCategoryPopularProduct(
       return res.status(404).json({ error: "No orders in this category" });
     }
 
-    const product = await prisma.product.findUnique({
-      where: { id: topItem[0]!.productId },
+    const product = await prisma.product.findFirst({
+      where: { id: topItem[0]!.productId, isArchived: false },
       include: { category: true, variants: true },
     });
+
+    if (!product) {
+      return res.status(404).json({ error: "Product not found" });
+    }
 
     res.json(product);
   } catch (error) {

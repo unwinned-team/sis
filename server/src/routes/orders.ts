@@ -9,6 +9,7 @@ import {
   createOrderSchema,
   isOrderTotalValid,
   updateOrderSchema,
+  listOrdersQuerySchema,
 } from "../schemas/orders.js";
 
 const router = Router();
@@ -17,15 +18,46 @@ const router = Router();
 async function getOrders(req: Request, res: Response, next: NextFunction) {
   try {
     const user = req.user!;
-    const orders = await prisma.order.findMany({
-      where: user.role === "ADMIN" ? {} : { customerId: user.id },
-      include: {
-        customer: { select: { id: true, name: true, phone: true } },
-        items: { include: { product: true } },
-      },
-      orderBy: { createdAt: "desc" },
-    });
-    res.json(orders);
+    const parsed = listOrdersQuerySchema.safeParse(req.query);
+
+    if (!parsed.success) {
+      return res.status(400).json({ errors: parsed.error.issues });
+    }
+
+    const { from, to, status, take, skip } = parsed.data;
+
+    const where: Record<string, unknown> = {};
+
+    if (user.role !== "ADMIN") {
+      where.customerId = user.id;
+    }
+
+    if (from || to) {
+      const createdAt: Record<string, Date> = {};
+      if (from) createdAt.gte = new Date(from);
+      if (to) createdAt.lte = new Date(to);
+      where.createdAt = createdAt;
+    }
+
+    if (status) {
+      where.status = status;
+    }
+
+    const [orders, total] = await Promise.all([
+      prisma.order.findMany({
+        where,
+        include: {
+          customer: { select: { id: true, name: true, phone: true } },
+          items: { include: { product: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        take,
+        skip,
+      }),
+      prisma.order.count({ where }),
+    ]);
+
+    res.json({ orders, total });
   } catch (error) {
     next(error);
   }
@@ -85,6 +117,15 @@ async function createOrder(req: Request, res: Response, next: NextFunction) {
       });
       if (products.length !== productIds.length) {
         throw httpError(404, "One or more products not found");
+      }
+
+      const unavailable = products.filter(
+        (p) => !p.isAvailable || p.isArchived,
+      );
+      if (unavailable.length > 0) {
+        const err = httpError(409, "Products unavailable");
+        (err as any).details = { productIds: unavailable.map((p) => p.id) };
+        throw err;
       }
 
       const productMap = new Map(products.map((product) => [product.id, product]));

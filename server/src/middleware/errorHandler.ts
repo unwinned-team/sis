@@ -23,7 +23,10 @@ const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
     status >= 500 ? "Internal server error" : err.message ?? "Request failed";
     // что бы скрыть серверную инфорацию при ошибках
 
-  res.status(status).json({ error: message });
+  // details отдаём только на 4xx и отдельным полем: spread мог бы перезаписать
+  // "error", а на 5xx — раскрыть внутренности, которые message уже скрывает.
+  const details = status < 500 ? (err as { details?: unknown }).details : undefined;
+  res.status(status).json(details !== undefined ? { error: message, details } : { error: message });
 };
 
 export default errorHandler;

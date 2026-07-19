@@ -35,6 +35,14 @@ export const createOrderSchema = z.object({
 
 export const updateOrderSchema = z.object({ status: orderStatusSchema }).strict();
 
+export const listOrdersQuerySchema = z.object({
+  from: z.iso.datetime({ offset: true }).optional(),
+  to: z.iso.datetime({ offset: true }).optional(),
+  status: orderStatusSchema.optional(),
+  take: z.coerce.number().int().min(1).max(100).optional().default(50),
+  skip: z.coerce.number().int().min(0).optional().default(0),
+});
+
 export function isOrderTotalValid(total: Prisma.Decimal) {
   return total.lessThanOrEqualTo(MAX_ORDER_TOTAL);
 }

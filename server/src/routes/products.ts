@@ -6,6 +6,9 @@ import {
   productParamsSchema,
   createProductSchema,
   updateProductSchema,
+  variantParamsSchema,
+  createVariantSchema,
+  updateVariantSchema,
 } from "../schemas/products.js";
 
 const router = Router();
@@ -35,13 +38,29 @@ function isForeignKeyConstraintViolation(error: unknown) {
   );
 }
 
+// Публичные GET-роуты скрывают архив; ?includeArchived=true доступен только
+// админу, поэтому цепочка auth-middleware включается лишь при этом параметре.
+function requireAdminForArchived(req: Request, res: Response, next: NextFunction) {
+  if (req.query.includeArchived !== "true") {
+    return next();
+  }
+  requireAuth(req, res, (err?: unknown) => {
+    if (err) return next(err);
+    requireAdmin(req, res, next);
+  });
+}
+
 // GET /api/products
 async function getProducts(req: Request, res: Response, next: NextFunction) {
   try {
     const { categoryId } = req.query;
+    const includeArchived = req.query.includeArchived === "true";
 
     const products = await prisma.product.findMany({
-      where: categoryId ? { categoryId: String(categoryId) } : {},
+      where: {
+        ...(includeArchived ? {} : { isArchived: false }),
+        ...(categoryId ? { categoryId: String(categoryId) } : {}),
+      },
       orderBy: { name: "asc" },
       include: { category: true, variants: true },
     });
@@ -61,8 +80,13 @@ async function getProductById(req: Request, res: Response, next: NextFunction) {
       return res.status(400).json({ errors: parsed.error.issues });
     }
 
-    const product = await prisma.product.findUnique({
-      where: { id: parsed.data.id },
+    const includeArchived = req.query.includeArchived === "true";
+
+    const product = await prisma.product.findFirst({
+      where: {
+        id: parsed.data.id,
+        ...(includeArchived ? {} : { isArchived: false }),
+      },
       include: { category: true, variants: true },
     });
 
@@ -165,15 +189,17 @@ async function updateProduct(req: Request, res: Response, next: NextFunction) {
 
 // DELETE /api/products/:id
 async function deleteProduct(req: Request, res: Response, next: NextFunction) {
+  const parsed = productParamsSchema.safeParse(req.params);
+
+  if (!parsed.success) {
+    return res.status(400).json({ errors: parsed.error.issues });
+  }
+
+  const id = parsed.data.id;
+
   try {
-    const parsed = productParamsSchema.safeParse(req.params);
-
-    if (!parsed.success) {
-      return res.status(400).json({ errors: parsed.error.issues });
-    }
-
     const existing = await prisma.product.findUnique({
-      where: { id: parsed.data.id },
+      where: { id },
     });
 
     if (!existing) {
@@ -181,29 +207,38 @@ async function deleteProduct(req: Request, res: Response, next: NextFunction) {
     }
 
     const orderItems = await prisma.orderItem.count({
-      where: { productId: parsed.data.id },
+      where: { productId: id },
     });
 
     if (orderItems > 0) {
-      return res.status(409).json({
-        error:
-          "Product cannot be deleted because it is used in existing orders",
-      });
+      return archiveProduct(id, res);
     }
 
-    await prisma.product.delete({ where: { id: parsed.data.id } });
+    await prisma.product.delete({ where: { id } });
 
     res.status(204).end();
   } catch (error) {
     if (isForeignKeyConstraintViolation(error)) {
-      return res.status(409).json({
-        error:
-          "Product cannot be deleted because it is used in existing orders",
-      });
+      return archiveProduct(id, res);
     }
 
     next(error);
   }
+}
+
+// updateMany вместо update: товар мог быть удалён параллельным запросом между
+// проверкой и записью — тогда отвечаем 404, а не падаем в 500 на P2025.
+async function archiveProduct(id: string, res: Response) {
+  const archived = await prisma.product.updateMany({
+    where: { id },
+    data: { isArchived: true },
+  });
+
+  if (archived.count === 0) {
+    return res.status(404).json({ error: "Product not found" });
+  }
+
+  res.json({ archived: true });
 }
 
 // GET /api/products/:id/related
@@ -219,8 +254,8 @@ async function getRelatedProducts(
       return res.status(400).json({ errors: parsed.error.issues });
     }
 
-    const product = await prisma.product.findUnique({
-      where: { id: parsed.data.id },
+    const product = await prisma.product.findFirst({
+      where: { id: parsed.data.id, isArchived: false },
     });
 
     if (!product) {
@@ -231,6 +266,7 @@ async function getRelatedProducts(
       where: {
         categoryId: product.categoryId,
         id: { not: product.id },
+        isArchived: false,
       },
       take: 4,
       orderBy: { name: "asc" },
@@ -243,11 +279,133 @@ async function getRelatedProducts(
   }
 }
 
-router.get("/", getProducts);
-router.get("/:id", getProductById);
+// POST /api/products/:productId/variants
+async function createVariant(req: Request, res: Response, next: NextFunction) {
+  try {
+    const parsedParams = variantParamsSchema.safeParse(req.params);
+
+    if (!parsedParams.success) {
+      return res.status(400).json({ errors: parsedParams.error.issues });
+    }
+
+    const parsedBody = createVariantSchema.safeParse(req.body);
+
+    if (!parsedBody.success) {
+      return res.status(400).json({ errors: parsedBody.error.issues });
+    }
+
+    const product = await prisma.product.findUnique({
+      where: { id: parsedParams.data.productId },
+    });
+
+    if (!product) {
+      return res.status(404).json({ error: "Product not found" });
+    }
+
+    const variant = await prisma.productVariant.create({
+      data: {
+        productId: parsedParams.data.productId,
+        price: parsedBody.data.price,
+        taste: parsedBody.data.taste ?? null,
+        size: parsedBody.data.size ?? null,
+      },
+    });
+
+    res.status(201).json(variant);
+  } catch (error) {
+    next(error);
+  }
+}
+
+// PUT /api/products/:productId/variants/:variantId
+async function updateVariant(req: Request, res: Response, next: NextFunction) {
+  try {
+    const parsedParams = variantParamsSchema.safeParse(req.params);
+
+    if (!parsedParams.success) {
+      return res.status(400).json({ errors: parsedParams.error.issues });
+    }
+
+    const parsedBody = updateVariantSchema.safeParse(req.body);
+
+    if (!parsedBody.success) {
+      return res.status(400).json({ errors: parsedBody.error.issues });
+    }
+
+    const product = await prisma.product.findUnique({
+      where: { id: parsedParams.data.productId },
+    });
+
+    if (!product) {
+      return res.status(404).json({ error: "Product not found" });
+    }
+
+    const existing = await prisma.productVariant.findUnique({
+      where: { id: parsedParams.data.variantId },
+    });
+
+    if (!existing || existing.productId !== parsedParams.data.productId) {
+      return res.status(404).json({ error: "Variant not found" });
+    }
+
+    const data = Object.fromEntries(
+      Object.entries(parsedBody.data).filter(([_, v]) => v !== undefined),
+    );
+
+    const variant = await prisma.productVariant.update({
+      where: { id: parsedParams.data.variantId },
+      data,
+    });
+
+    res.json(variant);
+  } catch (error) {
+    next(error);
+  }
+}
+
+// DELETE /api/products/:productId/variants/:variantId
+async function deleteVariant(req: Request, res: Response, next: NextFunction) {
+  try {
+    const parsedParams = variantParamsSchema.safeParse(req.params);
+
+    if (!parsedParams.success) {
+      return res.status(400).json({ errors: parsedParams.error.issues });
+    }
+
+    const product = await prisma.product.findUnique({
+      where: { id: parsedParams.data.productId },
+    });
+
+    if (!product) {
+      return res.status(404).json({ error: "Product not found" });
+    }
+
+    const existing = await prisma.productVariant.findUnique({
+      where: { id: parsedParams.data.variantId },
+    });
+
+    if (!existing || existing.productId !== parsedParams.data.productId) {
+      return res.status(404).json({ error: "Variant not found" });
+    }
+
+    await prisma.productVariant.delete({
+      where: { id: parsedParams.data.variantId },
+    });
+
+    res.status(204).end();
+  } catch (error) {
+    next(error);
+  }
+}
+
+router.get("/", requireAdminForArchived, getProducts);
+router.get("/:id", requireAdminForArchived, getProductById);
 router.post("/", requireAuth, requireAdmin, createProduct);
 router.put("/:id", requireAuth, requireAdmin, updateProduct);
 router.delete("/:id", requireAuth, requireAdmin, deleteProduct);
 router.get("/:id/related", getRelatedProducts);
+router.post("/:productId/variants", requireAuth, requireAdmin, createVariant);
+router.put("/:productId/variants/:variantId", requireAuth, requireAdmin, updateVariant);
+router.delete("/:productId/variants/:variantId", requireAuth, requireAdmin, deleteVariant);
 
 export default router;

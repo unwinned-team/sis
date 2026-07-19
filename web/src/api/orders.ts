@@ -2,7 +2,9 @@ import { apiRequest } from './client';
 import type { Order } from '../types';
 
 export function getMyOrders(accessToken: string): Promise<Order[]> {
-  return apiRequest<Order[]>('/orders', { accessToken });
+  return apiRequest<{ orders: Order[]; total: number }>('/orders', { accessToken }).then(
+    (data) => data.orders,
+  );
 }
 
 export function cancelOrder(accessToken: string, id: string): Promise<void> {

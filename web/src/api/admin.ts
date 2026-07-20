@@ -50,8 +50,26 @@ export function setOrderStatus(
   });
 }
 
-export function getAllProducts(): Promise<Product[]> {
-  return apiRequest<Product[]>('/products');
+// includeArchived учитывается сервером только для активного админа, поэтому
+// запрос обязательно идёт с токеном — иначе архивные просто не придут.
+export function getAllProducts(
+  accessToken?: string,
+  includeArchived = false,
+): Promise<Product[]> {
+  const search = includeArchived ? '?includeArchived=true' : '';
+  return apiRequest<Product[]>(`/products${search}`, { accessToken });
+}
+
+export function setProductArchived(
+  accessToken: string,
+  id: string,
+  isArchived: boolean,
+): Promise<Product> {
+  return apiRequest<Product>(`/products/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    body: { isArchived },
+    accessToken,
+  });
 }
 
 export interface ProductInput {

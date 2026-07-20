@@ -4,6 +4,7 @@ import {
   createProduct,
   deleteProduct,
   getAllProducts,
+  setProductArchived,
   updateProduct,
 } from '../../api/admin';
 import { getCategories } from '../../api/categories';
@@ -176,7 +177,7 @@ function ProductCard({
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState<ProductDraft>(() => toDraft(product));
   const [isSaving, setIsSaving] = useState(false);
-  const [busy, setBusy] = useState<'availability' | 'delete' | null>(null);
+  const [busy, setBusy] = useState<'availability' | 'delete' | 'archive' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
 
@@ -241,6 +242,21 @@ function ProductCard({
     }
   }
 
+  async function handleUnarchive() {
+    setError(null);
+    setInfo(null);
+    setBusy('archive');
+    try {
+      const updated = await setProductArchived(accessToken, product.id, false);
+      onUpdated({ ...product, ...updated });
+      setInfo('Товар повернуто з архіву.');
+    } catch (err) {
+      setError(saveErrorMessage(err));
+    } finally {
+      setBusy(null);
+    }
+  }
+
   const isAvailable = product.isAvailable ?? true;
 
   return (
@@ -295,14 +311,25 @@ function ProductCard({
                   ? 'Позначити «немає»'
                   : 'Позначити «в наявності»'}
             </button>
-            <button
-              type="button"
-              onClick={() => void handleDelete()}
-              disabled={busy !== null}
-              className={DANGER_BUTTON_CLASS}
-            >
-              {busy === 'delete' ? '...' : 'Видалити'}
-            </button>
+            {product.isArchived ? (
+              <button
+                type="button"
+                onClick={() => void handleUnarchive()}
+                disabled={busy !== null}
+                className={`${GHOST_BUTTON_CLASS} !px-4 !py-1.5 !text-xs`}
+              >
+                {busy === 'archive' ? '...' : 'Повернути з архіву'}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => void handleDelete()}
+                disabled={busy !== null}
+                className={DANGER_BUTTON_CLASS}
+              >
+                {busy === 'delete' ? '...' : 'Видалити'}
+              </button>
+            )}
           </div>
         </>
       )}
@@ -347,10 +374,16 @@ function ProductCard({
 export function ProductsTab({ accessToken }: { accessToken: string }) {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
+  const [showArchived, setShowArchived] = useState(false);
+
+  // Загрузка выводится из ключа запроса, а не отдельным setState в эффекте:
+  // переключение архива снова показывает скелет, но без каскадного рендера.
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
+  const requestKey = String(showArchived);
+  const isLoading = loadedKey !== requestKey;
 
   const [isCreating, setIsCreating] = useState(false);
   const [createDraft, setCreateDraft] = useState<ProductDraft>(EMPTY_DRAFT);
@@ -359,7 +392,7 @@ export function ProductsTab({ accessToken }: { accessToken: string }) {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([getAllProducts(), getCategories()])
+    Promise.all([getAllProducts(accessToken, showArchived), getCategories()])
       .then(([loadedProducts, loadedCategories]) => {
         if (cancelled) return;
         setProducts(loadedProducts);
@@ -370,12 +403,12 @@ export function ProductsTab({ accessToken }: { accessToken: string }) {
         if (!cancelled) setError('Не вдалося завантажити товари.');
       })
       .finally(() => {
-        if (!cancelled) setIsLoading(false);
+        if (!cancelled) setLoadedKey(requestKey);
       });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [accessToken, showArchived, requestKey]);
 
   const availabilitySupported = useMemo(() => supportsAvailability(products), [products]);
 
@@ -448,6 +481,16 @@ export function ProductsTab({ accessToken }: { accessToken: string }) {
             {isCreating ? 'Закрити' : 'Новий товар'}
           </button>
         </div>
+
+        <label className="flex items-center gap-2 text-sm text-slate-600">
+          <input
+            type="checkbox"
+            checked={showArchived}
+            onChange={(e) => setShowArchived(e.target.checked)}
+            className="h-4 w-4 rounded border-white/70"
+          />
+          Показувати архівні товари
+        </label>
 
         {isCreating && (
           <div className="border-t border-white/50 pt-4">

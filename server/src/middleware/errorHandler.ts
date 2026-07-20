@@ -16,7 +16,10 @@ const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
     status >= 500 ? "Internal server error" : err.message ?? "Request failed";
     // что бы скрыть серверную инфорацию при ошибках
 
-  res.status(status).json({ error: message });
+  const payload =
+    status < 500 ? (err as { payload?: Record<string, unknown> }).payload : undefined;
+
+  res.status(status).json({ error: message, ...payload });
 };
 
 export default errorHandler;

@@ -35,6 +35,22 @@ export const createOrderSchema = z.object({
 
 export const updateOrderSchema = z.object({ status: orderStatusSchema }).strict();
 
+// GET / — фильтр по периоду + пагинация. take ограничен сверху, чтобы админка
+// не могла случайно вытянуть всю таблицу заказов одним запросом.
+export const listOrdersQuerySchema = z
+  .object({
+    from: z.iso.datetime({ offset: true }).optional(),
+    to: z.iso.datetime({ offset: true }).optional(),
+    status: orderStatusSchema.optional(),
+    take: z.coerce.number().int().min(1).max(100).default(50),
+    skip: z.coerce.number().int().min(0).default(0),
+  })
+  .strict()
+  .refine(
+    (data) => !data.from || !data.to || new Date(data.from) <= new Date(data.to),
+    { error: "from must be earlier than or equal to to", path: ["from"] },
+  );
+
 export function isOrderTotalValid(total: Prisma.Decimal) {
   return total.lessThanOrEqualTo(MAX_ORDER_TOTAL);
 }

@@ -166,7 +166,18 @@ export function OrdersTab({ accessToken }: { accessToken: string }) {
   const [pending, setPending] = useState<{ id: string; status: OrderStatus } | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
-  const from = preset === 'custom' ? (customFrom ? new Date(customFrom).toISOString() : undefined) : presetFrom(preset);
+  // presetFrom() берёт new Date(), поэтому без useMemo граница периода менялась
+  // бы на каждый рендер: requestKey никогда не совпал бы с loaded.key, скелет
+  // не исчезал бы, а эффект уходил в бесконечный цикл запросов к /orders.
+  const from = useMemo(
+    () =>
+      preset === 'custom'
+        ? customFrom
+          ? new Date(customFrom).toISOString()
+          : undefined
+        : presetFrom(preset),
+    [preset, customFrom],
+  );
   const to = preset === 'custom' && customTo ? new Date(customTo).toISOString() : undefined;
 
   const requestKey = JSON.stringify({ from, to, status, page, reloadKey });

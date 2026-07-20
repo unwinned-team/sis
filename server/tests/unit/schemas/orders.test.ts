@@ -5,6 +5,7 @@ import {
   createOrderSchema,
   isOrderTotalValid,
   updateOrderSchema,
+  listOrdersQuerySchema,
 } from "../../../src/schemas/orders.js";
 
 const item = { productId: "product-1", quantity: 1 };
@@ -58,4 +59,31 @@ test("order updates reject payment method changes", () => {
     }).success,
     false,
   );
+});
+
+test("order list query applies take/skip defaults", () => {
+  const parsed = listOrdersQuerySchema.parse({});
+  assert.equal(parsed.take, 50);
+  assert.equal(parsed.skip, 0);
+});
+
+test("order list query clamps take to 1..100", () => {
+  assert.equal(listOrdersQuerySchema.safeParse({ take: "1" }).success, true);
+  assert.equal(listOrdersQuerySchema.safeParse({ take: "100" }).success, true);
+  assert.equal(listOrdersQuerySchema.safeParse({ take: "0" }).success, false);
+  assert.equal(listOrdersQuerySchema.safeParse({ take: "101" }).success, false);
+  assert.equal(listOrdersQuerySchema.safeParse({ skip: "-1" }).success, false);
+});
+
+// Без этой проверки перевёрнутый период отдал бы пустую выдачу без объяснения.
+test("order list query rejects an inverted period", () => {
+  const from = "2026-07-20T00:00:00.000Z";
+  const to = "2026-07-10T00:00:00.000Z";
+  assert.equal(listOrdersQuerySchema.safeParse({ from, to }).success, false);
+  assert.equal(listOrdersQuerySchema.safeParse({ from: to, to: from }).success, true);
+  assert.equal(listOrdersQuerySchema.safeParse({ from, to: from }).success, true);
+});
+
+test("order list query rejects unknown filters", () => {
+  assert.equal(listOrdersQuerySchema.safeParse({ customerId: "customer-1" }).success, false);
 });

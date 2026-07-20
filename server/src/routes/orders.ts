@@ -6,6 +6,7 @@ import { httpError } from "../lib/httpError.js";
 import { requireAuth, requireAdmin } from "../middleware/auth.js";
 import {
   orderParamsSchema,
+  listOrdersQuerySchema,
   createOrderSchema,
   isOrderTotalValid,
   updateOrderSchema,
@@ -14,18 +15,48 @@ import {
 const router = Router();
 
 // GET /api/v1/orders — ADMIN видит все, CUSTOMER только свои.
+// Фильтры по периоду/статусу + пагинация; ответ {orders, total}.
 async function getOrders(req: Request, res: Response, next: NextFunction) {
   try {
+    const parsed = listOrdersQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      return res.status(400).json({ errors: parsed.error.issues });
+    }
+
     const user = req.user!;
-    const orders = await prisma.order.findMany({
-      where: user.role === "ADMIN" ? {} : { customerId: user.id },
-      include: {
-        customer: { select: { id: true, name: true, phone: true } },
-        items: { include: { product: true } },
-      },
-      orderBy: { createdAt: "desc" },
-    });
-    res.json(orders);
+    const { from, to, status, take, skip } = parsed.data;
+
+    // Разделение ADMIN/CUSTOMER — граница доступа, фильтры накладываются поверх
+    // и не могут её ослабить.
+    const where: Prisma.OrderWhereInput = {
+      ...(user.role === "ADMIN" ? {} : { customerId: user.id }),
+      ...(from || to
+        ? {
+            createdAt: {
+              ...(from && { gte: new Date(from) }),
+              ...(to && { lte: new Date(to) }),
+            },
+          }
+        : {}),
+      ...(status && { status }),
+    };
+
+    // $transaction — иначе при активном потоке заказов total и страница разъедутся.
+    const [orders, total] = await prisma.$transaction([
+      prisma.order.findMany({
+        where,
+        include: {
+          customer: { select: { id: true, name: true, phone: true } },
+          items: { include: { product: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        take,
+        skip,
+      }),
+      prisma.order.count({ where }),
+    ]);
+
+    res.json({ orders, total });
   } catch (error) {
     next(error);
   }
@@ -85,6 +116,17 @@ async function createOrder(req: Request, res: Response, next: NextFunction) {
       });
       if (products.length !== productIds.length) {
         throw httpError(404, "One or more products not found");
+      }
+
+      // productIds в теле ответа — чтобы корзина подсветила конкретные позиции,
+      // а не показала общий текст ошибки на весь заказ.
+      const blocked = products.filter(
+        (product) => !product.isAvailable || product.isArchived,
+      );
+      if (blocked.length > 0) {
+        throw httpError(409, "Products unavailable", {
+          productIds: blocked.map((product) => product.id),
+        });
       }
 
       const productMap = new Map(products.map((product) => [product.id, product]));

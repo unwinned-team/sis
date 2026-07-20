@@ -28,17 +28,60 @@ function hashPassword(password) {
   return `scrypt$32768$8$1$${salt.toString("base64url")}$${hash.toString("base64url")}`;
 }
 
-const admin = {
-  id: "customer-admin",
-  name: "Ice-Shop Admin",
-  email: "admin@example.test",
-  role: "ADMIN",
-};
+// Аккаунты, которые становятся администраторами после сида.
+//
+// Чтобы выдать кому-то права — добавьте сюда запись с его почтой и выполните
+// `npm run server:db:seed`. Через API повысить до админа тоже можно
+// (PATCH /api/v1/customers/:id/role), этот список — про состояние «из коробки».
+//
+// Поля:
+//   id          — идентификатор записи (любая стабильная строка);
+//   name        — отображаемое имя;
+//   email       — логин, он же ключ: запись с такой почтой станет ADMIN;
+//   passwordEnv — необязательно: имя переменной окружения с личным паролем.
+//                 Если не указано, берётся общий SEED_ADMIN_PASSWORD.
+const admins = [
+  {
+    id: "customer-admin",
+    name: "Ice-Shop Admin",
+    email: "admin@example.test",
+  },
+  // {
+  //   id: "customer-admin-owner",
+  //   name: "Власник магазину",
+  //   email: "owner@vapebaza.test",
+  //   passwordEnv: "SEED_ADMIN_PASSWORD_OWNER",
+  // },
+];
 
 const adminPassword = process.env.SEED_ADMIN_PASSWORD;
 
 if (!adminPassword || adminPassword.trim() === "") {
   throw new Error("SEED_ADMIN_PASSWORD is required");
+}
+
+const duplicateEmail = admins
+  .map((entry) => entry.email.toLowerCase())
+  .find((email, index, all) => all.indexOf(email) !== index);
+
+if (duplicateEmail) {
+  throw new Error(`Duplicate admin email in seed: ${duplicateEmail}`);
+}
+
+// Пароль резолвится до записи в БД: лучше упасть до сида, чем создать половину
+// админов и обнаружить незаданную переменную на середине списка.
+function adminPasswordFor(entry) {
+  if (!entry.passwordEnv) {
+    return adminPassword;
+  }
+
+  const password = process.env[entry.passwordEnv];
+
+  if (!password || password.trim() === "") {
+    throw new Error(`${entry.passwordEnv} is required (admin ${entry.email})`);
+  }
+
+  return password;
 }
 
 const categories = [
@@ -89,6 +132,9 @@ const products = [
     description: "Компактний складний кальян, ідеальний для поїздок.",
     priceCents: 189000,
     imageUrl: "/products/hookahs/travel.jpg",
+    // Нет в наличии — чтобы «Немає в наявності» и 409 на заказ было видно сразу
+    // после сида, без ручного переключения в админке.
+    isAvailable: false,
   },
   {
     id: "prod-kaljan-storm",
@@ -165,6 +211,7 @@ const products = [
       "Тютюн з насиченим смаком коли. Міцність: середня. Об'єм: 200г.",
     priceCents: 28000,
     imageUrl: "https://placehold.co/800x800/e94560/111?text=Darkside",
+    isAvailable: false,
   },
   {
     id: "prod-tobacco-alfakher",
@@ -1747,12 +1794,26 @@ async function main() {
     await prisma.customer.create({ data: customer });
   }
 
-  const passwordHash = hashPassword(adminPassword);
-  await prisma.customer.upsert({
-    where: { email: admin.email },
-    create: { ...admin, passwordHash },
-    update: { ...admin, passwordHash, isActive: true },
-  });
+  // Пароли считаются заранее — см. adminPasswordFor().
+  const adminPasswords = admins.map((entry) => adminPasswordFor(entry));
+
+  for (const [index, entry] of admins.entries()) {
+    const passwordHash = hashPassword(adminPasswords[index]);
+
+    await prisma.customer.upsert({
+      where: { email: entry.email },
+      create: {
+        id: entry.id,
+        name: entry.name,
+        email: entry.email,
+        role: "ADMIN",
+        passwordHash,
+      },
+      // id в update не трогаем: если почта уже принадлежит зарегистрированному
+      // клиенту, смена первичного ключа порвала бы ссылки из его заказов.
+      update: { name: entry.name, role: "ADMIN", isActive: true, passwordHash },
+    });
+  }
 
   for (const order of orders) {
     await prisma.order.create({
@@ -1779,7 +1840,7 @@ async function main() {
   }
 
   console.log(
-    `Seeded ${categories.length} categories, ${products.length} products, ${variantCount} variants, ${customers.length} customers (+1 admin), ${orders.length} orders.`,
+    `Seeded ${categories.length} categories, ${products.length} products, ${variantCount} variants, ${customers.length} customers (+${admins.length} admin${admins.length === 1 ? "" : "s"}: ${admins.map((entry) => entry.email).join(", ")}), ${orders.length} orders.`,
   );
 }
 

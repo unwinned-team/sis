@@ -17,3 +17,21 @@ export const updateCustomerSchema = z.object({
   email: emailSchema.optional(),
   phone: z.string().min(1).optional(),
 });
+
+// role сознательно не входит в create/update: повышение — отдельный роут с
+// собственными гардами, чтобы его нельзя было выполнить «мимоходом».
+export const listCustomersQuerySchema = z
+  .object({
+    role: z.enum(["CUSTOMER", "ADMIN"]).optional(),
+    take: z.coerce.number().int().min(1).max(100).default(50),
+    skip: z.coerce.number().int().min(0).default(0),
+  })
+  .strict();
+
+export const updateCustomerRoleSchema = z
+  .object({ role: z.enum(["CUSTOMER", "ADMIN"]) })
+  .strict();
+
+export const updateCustomerActiveSchema = z
+  .object({ isActive: z.boolean() })
+  .strict();

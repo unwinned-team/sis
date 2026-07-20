@@ -399,13 +399,15 @@ test("customers see only their own orders; foreign order ids answer 404", async 
   const aliceList = await api("GET", "/orders", { token: alice!.body.accessToken });
   assert.equal(aliceList.status, 200);
   assert.deepEqual(
-    aliceList.body.map((entry: { id: string }) => entry.id),
+    aliceList.body.orders.map((entry: { id: string }) => entry.id),
     [order.body.id],
   );
+  assert.equal(aliceList.body.total, 1);
 
   const bobList = await api("GET", "/orders", { token: bob!.body.accessToken });
   assert.equal(bobList.status, 200);
-  assert.deepEqual(bobList.body, []);
+  assert.deepEqual(bobList.body.orders, []);
+  assert.equal(bobList.body.total, 0);
 
   const bobRead = await api("GET", `/orders/${order.body.id}`, {
     token: bob!.body.accessToken,

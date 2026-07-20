@@ -21,9 +21,6 @@ model Product {
   price       Decimal          @db.Decimal(10, 2)
   categoryId  String
   imageUrl    String
-  // isAvailable = временно нет в наличии: товар виден в каталоге, но заказать нельзя.
-  // isArchived  = мягкое удаление: товар исчезает из публичных выдач полностью.
-  // Физическое удаление невозможно для товаров с историей (OrderItem.product = Restrict).
   isAvailable Boolean          @default(true)
   isArchived  Boolean          @default(false)
   createdAt   DateTime         @default(now())

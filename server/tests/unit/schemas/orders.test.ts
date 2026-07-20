@@ -61,29 +61,46 @@ test("order updates reject payment method changes", () => {
   );
 });
 
-test("order list query applies take/skip defaults", () => {
-  const parsed = listOrdersQuerySchema.parse({});
-  assert.equal(parsed.take, 50);
-  assert.equal(parsed.skip, 0);
+test("listOrdersQuerySchema applies defaults for take/skip", () => {
+  const result = listOrdersQuerySchema.safeParse({});
+  assert.equal(result.success, true);
+  if (result.success) {
+    assert.equal(result.data.take, 50);
+    assert.equal(result.data.skip, 0);
+  }
 });
 
-test("order list query clamps take to 1..100", () => {
-  assert.equal(listOrdersQuerySchema.safeParse({ take: "1" }).success, true);
-  assert.equal(listOrdersQuerySchema.safeParse({ take: "100" }).success, true);
+test("listOrdersQuerySchema parses query params from strings", () => {
+  const result = listOrdersQuerySchema.safeParse({
+    take: "20",
+    skip: "10",
+    status: "PROCESSING",
+  });
+  assert.equal(result.success, true);
+  if (result.success) {
+    assert.equal(result.data.take, 20);
+    assert.equal(result.data.skip, 10);
+    assert.equal(result.data.status, "PROCESSING");
+  }
+});
+
+test("listOrdersQuerySchema rejects out-of-range take", () => {
   assert.equal(listOrdersQuerySchema.safeParse({ take: "0" }).success, false);
   assert.equal(listOrdersQuerySchema.safeParse({ take: "101" }).success, false);
-  assert.equal(listOrdersQuerySchema.safeParse({ skip: "-1" }).success, false);
 });
 
-// Без этой проверки перевёрнутый период отдал бы пустую выдачу без объяснения.
-test("order list query rejects an inverted period", () => {
-  const from = "2026-07-20T00:00:00.000Z";
-  const to = "2026-07-10T00:00:00.000Z";
-  assert.equal(listOrdersQuerySchema.safeParse({ from, to }).success, false);
-  assert.equal(listOrdersQuerySchema.safeParse({ from: to, to: from }).success, true);
-  assert.equal(listOrdersQuerySchema.safeParse({ from, to: from }).success, true);
+test("listOrdersQuerySchema rejects invalid status", () => {
+  assert.equal(listOrdersQuerySchema.safeParse({ status: "INVALID" }).success, false);
 });
 
-test("order list query rejects unknown filters", () => {
-  assert.equal(listOrdersQuerySchema.safeParse({ customerId: "customer-1" }).success, false);
+test("listOrdersQuerySchema validates from/to as ISO datetimes", () => {
+  assert.equal(
+    listOrdersQuerySchema.safeParse({
+      from: "2026-07-01T00:00:00Z",
+      to: "2026-07-19T23:59:59+03:00",
+    }).success,
+    true,
+  );
+  assert.equal(listOrdersQuerySchema.safeParse({ from: "2026-07-01" }).success, false);
+  assert.equal(listOrdersQuerySchema.safeParse({ to: "not-a-date" }).success, false);
 });

@@ -49,9 +49,6 @@ async function getCategoryPopularProduct(
       return res.status(404).json({ error: "Category not found" });
     }
 
-    // Архивные исключаются уже здесь, а не после выборки: иначе самый популярный
-    // заархивированный товар оставил бы категорию вообще без «популярного»,
-    // вместо того чтобы показать следующий по популярности.
     const topItem = await prisma.orderItem.groupBy({
       by: ["productId"],
       where: { product: { categoryId: category.id, isArchived: false } },

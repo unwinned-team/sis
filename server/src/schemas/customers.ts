@@ -20,11 +20,14 @@ export const updateCustomerSchema = z.object({
 
 // role сознательно не входит в create/update: повышение — отдельный роут с
 // собственными гардами, чтобы его нельзя было выполнить «мимоходом».
+// take/skip без значений по умолчанию: отсутствие параметров = «отдать всех»,
+// как было до появления фильтра, иначе существующие потребители молча
+// получили бы усечённый список.
 export const listCustomersQuerySchema = z
   .object({
     role: z.enum(["CUSTOMER", "ADMIN"]).optional(),
-    take: z.coerce.number().int().min(1).max(100).default(50),
-    skip: z.coerce.number().int().min(0).default(0),
+    take: z.coerce.number().int().min(1).max(100).optional(),
+    skip: z.coerce.number().int().min(0).optional(),
   })
   .strict();
 

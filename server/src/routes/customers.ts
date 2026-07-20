@@ -31,6 +31,8 @@ const CUSTOMER_SELECT = {
 } as const;
 
 // GET /api/customers?role=&take=&skip=
+// Ответ остаётся массивом (контракт существующих потребителей и тестов);
+// пагинация ограничивает выборку, но обёртку {customers,total} не вводит.
 async function getCustomers(req: Request, res: Response, next: NextFunction) {
   try {
     const parsed = listCustomersQuerySchema.safeParse(req.query);
@@ -39,20 +41,16 @@ async function getCustomers(req: Request, res: Response, next: NextFunction) {
     }
 
     const { role, take, skip } = parsed.data;
-    const where = role ? { role } : {};
 
-    const [customers, total] = await prisma.$transaction([
-      prisma.customer.findMany({
-        where,
-        orderBy: { createdAt: "desc" },
-        select: CUSTOMER_SELECT,
-        take,
-        skip,
-      }),
-      prisma.customer.count({ where }),
-    ]);
+    const customers = await prisma.customer.findMany({
+      where: role ? { role } : {},
+      orderBy: { createdAt: "desc" },
+      select: CUSTOMER_SELECT,
+      ...(take !== undefined && { take }),
+      ...(skip !== undefined && { skip }),
+    });
 
-    res.json({ customers, total });
+    res.json(customers);
   } catch (error) {
     next(error);
   }

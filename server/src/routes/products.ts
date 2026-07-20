@@ -1,15 +1,9 @@
 import type { Request, Response, NextFunction } from "express";
 import { Router } from "express";
 import prisma from "../prisma.js";
-import {
-  requireAuth,
-  requireAdmin,
-  optionalAuth,
-  isActiveAdmin,
-} from "../middleware/auth.js";
+import { requireAuth, requireAdmin } from "../middleware/auth.js";
 import {
   productParamsSchema,
-  listProductsQuerySchema,
   createProductSchema,
   updateProductSchema,
   variantParamsSchema,
@@ -44,27 +38,28 @@ function isForeignKeyConstraintViolation(error: unknown) {
   );
 }
 
-// GET /api/products — публичный. includeArchived=true работает только для
-// активного админа; для всех остальных параметр молча игнорируется.
+// Публичные GET-роуты скрывают архив; ?includeArchived=true доступен только
+// админу, поэтому цепочка auth-middleware включается лишь при этом параметре.
+function requireAdminForArchived(req: Request, res: Response, next: NextFunction) {
+  if (req.query.includeArchived !== "true") {
+    return next();
+  }
+  requireAuth(req, res, (err?: unknown) => {
+    if (err) return next(err);
+    requireAdmin(req, res, next);
+  });
+}
+
+// GET /api/products
 async function getProducts(req: Request, res: Response, next: NextFunction) {
   try {
-    const parsed = listProductsQuerySchema.safeParse(req.query);
-
-    if (!parsed.success) {
-      return res.status(400).json({ errors: parsed.error.issues });
-    }
-
-    const { categoryId, includeArchived } = parsed.data;
-
-    // Роль берём не из токена, а из БД — как в requireAdmin. Проверка стоит
-    // денег, поэтому выполняется только когда архив реально запрошен.
-    const showArchived =
-      includeArchived && req.user ? await isActiveAdmin(req.user.id) : false;
+    const { categoryId } = req.query;
+    const includeArchived = req.query.includeArchived === "true";
 
     const products = await prisma.product.findMany({
       where: {
-        ...(categoryId && { categoryId }),
-        ...(showArchived ? {} : { isArchived: false }),
+        ...(includeArchived ? {} : { isArchived: false }),
+        ...(categoryId ? { categoryId: String(categoryId) } : {}),
       },
       orderBy: { name: "asc" },
       include: { category: true, variants: true },
@@ -95,8 +90,7 @@ async function getProductById(req: Request, res: Response, next: NextFunction) {
       include: { category: true, variants: true },
     });
 
-    // Архивный товар для публики не существует — тот же 404, что и у несуществующего.
-    if (!product || product.isArchived) {
+    if (!product) {
       return res.status(404).json({ error: "Product not found" });
     }
 
@@ -124,10 +118,8 @@ async function createProduct(req: Request, res: Response, next: NextFunction) {
       return res.status(404).json({ error: "Category not found" });
     }
 
-    const { isAvailable, ...rest } = parsed.data;
-
     const product = await prisma.product.create({
-      data: { ...rest, ...(isAvailable !== undefined && { isAvailable }) },
+      data: parsed.data,
       include: { category: true },
     });
 
@@ -203,6 +195,8 @@ async function deleteProduct(req: Request, res: Response, next: NextFunction) {
     return res.status(400).json({ errors: parsed.error.issues });
   }
 
+  const id = parsed.data.id;
+
   try {
     const existing = await prisma.product.findUnique({
       where: { id },
@@ -216,30 +210,16 @@ async function deleteProduct(req: Request, res: Response, next: NextFunction) {
       where: { productId: id },
     });
 
-    // Товар с историей заказов физически удалить нельзя (OrderItem.product =
-    // Restrict, и это правильно — история не должна ломаться), поэтому мягкое
-    // архивирование. Клиент различает исходы по коду: 204 — удалён, 200 — в архиве.
     if (orderItems > 0) {
-      await prisma.product.update({
-        where: { id: parsed.data.id },
-        data: { isArchived: true },
-      });
-
-      return res.status(200).json({ archived: true });
+      return archiveProduct(id, res);
     }
 
     await prisma.product.delete({ where: { id } });
 
     res.status(204).end();
   } catch (error) {
-    // Заказ на товар мог появиться между count и delete — архивируем как выше.
     if (isForeignKeyConstraintViolation(error)) {
-      await prisma.product.update({
-        where: { id: parsed.data.id },
-        data: { isArchived: true },
-      });
-
-      return res.status(200).json({ archived: true });
+      return archiveProduct(id, res);
     }
 
     next(error);
@@ -278,7 +258,7 @@ async function getRelatedProducts(
       where: { id: parsed.data.id, isArchived: false },
     });
 
-    if (!product || product.isArchived) {
+    if (!product) {
       return res.status(404).json({ error: "Product not found" });
     }
 
@@ -299,26 +279,13 @@ async function getRelatedProducts(
   }
 }
 
-// --- Варианты (вкусы/объёмы) ---
-
-// Вариант всегда адресуется парой :id/:variantId — проверка принадлежности
-// обязательна, иначе, зная только variantId, можно править вариант чужого товара.
-async function findVariantProduct(productId: string) {
-  return prisma.product.findUnique({ where: { id: productId }, select: { id: true } });
-}
-
-// POST /api/products/:id/variants
+// POST /api/products/:productId/variants
 async function createVariant(req: Request, res: Response, next: NextFunction) {
   try {
-    const parsedParams = productParamsSchema.safeParse(req.params);
+    const parsedParams = variantParamsSchema.safeParse(req.params);
 
     if (!parsedParams.success) {
       return res.status(400).json({ errors: parsedParams.error.issues });
-    }
-
-    // Несуществующий товар — 404 до валидации тела.
-    if (!(await findVariantProduct(parsedParams.data.id))) {
-      return res.status(404).json({ error: "Product not found" });
     }
 
     const parsedBody = createVariantSchema.safeParse(req.body);
@@ -327,26 +294,30 @@ async function createVariant(req: Request, res: Response, next: NextFunction) {
       return res.status(400).json({ errors: parsedBody.error.issues });
     }
 
+    const product = await prisma.product.findUnique({
+      where: { id: parsedParams.data.productId },
+    });
+
+    if (!product) {
+      return res.status(404).json({ error: "Product not found" });
+    }
+
     const variant = await prisma.productVariant.create({
       data: {
-        productId: parsedParams.data.id,
+        productId: parsedParams.data.productId,
+        price: parsedBody.data.price,
         taste: parsedBody.data.taste ?? null,
         size: parsedBody.data.size ?? null,
-        price: parsedBody.data.price,
       },
     });
 
     res.status(201).json(variant);
   } catch (error) {
-    if (isForeignKeyConstraintViolation(error)) {
-      return res.status(404).json({ error: "Product not found" });
-    }
-
     next(error);
   }
 }
 
-// PUT /api/products/:id/variants/:variantId
+// PUT /api/products/:productId/variants/:variantId
 async function updateVariant(req: Request, res: Response, next: NextFunction) {
   try {
     const parsedParams = variantParamsSchema.safeParse(req.params);
@@ -361,25 +332,29 @@ async function updateVariant(req: Request, res: Response, next: NextFunction) {
       return res.status(400).json({ errors: parsedBody.error.issues });
     }
 
-    const { id, variantId } = parsedParams.data;
-    const existing = await prisma.productVariant.findUnique({
-      where: { id: variantId },
-      select: { productId: true },
+    const product = await prisma.product.findUnique({
+      where: { id: parsedParams.data.productId },
     });
 
-    // Вариант чужого товара неотличим от несуществующего.
-    if (!existing || existing.productId !== id) {
+    if (!product) {
+      return res.status(404).json({ error: "Product not found" });
+    }
+
+    const existing = await prisma.productVariant.findUnique({
+      where: { id: parsedParams.data.variantId },
+    });
+
+    if (!existing || existing.productId !== parsedParams.data.productId) {
       return res.status(404).json({ error: "Variant not found" });
     }
 
-    const { taste, size, price } = parsedBody.data;
+    const data = Object.fromEntries(
+      Object.entries(parsedBody.data).filter(([_, v]) => v !== undefined),
+    );
+
     const variant = await prisma.productVariant.update({
-      where: { id: variantId },
-      data: {
-        ...(taste !== undefined && { taste }),
-        ...(size !== undefined && { size }),
-        ...(price !== undefined && { price }),
-      },
+      where: { id: parsedParams.data.variantId },
+      data,
     });
 
     res.json(variant);
@@ -388,26 +363,34 @@ async function updateVariant(req: Request, res: Response, next: NextFunction) {
   }
 }
 
-// DELETE /api/products/:id/variants/:variantId
+// DELETE /api/products/:productId/variants/:variantId
 async function deleteVariant(req: Request, res: Response, next: NextFunction) {
   try {
-    const parsed = variantParamsSchema.safeParse(req.params);
+    const parsedParams = variantParamsSchema.safeParse(req.params);
 
-    if (!parsed.success) {
-      return res.status(400).json({ errors: parsed.error.issues });
+    if (!parsedParams.success) {
+      return res.status(400).json({ errors: parsedParams.error.issues });
     }
 
-    const { id, variantId } = parsed.data;
-    const existing = await prisma.productVariant.findUnique({
-      where: { id: variantId },
-      select: { productId: true },
+    const product = await prisma.product.findUnique({
+      where: { id: parsedParams.data.productId },
     });
 
-    if (!existing || existing.productId !== id) {
+    if (!product) {
+      return res.status(404).json({ error: "Product not found" });
+    }
+
+    const existing = await prisma.productVariant.findUnique({
+      where: { id: parsedParams.data.variantId },
+    });
+
+    if (!existing || existing.productId !== parsedParams.data.productId) {
       return res.status(404).json({ error: "Variant not found" });
     }
 
-    await prisma.productVariant.delete({ where: { id: variantId } });
+    await prisma.productVariant.delete({
+      where: { id: parsedParams.data.variantId },
+    });
 
     res.status(204).end();
   } catch (error) {
@@ -415,14 +398,14 @@ async function deleteVariant(req: Request, res: Response, next: NextFunction) {
   }
 }
 
-router.get("/", optionalAuth, getProducts);
-router.get("/:id", getProductById);
+router.get("/", requireAdminForArchived, getProducts);
+router.get("/:id", requireAdminForArchived, getProductById);
 router.post("/", requireAuth, requireAdmin, createProduct);
 router.put("/:id", requireAuth, requireAdmin, updateProduct);
 router.delete("/:id", requireAuth, requireAdmin, deleteProduct);
 router.get("/:id/related", getRelatedProducts);
-router.post("/:id/variants", requireAuth, requireAdmin, createVariant);
-router.put("/:id/variants/:variantId", requireAuth, requireAdmin, updateVariant);
-router.delete("/:id/variants/:variantId", requireAuth, requireAdmin, deleteVariant);
+router.post("/:productId/variants", requireAuth, requireAdmin, createVariant);
+router.put("/:productId/variants/:variantId", requireAuth, requireAdmin, updateVariant);
+router.delete("/:productId/variants/:variantId", requireAuth, requireAdmin, deleteVariant);
 
 export default router;

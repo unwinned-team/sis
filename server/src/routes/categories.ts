@@ -64,8 +64,8 @@ async function getCategoryPopularProduct(
       return res.status(404).json({ error: "No orders in this category" });
     }
 
-    const product = await prisma.product.findUnique({
-      where: { id: topItem[0]!.productId },
+    const product = await prisma.product.findFirst({
+      where: { id: topItem[0]!.productId, isArchived: false },
       include: { category: true, variants: true },
     });
 
@@ -113,6 +113,15 @@ async function updateCategory(req: Request, res: Response, next: NextFunction) {
     const bodyParsed = updateCategorySchema.safeParse(req.body);
     if (!bodyParsed.success) {
       return res.status(400).json({ errors: bodyParsed.error.issues });
+    }
+
+    const existing = await prisma.category.findUnique({
+      where: { slug: paramsParsed.data.slug },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      return res.status(404).json({ error: "Category not found" });
     }
 
     const { name, slug, imageUrl } = bodyParsed.data;

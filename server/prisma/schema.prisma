@@ -88,7 +88,6 @@ model Order {
   items         OrderItem[]
 
   @@index([customerId])
-  // Под фильтр по периоду с пагинацией в GET /orders — иначе seqscan по всей таблице.
   @@index([createdAt])
   @@index([status, createdAt])
 }

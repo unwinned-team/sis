@@ -85,8 +85,13 @@ async function getProductById(req: Request, res: Response, next: NextFunction) {
       return res.status(400).json({ errors: parsed.error.issues });
     }
 
-    const product = await prisma.product.findUnique({
-      where: { id: parsed.data.id },
+    const includeArchived = req.query.includeArchived === "true";
+
+    const product = await prisma.product.findFirst({
+      where: {
+        id: parsed.data.id,
+        ...(includeArchived ? {} : { isArchived: false }),
+      },
       include: { category: true, variants: true },
     });
 
@@ -200,7 +205,7 @@ async function deleteProduct(req: Request, res: Response, next: NextFunction) {
 
   try {
     const existing = await prisma.product.findUnique({
-      where: { id: parsed.data.id },
+      where: { id },
     });
 
     if (!existing) {
@@ -208,7 +213,7 @@ async function deleteProduct(req: Request, res: Response, next: NextFunction) {
     }
 
     const orderItems = await prisma.orderItem.count({
-      where: { productId: parsed.data.id },
+      where: { productId: id },
     });
 
     // Товар с историей заказов физически удалить нельзя (OrderItem.product =
@@ -223,7 +228,7 @@ async function deleteProduct(req: Request, res: Response, next: NextFunction) {
       return res.status(200).json({ archived: true });
     }
 
-    await prisma.product.delete({ where: { id: parsed.data.id } });
+    await prisma.product.delete({ where: { id } });
 
     res.status(204).end();
   } catch (error) {
@@ -241,6 +246,21 @@ async function deleteProduct(req: Request, res: Response, next: NextFunction) {
   }
 }
 
+// updateMany вместо update: товар мог быть удалён параллельным запросом между
+// проверкой и записью — тогда отвечаем 404, а не падаем в 500 на P2025.
+async function archiveProduct(id: string, res: Response) {
+  const archived = await prisma.product.updateMany({
+    where: { id },
+    data: { isArchived: true },
+  });
+
+  if (archived.count === 0) {
+    return res.status(404).json({ error: "Product not found" });
+  }
+
+  res.json({ archived: true });
+}
+
 // GET /api/products/:id/related
 async function getRelatedProducts(
   req: Request,
@@ -254,8 +274,8 @@ async function getRelatedProducts(
       return res.status(400).json({ errors: parsed.error.issues });
     }
 
-    const product = await prisma.product.findUnique({
-      where: { id: parsed.data.id },
+    const product = await prisma.product.findFirst({
+      where: { id: parsed.data.id, isArchived: false },
     });
 
     if (!product || product.isArchived) {

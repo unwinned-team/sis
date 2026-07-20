@@ -10,6 +10,7 @@ import {
   createOrderSchema,
   isOrderTotalValid,
   updateOrderSchema,
+  listOrdersQuerySchema,
 } from "../schemas/orders.js";
 
 const router = Router();

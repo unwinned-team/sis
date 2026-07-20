@@ -18,18 +18,6 @@ const router = Router();
 // Весь CRUD клиентов — back-office; самообслуживание через /api/v1/auth/me.
 router.use(requireAuth, requireAdmin);
 
-// Явный select: без него в выдачу уходят passwordHash и totpSecret.
-const CUSTOMER_SELECT = {
-  id: true,
-  name: true,
-  email: true,
-  phone: true,
-  bonusBalance: true,
-  role: true,
-  isActive: true,
-  createdAt: true,
-} as const;
-
 // GET /api/customers?role=&take=&skip=
 // Ответ остаётся массивом (контракт существующих потребителей и тестов);
 // пагинация ограничивает выборку, но обёртку {customers,total} не вводит.
@@ -45,7 +33,6 @@ async function getCustomers(req: Request, res: Response, next: NextFunction) {
     const customers = await prisma.customer.findMany({
       where: role ? { role } : {},
       orderBy: { createdAt: "desc" },
-      select: CUSTOMER_SELECT,
       ...(take !== undefined && { take }),
       ...(skip !== undefined && { skip }),
     });
@@ -255,7 +242,6 @@ async function updateCustomerRole(req: Request, res: Response, next: NextFunctio
       return tx.customer.update({
         where: { id },
         data: { role },
-        select: CUSTOMER_SELECT,
       });
     });
 
@@ -304,7 +290,6 @@ async function updateCustomerActive(req: Request, res: Response, next: NextFunct
       return tx.customer.update({
         where: { id },
         data: { isActive },
-        select: CUSTOMER_SELECT,
       });
     });
 

@@ -19,4 +19,6 @@ export interface Product {
   createdAt: string;
   category?: Category;
   variants?: ProductVariant[];
+  isAvailable?: boolean;
+  isArchived?: boolean;
 }

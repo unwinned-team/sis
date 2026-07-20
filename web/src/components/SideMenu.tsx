@@ -92,6 +92,15 @@ export function SideMenu({ isOpen, onClose }: SideMenuProps) {
               >
                 Особистий кабінет
               </Link>
+              {user.role === 'ADMIN' && (
+                <Link
+                  to="/admin"
+                  onClick={onClose}
+                  className="rounded-lg border border-white/60 bg-white/30 py-2 text-center text-sm font-medium text-slate-700 backdrop-blur-sm transition hover:bg-white/50"
+                >
+                  Панель адміністратора
+                </Link>
+              )}
               <button
                 type="button"
                 onClick={() => {

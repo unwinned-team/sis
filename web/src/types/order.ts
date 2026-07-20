@@ -11,9 +11,16 @@ export interface OrderItem {
   product?: import('./product').Product;
 }
 
+export interface OrderCustomer {
+  id: string;
+  name: string;
+  phone: string | null;
+}
+
 export interface Order {
   id: string;
   customerId: string;
+  customer?: OrderCustomer;
   totalAmount: string;
   paymentMethod: PaymentMethod;
   status: OrderStatus;

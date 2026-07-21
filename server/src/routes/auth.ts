@@ -9,7 +9,6 @@ import {
   issueRefreshToken,
   rotateRefreshToken,
   revokeRefreshToken,
-  deleteExpiredRefreshTokens,
   type IssuedRefreshToken,
 } from "../lib/refreshTokens.js";
 import { requireAuth } from "../middleware/auth.js";
@@ -107,8 +106,6 @@ function loginHandler(client: TokenClient) {
       if (!customer || !customer.passwordHash || !passwordMatches || !customer.isActive) {
         throw httpError(401, "Invalid credentials");
       }
-
-      await deleteExpiredRefreshTokens(customer.id);
 
       const accessToken = await signAccessToken({ sub: customer.id, role: customer.role });
       const refresh = await issueRefreshToken(customer.id, client, customer.role);

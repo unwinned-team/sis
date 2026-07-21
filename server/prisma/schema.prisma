@@ -27,20 +27,44 @@ model Product {
   category    Category         @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   orderItems  OrderItem[]
   variants    ProductVariant[]
+  cartItems   CartItem[]
 
   @@index([categoryId])
   @@index([categoryId, isArchived])
 }
 
 model ProductVariant {
-  id        String  @id @default(cuid())
+  id        String     @id @default(cuid())
   productId String
   taste     String?
   size      String?
-  price     Decimal @db.Decimal(10, 2)
-  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  price     Decimal    @db.Decimal(10, 2)
+  product   Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  cartItems CartItem[]
 
   @@index([productId])
+}
+
+model CartItem {
+  id         String          @id @default(cuid())
+  customerId String
+  productId  String
+  variantId  String?
+  // Всегда = variantId ?? "": Postgres считает NULL-ы в unique-индексе
+  // различными, поэтому дедупликация строк без варианта идёт через этот ключ.
+  // Инвариант поддерживается кодом роутов корзины — только они пишут в таблицу.
+  variantKey String          @default("")
+  quantity   Int
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+  customer   Customer        @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  product    Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant    ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, productId, variantKey])
+  @@index([customerId])
+  @@index([productId])
+  @@index([variantId])
 }
 
 model Customer {
@@ -56,6 +80,7 @@ model Customer {
   createdAt     DateTime       @default(now())
   orders        Order[]
   refreshTokens RefreshToken[]
+  cartItems     CartItem[]
 }
 
 model RefreshToken {

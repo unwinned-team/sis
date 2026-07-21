@@ -6,6 +6,7 @@ import test, { after, afterEach, before, beforeEach } from "node:test";
 import app from "../../src/app.js";
 import prisma from "../../src/prisma.js";
 import { signAccessToken } from "../../src/lib/jwt.js";
+import { MAX_CART_LINES } from "../../src/schemas/cart.js";
 
 interface ApiResult {
   status: number;
@@ -290,6 +291,51 @@ test("quantity is clamped at the per-line maximum", async () => {
 
   assert.equal(result.status, 200);
   assert.equal(result.body.items[0].quantity, 999);
+});
+
+test("parallel additions cannot exceed the cart line limit", async () => {
+  const { customer, token } = await addCustomer();
+  const categoryId = `${prefix}-limit-category`;
+  const productIds = Array.from(
+    { length: MAX_CART_LINES + 1 },
+    (_, index) => `${prefix}-limit-product-${index}`,
+  );
+
+  await prisma.category.create({
+    data: { id: categoryId, name: `${prefix} limit`, slug: `${prefix}-limit` },
+  });
+  await prisma.product.createMany({
+    data: productIds.map((id) => ({
+      id,
+      name: id,
+      description: "Cart limit integration test product",
+      price: "1.00",
+      categoryId,
+      imageUrl: "https://example.test/product.png",
+    })),
+  });
+  await prisma.cartItem.createMany({
+    data: productIds.slice(0, MAX_CART_LINES - 1).map((productId) => ({
+      customerId: customer.id,
+      productId,
+      quantity: 1,
+    })),
+  });
+
+  const results = await Promise.all(
+    productIds.slice(MAX_CART_LINES - 1).map((productId) =>
+      api("POST", "/cart/items", { productId }, token),
+    ),
+  );
+
+  assert.deepEqual(
+    results.map(({ status }) => status).sort(),
+    [200, 409],
+  );
+  assert.equal(
+    await prisma.cartItem.count({ where: { customerId: customer.id } }),
+    MAX_CART_LINES,
+  );
 });
 
 test("PATCH sets the exact quantity", async () => {

@@ -114,6 +114,10 @@ async function addCartItem(req: Request, res: Response, next: NextFunction) {
         throw httpError(400, "Variant is required for this product");
       }
 
+      // Сериализуем изменения корзины одного покупателя: count + insert должны
+      // видеть результат предыдущей параллельной транзакции.
+      await tx.$queryRaw`SELECT 1 FROM "Customer" WHERE "id" = ${customerId} FOR UPDATE`;
+
       const uniqueWhere = {
         customerId_productId_variantKey: { customerId, productId, variantKey },
       };
@@ -121,7 +125,6 @@ async function addCartItem(req: Request, res: Response, next: NextFunction) {
       const existing = await tx.cartItem.findUnique({ where: uniqueWhere });
       if (!existing) {
         const lines = await tx.cartItem.count({ where: { customerId } });
-        // Гонка параллельных добавлений может кратко дать 101 строку — безвредно.
         if (lines >= MAX_CART_LINES) {
           throw httpError(409, "Cart is full");
         }
@@ -130,12 +133,23 @@ async function addCartItem(req: Request, res: Response, next: NextFunction) {
       await tx.cartItem.upsert({
         where: uniqueWhere,
         update: { quantity: { increment: quantity } },
-        create: { customerId, productId, variantId: variantId ?? null, variantKey, quantity },
+        create: {
+          customerId,
+          productId,
+          variantId: variantId ?? null,
+          variantKey,
+          quantity,
+        },
       });
 
       // Клэмп после инкремента: 999 + 999 не должно накапливаться.
       await tx.cartItem.updateMany({
-        where: { customerId, productId, variantKey, quantity: { gt: MAX_CART_ITEM_QUANTITY } },
+        where: {
+          customerId,
+          productId,
+          variantKey,
+          quantity: { gt: MAX_CART_ITEM_QUANTITY },
+        },
         data: { quantity: MAX_CART_ITEM_QUANTITY },
       });
 
@@ -144,7 +158,10 @@ async function addCartItem(req: Request, res: Response, next: NextFunction) {
 
     res.json(cart);
   } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2003") {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2003"
+    ) {
       return next(httpError(404, "Customer not found"));
     }
     next(error);

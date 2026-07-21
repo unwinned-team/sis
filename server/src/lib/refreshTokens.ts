@@ -27,7 +27,13 @@ export async function issueRefreshToken(
   const raw = newRawToken();
   const expiresAt = new Date(Date.now() + refreshTokenTtlMs(role));
   await prisma.refreshToken.create({
-    data: { tokenHash: hashToken(raw), customerId, familyId: randomUUID(), client, expiresAt },
+    data: {
+      tokenHash: hashToken(raw),
+      customerId,
+      familyId: randomUUID(),
+      client,
+      expiresAt,
+    },
   });
   return { raw, expiresAt };
 }
@@ -41,11 +47,15 @@ type RotationResult =
   | { kind: "replay"; customerId: string; familyId: string }
   | { kind: "invalid" };
 
-export async function rotateRefreshToken(raw: string): Promise<RotatedRefreshToken> {
+export async function rotateRefreshToken(
+  raw: string,
+): Promise<RotatedRefreshToken> {
   const result: RotationResult = await prisma.$transaction(async (tx) => {
     const existing = await tx.refreshToken.findUnique({
       where: { tokenHash: hashToken(raw) },
-      include: { customer: { select: { id: true, role: true, isActive: true } } },
+      include: {
+        customer: { select: { id: true, role: true, isActive: true } },
+      },
     });
     if (!existing) {
       return { kind: "invalid" };
@@ -132,9 +142,34 @@ export async function revokeRefreshToken(raw: string): Promise<void> {
   });
 }
 
-// Чистка протухших токенов пользователя при логине (без cron).
-export async function deleteExpiredRefreshTokens(customerId: string): Promise<void> {
-  await prisma.refreshToken.deleteMany({
-    where: { customerId, expiresAt: { lt: new Date() } },
+// Глобальная чистка протухших токенов; revoked-но-живые строки не трогаем —
+// они нужны для детекции replay до истечения expiresAt.
+export async function deleteExpiredRefreshTokens(): Promise<number> {
+  const { count } = await prisma.refreshToken.deleteMany({
+    where: { expiresAt: { lt: new Date() } },
   });
+  return count;
+}
+
+const CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
+// Джиттер разносит прогоны нескольких инстансов; сама чистка идемпотентна.
+const CLEANUP_JITTER_MS = 5 * 60 * 1000;
+
+// Запускается один раз при старте сервера (index.ts, не в тестах).
+export function startRefreshTokenCleanup(): void {
+  const run = async () => {
+    try {
+      const count = await deleteExpiredRefreshTokens();
+      if (count > 0) {
+        log.info({ count }, "Expired refresh tokens deleted");
+      }
+    } catch (error) {
+      log.error(error, "Refresh token cleanup failed");
+    }
+    const delay =
+      CLEANUP_INTERVAL_MS + Math.floor(Math.random() * CLEANUP_JITTER_MS);
+    // unref: висящий таймер не должен мешать процессу завершиться.
+    setTimeout(run, delay).unref();
+  };
+  void run();
 }

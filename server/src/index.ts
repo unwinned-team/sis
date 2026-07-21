@@ -1,5 +1,6 @@
 import app from "./app.js";
 import log from "./logger.js";
+import { startRefreshTokenCleanup } from "./lib/refreshTokens.js";
 
 const raw = process.env.PORT;
 let port: number;
@@ -20,6 +21,7 @@ if (port < 1 || port > 65535) {
 
 const server = app.listen(port, () => {
   log.info(`Server running on :${port}`);
+  startRefreshTokenCleanup();
 });
 
 server.on("error", (err) => {

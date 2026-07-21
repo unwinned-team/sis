@@ -97,6 +97,7 @@ model RefreshToken {
 
   @@index([customerId])
   @@index([familyId])
+  @@index([expiresAt])
 }
 
 model Order {

@@ -5,6 +5,7 @@ import productsRouter from "./products.js";
 import customersRouter from "./customers.js";
 import ordersRouter from "./orders.js";
 import imagesRouter from "./images.js";
+import cartRouter from "./cart.js";
 
 const router = express.Router();
 
@@ -14,5 +15,6 @@ router.use("/products", productsRouter);
 router.use("/customers", customersRouter);
 router.use("/orders", ordersRouter);
 router.use("/images", imagesRouter);
+router.use("/cart", cartRouter);
 
 export default router;

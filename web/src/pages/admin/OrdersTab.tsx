@@ -89,6 +89,12 @@ function OrderRow({
           <p className="text-xs text-slate-500">
             {formatDateTime(order.createdAt)} · {order.paymentMethod} · #{order.id.slice(-6)}
           </p>
+          {order.shippingAddress && (
+            <p className="mt-1 text-xs text-slate-600">
+              📦 НП: {order.shippingAddress.city}, {order.shippingAddress.oblast} обл., від.{' '}
+              {order.shippingAddress.branch}
+            </p>
+          )}
         </div>
         <span
           className={`rounded-full px-3 py-1 text-xs font-semibold ${STATUS_CLASSES[order.status]}`}

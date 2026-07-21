@@ -26,4 +26,6 @@ export interface Order {
   status: OrderStatus;
   createdAt: string;
   items: OrderItem[];
+  // Появится в ответе после того, как бэкенд начнёт сохранять адрес доставки.
+  shippingAddress?: import('./cart').ShippingAddress;
 }

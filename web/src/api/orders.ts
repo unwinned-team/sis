@@ -1,5 +1,19 @@
 import { apiRequest } from './client';
-import type { Order } from '../types';
+import type { Order, PaymentMethod, ShippingAddress } from '../types';
+
+export interface CreateOrderInput {
+  paymentMethod: PaymentMethod;
+  items: Array<{ productId: string; quantity: number }>;
+  shippingAddress?: ShippingAddress;
+}
+
+export function createOrder(accessToken: string, input: CreateOrderInput): Promise<Order> {
+  return apiRequest<Order>('/orders', {
+    method: 'POST',
+    body: input,
+    accessToken,
+  });
+}
 
 // GET /orders отдаёт {orders, total}; голый массив — формат до пагинации,
 // поддерживается чтобы фронт и бэкенд можно было выкатывать раздельно.

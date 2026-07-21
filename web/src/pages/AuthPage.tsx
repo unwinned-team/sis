@@ -32,6 +32,9 @@ export function AuthPage() {
 
   const mode: AuthMode = searchParams.get('mode') === 'register' ? 'register' : 'login';
 
+  const rawNext = searchParams.get('next');
+  const nextPath = rawNext && rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : '/';
+
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -39,12 +42,15 @@ export function AuthPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (isReady && user) {
-    return <Navigate to="/" replace />;
+    return <Navigate to={nextPath} replace />;
   }
 
   function switchMode(next: AuthMode) {
     setError(null);
-    setSearchParams(next === 'login' ? {} : { mode: next }, { replace: true });
+    const params: Record<string, string> = {};
+    if (next === 'register') params.mode = next;
+    if (rawNext) params.next = rawNext;
+    setSearchParams(params, { replace: true });
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -57,7 +63,7 @@ export function AuthPage() {
       } else {
         await register(name.trim(), email, password);
       }
-      navigate('/', { replace: true });
+      navigate(nextPath, { replace: true });
     } catch (err) {
       setError(errorMessage(err, mode));
     } finally {

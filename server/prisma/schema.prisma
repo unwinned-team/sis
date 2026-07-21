@@ -106,6 +106,10 @@ model Order {
   totalAmount   Decimal       @db.Decimal(10, 2)
   paymentMethod PaymentMethod
   status        OrderStatus   @default(NEW)
+  // Доставка Новой Почтой; null у старых заказов, созданных до этих полей.
+  deliveryCity   String?
+  deliveryRegion String?
+  deliveryBranch String? // номер отделения; строка — бывают "1234а" и пункты
   createdAt     DateTime      @default(now())
   customer      Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
   items         OrderItem[]

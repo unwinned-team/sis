@@ -15,6 +15,9 @@ export const createOrderSchema = z.object({
   // клиента (POS-сценарий); без поля — заказ на самого админа.
   customerId: z.string().min(1, "Customer ID is required").optional(),
   paymentMethod: paymentMethodSchema,
+  deliveryCity: z.string().trim().min(1, "City is required").max(100),
+  deliveryRegion: z.string().trim().min(1, "Region is required").max(100),
+  deliveryBranch: z.string().trim().min(1, "Branch is required").max(20),
   items: z
     .array(
       z.object({

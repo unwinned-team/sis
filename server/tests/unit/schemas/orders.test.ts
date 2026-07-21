@@ -10,6 +10,27 @@ import {
 
 const item = { productId: "product-1", quantity: 1 };
 
+test("order input requires non-empty delivery fields and trims them", () => {
+  const base = { paymentMethod: "CARD", items: [item] };
+  const delivery = {
+    deliveryCity: " Київ ",
+    deliveryRegion: "Київська",
+    deliveryBranch: "42",
+  };
+
+  const ok = createOrderSchema.safeParse({ ...base, ...delivery });
+  assert.equal(ok.success, true);
+  if (ok.success) {
+    assert.equal(ok.data.deliveryCity, "Київ");
+  }
+
+  assert.equal(createOrderSchema.safeParse(base).success, false);
+  assert.equal(
+    createOrderSchema.safeParse({ ...base, ...delivery, deliveryBranch: "  " }).success,
+    false,
+  );
+});
+
 test("order input rejects duplicate products", () => {
   assert.equal(
     createOrderSchema.safeParse({

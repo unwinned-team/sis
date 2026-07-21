@@ -5,8 +5,10 @@ import { CategoryPage } from './pages/CategoryPage';
 import { ProductPage } from './pages/ProductPage';
 import { AuthPage } from './pages/AuthPage';
 import { AccountPage } from './pages/AccountPage';
+import { CartPage } from './pages/CartPage';
 import { RequireRole } from './components/RequireRole';
 import { AuthProvider } from './context/AuthProvider';
+import { CartProvider } from './context/CartProvider';
 
 const AdminPage = lazy(() => import('./pages/admin/AdminPage'));
 
@@ -30,15 +32,18 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/category/:slug" element={<CategoryPage />} />
-          <Route path="/product/:id" element={<ProductPage />} />
-          <Route path="/auth" element={<AuthPage />} />
-          <Route path="/account" element={<AccountPage />} />
-          <Route path="/admin" element={<AdminRoute />} />
-          <Route path="/admin/:tab" element={<AdminRoute />} />
-        </Routes>
+        <CartProvider>
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/category/:slug" element={<CategoryPage />} />
+            <Route path="/product/:id" element={<ProductPage />} />
+            <Route path="/cart" element={<CartPage />} />
+            <Route path="/auth" element={<AuthPage />} />
+            <Route path="/account" element={<AccountPage />} />
+            <Route path="/admin" element={<AdminRoute />} />
+            <Route path="/admin/:tab" element={<AdminRoute />} />
+          </Routes>
+        </CartProvider>
       </AuthProvider>
     </BrowserRouter>
   );

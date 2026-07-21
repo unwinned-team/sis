@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Header } from '../components/Header';
 import { BackgroundOrbs } from '../components/BackgroundOrbs';
@@ -6,6 +6,7 @@ import { BackButton } from '../components/BackButton';
 import { ProductCard } from '../components/ProductCard';
 import { VariantChooser } from '../components/VariantChooser';
 import { useProduct } from '../hooks/useProduct';
+import { useCart } from '../hooks/useCart';
 import { formatPrice } from '../utils/format';
 import type { Product, ProductVariant } from '../types';
 
@@ -36,6 +37,26 @@ interface ProductDetailsProps {
 }
 
 function ProductDetails({ product }: ProductDetailsProps) {
+  const { items, addItem } = useCart();
+  const [justAdded, setJustAdded] = useState(false);
+  const addedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (addedTimer.current) clearTimeout(addedTimer.current);
+    };
+  }, []);
+
+  const inCartQuantity = items.find((item) => item.productId === product.id)?.quantity ?? 0;
+  const isUnavailable = product.isAvailable === false;
+
+  function handleAddToCart() {
+    addItem(product);
+    setJustAdded(true);
+    if (addedTimer.current) clearTimeout(addedTimer.current);
+    addedTimer.current = setTimeout(() => setJustAdded(false), 1500);
+  }
+
   const variants = useMemo(() => product.variants ?? [], [product.variants]);
   const tastes = useMemo(() => distinct(variants.map((v) => v.taste)), [variants]);
   const sizes = useMemo(() => distinct(variants.map((v) => v.size)), [variants]);
@@ -107,14 +128,31 @@ function ProductDetails({ product }: ProductDetailsProps) {
           <div className="flex flex-wrap items-center gap-3">
             <button
               type="button"
-              disabled
-              title="Кошик з'явиться незабаром"
-              className="cursor-not-allowed rounded-full bg-slate-900/60 px-7 py-3 text-sm font-semibold text-white shadow-sm"
+              onClick={handleAddToCart}
+              disabled={isUnavailable}
+              className={`rounded-full px-7 py-3 text-sm font-semibold text-white shadow-sm transition ${
+                isUnavailable
+                  ? 'cursor-not-allowed bg-slate-900/40'
+                  : justAdded
+                    ? 'bg-teal-500'
+                    : 'bg-slate-900 hover:bg-slate-700'
+              }`}
             >
-              🛒 Додати в кошик
+              {isUnavailable ? 'Немає в наявності' : justAdded ? '✓ Додано' : '🛒 Додати в кошик'}
             </button>
-            <span className="text-xs text-slate-400">Кошик з'явиться незабаром</span>
+            {inCartQuantity > 0 && (
+              <Link to="/cart" className="text-sm font-medium text-teal-700 hover:text-teal-900">
+                У кошику: {inCartQuantity} шт →
+              </Link>
+            )}
           </div>
+
+          {selectedVariant && selectedVariant.price !== product.price && (
+            <p className="text-xs text-slate-400">
+              Замовлення поки оформлюється за базовою ціною {formatPrice(product.price)} — вибір
+              смаку та об'єму скоро запрацює.
+            </p>
+          )}
         </div>
       </div>
     </section>

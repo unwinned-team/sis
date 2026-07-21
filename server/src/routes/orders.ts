@@ -101,7 +101,8 @@ async function createOrder(req: Request, res: Response, next: NextFunction) {
     }
 
     const user = req.user!;
-    const { paymentMethod, items } = parsed.data;
+    const { paymentMethod, items, deliveryCity, deliveryRegion, deliveryBranch } =
+      parsed.data;
     const customerId =
       user.role === "ADMIN" ? (parsed.data.customerId ?? user.id) : user.id;
 
@@ -155,6 +156,9 @@ async function createOrder(req: Request, res: Response, next: NextFunction) {
           customerId,
           paymentMethod,
           totalAmount,
+          deliveryCity,
+          deliveryRegion,
+          deliveryBranch,
           items: { create: orderItems },
         },
         include: {

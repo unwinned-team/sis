@@ -172,6 +172,12 @@ function orderItems(fixture: Fixture, quantities?: number[]) {
 }
 
 // Заказ оформляется владельцем: customerId сервер берёт из токена.
+const delivery = {
+  deliveryCity: "Київ",
+  deliveryRegion: "Київська",
+  deliveryBranch: "42",
+};
+
 function postOrder(
   fixture: Fixture,
   paymentMethod: PaymentMethod,
@@ -180,7 +186,7 @@ function postOrder(
   return api(
     "POST",
     "/orders",
-    { paymentMethod, items: orderItems(fixture, quantities) },
+    { paymentMethod, items: orderItems(fixture, quantities), ...delivery },
     fixture.customerToken,
   );
 }
@@ -200,6 +206,34 @@ test("BONUS order debits the full amount when balance is sufficient", async () =
   assert.equal(result.status, 201);
   assert.equal(result.body.totalAmount, "6.5");
   await expectBalance(fixture.customer.id, "3.50");
+});
+
+test("order stores and returns delivery fields", async () => {
+  const fixture = await addFixture({ suffix: "-delivery" });
+
+  const created = await postOrder(fixture, "CARD");
+  assert.equal(created.status, 201);
+  assert.equal(created.body.deliveryCity, delivery.deliveryCity);
+  assert.equal(created.body.deliveryRegion, delivery.deliveryRegion);
+  assert.equal(created.body.deliveryBranch, delivery.deliveryBranch);
+
+  const fetched = await api("GET", `/orders/${created.body.id}`, undefined, admin.token);
+  assert.equal(fetched.status, 200);
+  assert.equal(fetched.body.deliveryCity, delivery.deliveryCity);
+  assert.equal(fetched.body.deliveryBranch, delivery.deliveryBranch);
+});
+
+test("order without delivery fields returns 400", async () => {
+  const fixture = await addFixture({ suffix: "-no-delivery" });
+
+  const result = await api(
+    "POST",
+    "/orders",
+    { paymentMethod: "CARD", items: orderItems(fixture) },
+    fixture.customerToken,
+  );
+
+  assert.equal(result.status, 400);
 });
 
 test("BONUS order returns 409 without changes when balance is insufficient", async () => {
@@ -440,6 +474,7 @@ test("admin can create an order on behalf of a customer (POS)", async () => {
       customerId: fixture.customer.id,
       paymentMethod: "CASH",
       items: orderItems(fixture),
+      ...delivery,
     },
     admin.token,
   );
@@ -459,6 +494,7 @@ test("customerId in the body is ignored for customers", async () => {
       customerId: other.id,
       paymentMethod: "CARD",
       items: orderItems(fixture),
+      ...delivery,
     },
     fixture.customerToken,
   );
@@ -477,6 +513,7 @@ test("creating an order for a missing customer returns 404", async () => {
       customerId: `${prefix}-missing-customer`,
       paymentMethod: "CARD",
       items: orderItems(fixture),
+      ...delivery,
     },
     admin.token,
   );
@@ -493,6 +530,7 @@ test("creating an order with a missing product returns 404", async () => {
     {
       paymentMethod: "CARD",
       items: [{ productId: `${prefix}-missing-product`, quantity: 1 }],
+      ...delivery,
     },
     fixture.customerToken,
   );

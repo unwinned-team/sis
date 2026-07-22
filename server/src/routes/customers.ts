@@ -2,6 +2,7 @@ import type { Request, Response, NextFunction } from "express";
 import { Router } from "express";
 import { Prisma } from "@prisma/client";
 import prisma from "../prisma.js";
+import log from "../logger.js";
 import { httpError } from "../lib/httpError.js";
 import { requireAuth, requireAdmin } from "../middleware/auth.js";
 import {
@@ -245,6 +246,10 @@ async function updateCustomerRole(req: Request, res: Response, next: NextFunctio
       });
     });
 
+    log.info(
+      { customerId: id, fromRole: customer.role, toRole: role, by: req.user!.id },
+      "Customer role changed",
+    );
     res.json(customer);
   } catch (error) {
     next(error);
@@ -293,6 +298,10 @@ async function updateCustomerActive(req: Request, res: Response, next: NextFunct
       });
     });
 
+    log.info(
+      { customerId: id, isActive, by: req.user!.id },
+      "Customer active status changed",
+    );
     res.json(customer);
   } catch (error) {
     next(error);

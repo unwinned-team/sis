@@ -117,10 +117,6 @@ export async function rotateRefreshToken(
       where: { customerId: result.customerId, revokedAt: null },
       data: { revokedAt: new Date() },
     });
-    log.warn(
-      { customerId: result.customerId, familyId: result.familyId },
-      "Refresh token replay detected; all sessions revoked",
-    );
   }
   if (result.kind !== "rotated") {
     throw httpError(401, "Invalid refresh token");

@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import { Router } from "express";
 import prisma from "../prisma.js";
+import log from "../logger.js";
 import { requireAuth, requireAdmin } from "../middleware/auth.js";
 import {
   popularProductParamsSchema,
@@ -94,6 +95,7 @@ async function createCategory(req: Request, res: Response, next: NextFunction) {
       select: { id: true, name: true, slug: true, imageUrl: true },
     });
 
+    log.info({ categoryId: category.id, slug: category.slug, name: category.name }, "Category created");
     res.status(201).json(category);
   } catch (error) {
     next(error);
@@ -133,6 +135,7 @@ async function updateCategory(req: Request, res: Response, next: NextFunction) {
       select: { id: true, name: true, slug: true, imageUrl: true },
     });
 
+    log.info({ categoryId: category.id, slug: category.slug }, "Category updated");
     res.json(category);
   } catch (error) {
     next(error);
@@ -163,6 +166,7 @@ async function deleteCategory(req: Request, res: Response, next: NextFunction) {
 
     await prisma.category.delete({ where: { id: category.id } });
 
+    log.info({ categoryId: category.id, slug: parsed.data.slug }, "Category deleted");
     res.status(204).end();
   } catch (error) {
     next(error);

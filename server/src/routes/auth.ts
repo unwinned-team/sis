@@ -2,6 +2,7 @@ import type { CookieOptions, Request, Response, NextFunction } from "express";
 import { Router } from "express";
 import type { Prisma, Role, TokenClient } from "@prisma/client";
 import prisma from "../prisma.js";
+import log from "../logger.js";
 import { httpError } from "../lib/httpError.js";
 import { hashPassword, verifyPassword, DUMMY_HASH } from "../lib/password.js";
 import { signAccessToken } from "../lib/jwt.js";
@@ -12,7 +13,11 @@ import {
   type IssuedRefreshToken,
 } from "../lib/refreshTokens.js";
 import { requireAuth } from "../middleware/auth.js";
-import { registerSchema, loginSchema, mobileRefreshSchema } from "../schemas/auth.js";
+import {
+  registerSchema,
+  loginSchema,
+  mobileRefreshSchema,
+} from "../schemas/auth.js";
 
 const router = Router();
 
@@ -73,11 +78,24 @@ function registerHandler(client: TokenClient) {
       const { name, email, password } = parsed.data;
       const passwordHash = await hashPassword(password);
       // Дубликат email (P2002) уходит в errorHandler -> 409.
-      const customer = await prisma.customer.create({ data: { name, email, passwordHash } });
+      const customer = await prisma.customer.create({
+        data: { name, email, passwordHash },
+      });
 
-      const accessToken = await signAccessToken({ sub: customer.id, role: customer.role });
-      const refresh = await issueRefreshToken(customer.id, client, customer.role);
-      sendTokens(res, 201, client, refresh, { user: toPublicUser(customer), accessToken });
+      log.info({ customerId: customer.id, client }, "User registered");
+      const accessToken = await signAccessToken({
+        sub: customer.id,
+        role: customer.role,
+      });
+      const refresh = await issueRefreshToken(
+        customer.id,
+        client,
+        customer.role,
+      );
+      sendTokens(res, 201, client, refresh, {
+        user: toPublicUser(customer),
+        accessToken,
+      });
     } catch (error) {
       next(error);
     }
@@ -102,14 +120,36 @@ function loginHandler(client: TokenClient) {
       // Единый код-путь для всех отказов (нет юзера / нет пароля / неверный
       // пароль / заблокирован): DUMMY_HASH выравнивает время ответа, единый
       // 401 не раскрывает, что именно не так.
-      const passwordMatches = await verifyPassword(password, customer?.passwordHash ?? DUMMY_HASH);
-      if (!customer || !customer.passwordHash || !passwordMatches || !customer.isActive) {
+      const passwordMatches = await verifyPassword(
+        password,
+        customer?.passwordHash ?? DUMMY_HASH,
+      );
+      if (
+        !customer ||
+        !customer.passwordHash ||
+        !passwordMatches ||
+        !customer.isActive
+      ) {
         throw httpError(401, "Invalid credentials");
       }
 
-      const accessToken = await signAccessToken({ sub: customer.id, role: customer.role });
-      const refresh = await issueRefreshToken(customer.id, client, customer.role);
-      sendTokens(res, 200, client, refresh, { user: toPublicUser(customer), accessToken });
+      log.info(
+        { customerId: customer.id, role: customer.role, client },
+        "Login successful",
+      );
+      const accessToken = await signAccessToken({
+        sub: customer.id,
+        role: customer.role,
+      });
+      const refresh = await issueRefreshToken(
+        customer.id,
+        client,
+        customer.role,
+      );
+      sendTokens(res, 200, client, refresh, {
+        user: toPublicUser(customer),
+        accessToken,
+      });
     } catch (error) {
       next(error);
     }
@@ -131,7 +171,11 @@ async function webRefresh(req: Request, res: Response, next: NextFunction) {
       throw error;
     });
 
-    const accessToken = await signAccessToken({ sub: rotated.customer.id, role: rotated.customer.role });
+    log.debug({ customerId: rotated.customer.id }, "Web refresh successful");
+    const accessToken = await signAccessToken({
+      sub: rotated.customer.id,
+      role: rotated.customer.role,
+    });
     sendTokens(res, 200, "WEB", rotated, { accessToken });
   } catch (error) {
     next(error);
@@ -147,7 +191,11 @@ async function mobileRefresh(req: Request, res: Response, next: NextFunction) {
     }
 
     const rotated = await rotateRefreshToken(parsed.data.refreshToken);
-    const accessToken = await signAccessToken({ sub: rotated.customer.id, role: rotated.customer.role });
+    log.debug({ customerId: rotated.customer.id }, "Mobile refresh successful");
+    const accessToken = await signAccessToken({
+      sub: rotated.customer.id,
+      role: rotated.customer.role,
+    });
     sendTokens(res, 200, "MOBILE", rotated, { accessToken });
   } catch (error) {
     next(error);
@@ -159,12 +207,16 @@ async function logout(req: Request, res: Response, next: NextFunction) {
   try {
     const fromCookie = req.cookies?.[REFRESH_COOKIE_NAME];
     const fromBody = req.body?.refreshToken;
-    const raw = typeof fromCookie === "string" && fromCookie !== "" ? fromCookie : fromBody;
+    const raw =
+      typeof fromCookie === "string" && fromCookie !== ""
+        ? fromCookie
+        : fromBody;
 
     if (typeof raw === "string" && raw !== "") {
       await revokeRefreshToken(raw);
     }
 
+    log.info({ customerId: req.user?.id }, "User logged out");
     res.clearCookie(REFRESH_COOKIE_NAME, REFRESH_COOKIE_OPTIONS);
     res.status(204).end();
   } catch (error) {
@@ -179,6 +231,7 @@ async function getMe(req: Request, res: Response, next: NextFunction) {
       where: { id: req.user!.id },
     });
     if (!customer) {
+      log.warn({ customerId: req.user!.id }, "Auth/me — user not found");
       return res.status(401).json({ error: "Unauthorized" });
     }
     res.json(toPublicUser(customer));

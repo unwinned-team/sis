@@ -1817,7 +1817,23 @@ async function main() {
     });
   }
 
+  const usedAmountKeys = new Set();
   for (const order of orders) {
+    const totalCents = orderTotalCents(order);
+    const isCardActive =
+      order.paymentMethod === "CARD" &&
+      (order.status === "NEW" || order.status === "PROCESSING");
+    let paymentAmount = null;
+    if (isCardActive) {
+      for (let n = 0; n < 100; n++) {
+        const candidate = money(totalCents + n);
+        if (!usedAmountKeys.has(candidate)) {
+          paymentAmount = candidate;
+          usedAmountKeys.add(candidate);
+          break;
+        }
+      }
+    }
     await prisma.order.create({
       data: {
         id: order.id,
@@ -1830,8 +1846,14 @@ async function main() {
             : order.paymentMethod === "BONUS" || order.status === "COMPLETED"
               ? "PAID"
               : "PENDING",
+        paymentRef: isCardActive
+          ? `ICE-${randomBytes(4).toString("hex").toUpperCase()}`
+          : undefined,
+        paymentAmount,
+        paymentAmountKey: paymentAmount,
+        nextCheckAt: isCardActive ? new Date() : undefined,
         createdAt: order.createdAt,
-        totalAmount: money(orderTotalCents(order)),
+        totalAmount: money(totalCents),
         items: {
           create: order.items.map((item) => {
             const product = productsById[item.productId];

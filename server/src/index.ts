@@ -1,6 +1,8 @@
 import app from "./app.js";
 import log from "./logger.js";
 import { startRefreshTokenCleanup } from "./lib/refreshTokens.js";
+import { setWebhook } from "./lib/monobank.js";
+import { startPaymentVerifier } from "./workers/paymentVerifier.js";
 
 const raw = process.env.PORT;
 let port: number;
@@ -22,6 +24,12 @@ if (port < 1 || port > 65535) {
 const server = app.listen(port, () => {
   log.info(`Server running on :${port}`);
   startRefreshTokenCleanup();
+  if (process.env.MONOBANK_TOKEN && process.env.MONOBANK_WEBHOOK_URL) {
+    setWebhook(process.env.MONOBANK_WEBHOOK_URL).catch((error) =>
+      log.error(error, "Monobank webhook registration failed"),
+    );
+  }
+  startPaymentVerifier();
 });
 
 server.on("error", (err) => {

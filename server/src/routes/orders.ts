@@ -11,6 +11,35 @@ import {
   updateOrderSchema,
   listOrdersQuerySchema,
 } from "../schemas/orders.js";
+import { generatePaymentRef, buildPaymentUrl } from "../lib/monobank.js";
+
+// «Копеечный хвост»: сумма к оплате = totalAmount + N коп (N = 0..99), первая
+// свободная среди активных (PENDING/CLAIMED) заказов — по ней матчится перевод
+// без комментария. Гонку закрывает unique на paymentAmountKey (P2002 -> 409).
+// ponytail: потолок 100 активных заказов на одну базовую сумму; ширить N при росте.
+async function allocatePaymentAmount(
+  tx: Prisma.TransactionClient,
+  totalAmount: Prisma.Decimal,
+): Promise<Prisma.Decimal> {
+  const candidates: Prisma.Decimal[] = [];
+  for (let n = 0; n < 100; n++) {
+    const candidate = totalAmount.add(new Prisma.Decimal(n).div(100));
+    if (isOrderTotalValid(candidate)) candidates.push(candidate);
+  }
+  const taken = new Set(
+    (
+      await tx.order.findMany({
+        where: { paymentAmountKey: { in: candidates.map((c) => c.toFixed(2)) } },
+        select: { paymentAmountKey: true },
+      })
+    ).map((o) => o.paymentAmountKey),
+  );
+  const free = candidates.find((c) => !taken.has(c.toFixed(2)));
+  if (!free) {
+    throw httpError(409, "Too many unpaid orders with this amount, try again later");
+  }
+  return free;
+}
 
 const router = Router();
 
@@ -151,11 +180,21 @@ async function createOrder(req: Request, res: Response, next: NextFunction) {
         }
       }
 
+      // CARD: реф для комментария к переводу monobank + уникальная сумма к
+      // оплате; BONUS списан в этой же транзакции — сразу PAID. CASH остаётся
+      // PENDING (оплата при получении).
+      const paymentAmount =
+        paymentMethod === "CARD" ? await allocatePaymentAmount(tx, totalAmount) : null;
+
       return tx.order.create({
         data: {
           customerId,
           paymentMethod,
           totalAmount,
+          paymentRef: paymentMethod === "CARD" ? generatePaymentRef() : null,
+          paymentStatus: paymentMethod === "BONUS" ? "PAID" : "PENDING",
+          paymentAmount,
+          paymentAmountKey: paymentAmount ? paymentAmount.toFixed(2) : null,
           deliveryCity,
           deliveryRegion,
           deliveryBranch,
@@ -168,10 +207,28 @@ async function createOrder(req: Request, res: Response, next: NextFunction) {
       });
     });
 
+    // CARD: paymentUrl — send-ссылка с предзаполненными суммой и рефом
+    // (оплата картой любого банка); paymentDetails — ручной fallback
+    // (реквизиты). paymentAmount/paymentRef уже в order.
+    if (order.paymentMethod === "CARD") {
+      const extras: Record<string, string> = {};
+      if (process.env.MONOBANK_SEND_URL && order.paymentRef && order.paymentAmount) {
+        extras.paymentUrl = buildPaymentUrl(order.paymentRef, order.paymentAmount);
+      }
+      if (process.env.MONOBANK_PAYMENT_DETAILS) {
+        extras.paymentDetails = process.env.MONOBANK_PAYMENT_DETAILS;
+      }
+      return res.status(201).json({ ...order, ...extras });
+    }
     res.status(201).json(order);
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2003") {
       return next(httpError(404, "Customer or product not found"));
+    }
+    // Гонка на unique paymentAmountKey/paymentRef — повтор запроса выберет
+    // другой хвост/реф.
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return next(httpError(409, "Order creation conflict, please retry"));
     }
     next(error);
   }

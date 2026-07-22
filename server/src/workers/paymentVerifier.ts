@@ -6,10 +6,12 @@ import { fetchStatement, matchPayment } from "../lib/monobank.js";
 // завершения tick-а (как в refreshTokens cleanup) гарантирует паузу >= TICK_MS
 // между запросами независимо от длительности самого запроса.
 const TICK_MS = 60_000;
-// ~30 мин проверок CLAIMED; дальше заказ остаётся для ручного разбора.
-// PENDING проверяется до терминального перехода, чтобы webhook не был
-// единственной точкой доставки подтверждения.
+// ~30 мин частых проверок CLAIMED; дальше — редкий backoff до терминального
+// статуса, чтобы поздний реальный платёж всё же подтвердился (fake webhook
+// иначе глушил бы автопроверку навсегда). PENDING проверяется до терминального
+// перехода, чтобы webhook не был единственной точкой доставки подтверждения.
 const MAX_ATTEMPTS = 30;
+const EXHAUSTED_BACKOFF_MS = 60 * 60 * 1000;
 const ACTIVE_ORDER_STATUSES = ["NEW", "PROCESSING"] as const;
 const VERIFIABLE_PAYMENT_STATUSES = ["PENDING", "CLAIMED"] as const;
 
@@ -36,7 +38,7 @@ export async function verifyClaimedPayments(): Promise<void> {
   for (const order of payments) {
     // Prisma keeps nullable field types even after `not: null` filters.
     if (!order.paymentRef || !order.paymentAmount) continue;
-    if (matchPayment(statement, order.paymentRef, order.paymentAmount)) {
+    if (matchPayment(statement, order.paymentRef, order.paymentAmount, order.createdAt)) {
       const updated = await prisma.order.updateMany({
         where: {
           id: order.id,
@@ -62,7 +64,8 @@ export async function verifyClaimedPayments(): Promise<void> {
         data: { nextCheckAt: new Date(Date.now() + TICK_MS) },
       });
     } else {
-      const exhausted = order.verifyAttempts + 1 >= MAX_ATTEMPTS;
+      const attempts = order.verifyAttempts + 1;
+      const exhausted = attempts >= MAX_ATTEMPTS;
       await prisma.order.updateMany({
         where: {
           id: order.id,
@@ -71,13 +74,13 @@ export async function verifyClaimedPayments(): Promise<void> {
         },
         data: {
           verifyAttempts: { increment: 1 },
-          nextCheckAt: exhausted ? null : new Date(Date.now() + TICK_MS),
+          nextCheckAt: new Date(Date.now() + (exhausted ? EXHAUSTED_BACKOFF_MS : TICK_MS)),
         },
       });
-      if (exhausted) {
+      if (attempts === MAX_ATTEMPTS) {
         log.warn(
           { orderId: order.id, paymentRef: order.paymentRef },
-          "Payment not found after max attempts; left CLAIMED for manual review",
+          "Payment not found after max attempts; rechecking hourly until order is completed or cancelled",
         );
       }
     }

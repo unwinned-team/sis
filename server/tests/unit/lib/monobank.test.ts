@@ -12,38 +12,51 @@ import {
 
 // paymentAmount = totalAmount + «копеечный хвост»
 const paymentAmount = new Prisma.Decimal("123.45");
+// Заказ создан за ~11.5 суток до транзакции item() — транзакция в окне.
+const createdAt = new Date(1_769_000_000 * 1000);
 
 function item(overrides: Partial<StatementItem>): StatementItem {
   return { id: "t1", time: 1_770_000_000, amount: 12_345, comment: "ICE-AB12CD34", ...overrides };
 }
 
 test("matches exact amount with matching ref", () => {
-  assert.equal(matchPayment([item({})], "ICE-AB12CD34", paymentAmount), true);
+  assert.equal(matchPayment([item({})], "ICE-AB12CD34", paymentAmount, createdAt), true);
 });
 
 test("matches ref inside longer comment, case-insensitive", () => {
   assert.equal(
-    matchPayment([item({ comment: "оплата ice-ab12cd34 дякую" })], "ICE-AB12CD34", paymentAmount),
+    matchPayment([item({ comment: "оплата ice-ab12cd34 дякую" })], "ICE-AB12CD34", paymentAmount, createdAt),
     true,
   );
 });
 
 test("matches exact amount without comment (перевод из другого банка)", () => {
-  assert.equal(matchPayment([item({ comment: undefined })], "ICE-AB12CD34", paymentAmount), true);
-  assert.equal(matchPayment([item({ comment: "просто перевод" })], "ICE-AB12CD34", paymentAmount), true);
+  assert.equal(matchPayment([item({ comment: undefined })], "ICE-AB12CD34", paymentAmount, createdAt), true);
+  assert.equal(matchPayment([item({ comment: "просто перевод" })], "ICE-AB12CD34", paymentAmount, createdAt), true);
 });
 
 test("rejects foreign ref even with exact amount", () => {
-  assert.equal(matchPayment([item({ comment: "ICE-FF00FF00" })], "ICE-AB12CD34", paymentAmount), false);
+  assert.equal(matchPayment([item({ comment: "ICE-FF00FF00" })], "ICE-AB12CD34", paymentAmount, createdAt), false);
 });
 
 test("rejects wrong amount even with correct ref", () => {
-  assert.equal(matchPayment([item({ amount: 12_346 })], "ICE-AB12CD34", paymentAmount), false);
-  assert.equal(matchPayment([item({ amount: 12_300 })], "ICE-AB12CD34", paymentAmount), false);
+  assert.equal(matchPayment([item({ amount: 12_346 })], "ICE-AB12CD34", paymentAmount, createdAt), false);
+  assert.equal(matchPayment([item({ amount: 12_300 })], "ICE-AB12CD34", paymentAmount, createdAt), false);
 });
 
 test("rejects outgoing (negative) transaction with same abs amount", () => {
-  assert.equal(matchPayment([item({ amount: -12_345 })], "ICE-AB12CD34", paymentAmount), false);
+  assert.equal(matchPayment([item({ amount: -12_345 })], "ICE-AB12CD34", paymentAmount, createdAt), false);
+});
+
+test("rejects transaction older than order creation (переиспользованный хвост)", () => {
+  const orderCreatedAt = new Date((1_770_000_000 + 3600) * 1000);
+  assert.equal(
+    matchPayment([item({ comment: undefined })], "ICE-AB12CD34", paymentAmount, orderCreatedAt),
+    false,
+  );
+  // Небольшое расхождение часов (< 60с) не отвергает свежую транзакцию.
+  const slightlyAfter = new Date((1_770_000_000 + 30) * 1000);
+  assert.equal(matchPayment([item({})], "ICE-AB12CD34", paymentAmount, slightlyAfter), true);
 });
 
 test("extractPaymentRef finds ref or returns null", () => {

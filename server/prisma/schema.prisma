@@ -106,6 +106,19 @@ model Order {
   totalAmount   Decimal       @db.Decimal(10, 2)
   paymentMethod PaymentMethod
   status        OrderStatus   @default(NEW)
+  // Оплата CARD через личный счёт monobank: клиент указывает paymentRef в
+  // комментарии перевода, воркер подтверждает по выписке. BONUS — сразу PAID.
+  paymentStatus  PaymentStatus @default(PENDING)
+  paymentRef     String?       @unique // короткий код для комментария перевода
+  // Сумма к оплате = totalAmount + «копеечный хвост»; уникальна среди активных
+  // заказов — по ней матчится перевод без комментария (карта другого банка).
+  paymentAmount Decimal? @db.Decimal(10, 2)
+  // = paymentAmount.toFixed(2), пока заказ PENDING/CLAIMED; null после PAID.
+  // Postgres не сравнивает NULL-ы в unique — уникальность держится только для
+  // активных заказов без partial-индекса, который Prisma в схеме не умеет.
+  paymentAmountKey String? @unique
+  verifyAttempts Int           @default(0)
+  nextCheckAt    DateTime? // очередь воркера; null = не проверяется
   // Доставка Новой Почтой; null у старых заказов, созданных до этих полей.
   deliveryCity   String?
   deliveryRegion String?
@@ -117,6 +130,7 @@ model Order {
   @@index([customerId])
   @@index([createdAt])
   @@index([status, createdAt])
+  @@index([paymentStatus, nextCheckAt])
 }
 
 model OrderItem {
@@ -146,6 +160,13 @@ enum PaymentMethod {
   CARD
   CASH
   BONUS
+}
+
+enum PaymentStatus {
+  PENDING
+  CLAIMED // webhook заявил оплату, ждёт подтверждения по выписке
+  PAID
+  FAILED // только вручную; воркер после лимита попыток оставляет CLAIMED
 }
 
 enum OrderStatus {

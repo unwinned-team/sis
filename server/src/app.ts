@@ -22,7 +22,7 @@ app.use("/uploads", express.static("uploads"));
 app.use((req: Request, res: Response, next: NextFunction) => {
   const start = Date.now();
   res.on("finish", () => {
-    log.info({ method: req.method, url: req.originalUrl, status: res.statusCode, ms: Date.now() - start });
+    log.debug({ method: req.method, url: req.originalUrl, status: res.statusCode, ms: Date.now() - start });
   });
   next();
 });

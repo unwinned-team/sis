@@ -2,6 +2,7 @@ import type { Request, Response, NextFunction } from "express";
 import { Router } from "express";
 import { Prisma } from "@prisma/client";
 import prisma from "../prisma.js";
+import log from "../logger.js";
 import { httpError } from "../lib/httpError.js";
 import { requireAuth, requireAdmin } from "../middleware/auth.js";
 import {
@@ -208,6 +209,11 @@ async function createOrder(req: Request, res: Response, next: NextFunction) {
       });
     });
 
+    log.info(
+      { orderId: order.id, totalAmount: order.totalAmount, paymentMethod: order.paymentMethod, customerId },
+      "Order created",
+    );
+
     // CARD: paymentUrl — send-ссылка с предзаполненными суммой и рефом
     // (оплата картой любого банка); paymentDetails — ручной fallback
     // (реквизиты). paymentAmount/paymentRef уже в order.
@@ -331,6 +337,10 @@ async function updateOrder(req: Request, res: Response, next: NextFunction) {
         });
       }
 
+      log.info(
+        { orderId: id, fromStatus: existing.status, toStatus: status },
+        "Order status updated",
+      );
       return tx.order.findUniqueOrThrow({
         where: { id },
         include: {
@@ -389,6 +399,7 @@ async function deleteOrder(req: Request, res: Response, next: NextFunction) {
         });
       }
     });
+    log.info({ orderId: parsed.data.id, customerId: user.id }, "Order deleted");
     res.status(204).end();
   } catch (error) {
     next(error);

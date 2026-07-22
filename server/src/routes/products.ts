@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import { Router } from "express";
 import prisma from "../prisma.js";
+import log from "../logger.js";
 import { requireAuth, requireAdmin } from "../middleware/auth.js";
 import {
   productParamsSchema,
@@ -123,6 +124,7 @@ async function createProduct(req: Request, res: Response, next: NextFunction) {
       include: { category: true },
     });
 
+    log.info({ productId: product.id, categoryId: product.categoryId }, "Product created");
     res.status(201).json(product);
   } catch (error) {
     if (isForeignKeyConstraintViolation(error)) {
@@ -177,6 +179,7 @@ async function updateProduct(req: Request, res: Response, next: NextFunction) {
       include: { category: true },
     });
 
+    log.info({ productId: product.id }, "Product updated");
     res.json(product);
   } catch (error) {
     if (isForeignKeyConstraintViolation(error)) {
@@ -216,6 +219,7 @@ async function deleteProduct(req: Request, res: Response, next: NextFunction) {
 
     await prisma.product.delete({ where: { id } });
 
+    log.info({ productId: id }, "Product deleted");
     res.status(204).end();
   } catch (error) {
     if (isForeignKeyConstraintViolation(error)) {
@@ -238,6 +242,7 @@ async function archiveProduct(id: string, res: Response) {
     return res.status(404).json({ error: "Product not found" });
   }
 
+  log.info({ productId: id }, "Product archived (has order items)");
   res.json({ archived: true });
 }
 
@@ -311,6 +316,7 @@ async function createVariant(req: Request, res: Response, next: NextFunction) {
       },
     });
 
+    log.info({ variantId: variant.id, productId: parsedParams.data.productId }, "Variant created");
     res.status(201).json(variant);
   } catch (error) {
     next(error);
@@ -357,6 +363,7 @@ async function updateVariant(req: Request, res: Response, next: NextFunction) {
       data,
     });
 
+    log.info({ variantId: variant.id, productId: parsedParams.data.productId }, "Variant updated");
     res.json(variant);
   } catch (error) {
     next(error);
@@ -392,6 +399,7 @@ async function deleteVariant(req: Request, res: Response, next: NextFunction) {
       where: { id: parsedParams.data.variantId },
     });
 
+    log.info({ variantId: parsedParams.data.variantId, productId: parsedParams.data.productId }, "Variant deleted");
     res.status(204).end();
   } catch (error) {
     next(error);

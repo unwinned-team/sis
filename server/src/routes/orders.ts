@@ -290,11 +290,7 @@ async function updateOrder(req: Request, res: Response, next: NextFunction) {
               nextCheckAt: null,
             }
           : status === "CANCELLED"
-            ? {
-                paymentStatus: "FAILED" as const,
-                paymentAmountKey: null,
-                nextCheckAt: null,
-              }
+            ? { paymentAmountKey: null, nextCheckAt: null }
             : {};
 
       const updated = await tx.order.updateMany({
@@ -308,6 +304,16 @@ async function updateOrder(req: Request, res: Response, next: NextFunction) {
           throw httpError(404, "Order not found");
         }
         throw httpError(409, "Order was concurrently modified");
+      }
+
+      // Отмена не понижает PAID (деньги уже получены — факт нужен для
+      // возврата); FAILED ставится условно, чтобы не перетереть PAID,
+      // выставленный воркером параллельно.
+      if (status === "CANCELLED") {
+        await tx.order.updateMany({
+          where: { id, paymentStatus: { in: ["PENDING", "CLAIMED"] } },
+          data: { paymentStatus: "FAILED" },
+        });
       }
 
       if (status === "COMPLETED" && existing.paymentMethod !== "BONUS") {
@@ -356,11 +362,24 @@ async function deleteOrder(req: Request, res: Response, next: NextFunction) {
         throw httpError(404, "Order not found");
       }
 
+      // CARD-заказ с заявленной/подтверждённой оплатой не удаляется: деньги
+      // уже (возможно) пришли — след нужен для сверки и возврата. BONUS PAID
+      // удалять можно — бонусы возвращаются ниже в этой же транзакции.
+      if (existing.paymentMethod === "CARD" && existing.paymentStatus !== "PENDING") {
+        throw httpError(409, "Order has a claimed or confirmed payment and cannot be deleted");
+      }
+
       const deleted = await tx.order.deleteMany({
-        where: { id: parsed.data.id, status: "NEW" },
+        // Повтор payment-условия закрывает гонку с webhook/воркером между
+        // findUnique выше и этим delete.
+        where: {
+          id: parsed.data.id,
+          status: "NEW",
+          OR: [{ paymentMethod: { not: "CARD" } }, { paymentStatus: "PENDING" }],
+        },
       });
       if (deleted.count === 0) {
-        throw httpError(409, "Only orders with status NEW can be cancelled");
+        throw httpError(409, "Only unpaid orders with status NEW can be cancelled");
       }
 
       if (existing.paymentMethod === "BONUS") {

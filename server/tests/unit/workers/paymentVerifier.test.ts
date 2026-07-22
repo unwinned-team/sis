@@ -55,7 +55,9 @@ test("verifies a scheduled PENDING CARD payment without a webhook claim", async 
   }) as unknown as typeof orderDelegate.updateMany;
   t.mock.method(globalThis, "fetch", async () =>
     new Response(
-      JSON.stringify([{ id: "payment", time: 1, amount: 1_000, comment: "" }]),
+      JSON.stringify([
+        { id: "payment", time: Math.floor(Date.now() / 1000), amount: 1_000, comment: "" },
+      ]),
       { status: 200, headers: { "content-type": "application/json" } },
     ),
   );

@@ -314,6 +314,48 @@ test("CARD payment verification is scheduled and cancellation releases its amoun
   assert.equal(cancelled.body.nextCheckAt, null);
 });
 
+test("CANCELLED does not downgrade a PAID card payment", async () => {
+  const fixture = await addFixture({ suffix: "-cancel-paid" });
+  const created = await postOrder(fixture, "CARD");
+  assert.equal(created.status, 201);
+  await prisma.order.update({
+    where: { id: created.body.id },
+    data: { paymentStatus: "PAID", paymentAmountKey: null, nextCheckAt: null },
+  });
+
+  const cancelled = await api(
+    "PUT",
+    `/orders/${created.body.id}`,
+    { status: "CANCELLED" },
+    admin.token,
+  );
+
+  assert.equal(cancelled.status, 200);
+  assert.equal(cancelled.body.status, "CANCELLED");
+  assert.equal(cancelled.body.paymentStatus, "PAID");
+});
+
+test("customer cannot delete a CARD order with a claimed payment", async () => {
+  const fixture = await addFixture({ suffix: "-delete-claimed" });
+  const created = await postOrder(fixture, "CARD");
+  assert.equal(created.status, 201);
+  await prisma.order.update({
+    where: { id: created.body.id },
+    data: { paymentStatus: "CLAIMED" },
+  });
+
+  const deleted = await api(
+    "DELETE",
+    `/orders/${created.body.id}`,
+    undefined,
+    fixture.customerToken,
+  );
+
+  assert.equal(deleted.status, 409);
+  const stillThere = await prisma.order.findUnique({ where: { id: created.body.id } });
+  assert.ok(stillThere);
+});
+
 test("repeated COMPLETED does not award a bonus twice", async () => {
   const fixture = await addFixture({ prices: ["100.00"] });
   const created = await postOrder(fixture, "CARD");

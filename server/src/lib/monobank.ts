@@ -79,17 +79,26 @@ export function buildPaymentUrl(
   return `${base}?a=${paymentAmount.toFixed(2)}&t=${encodeURIComponent(paymentRef)}`;
 }
 
+// Запас на расхождение часов сервера и банка при сравнении item.time с createdAt.
+const CLOCK_SKEW_MS = 60_000;
+
 // Двойной матч: приход (amount > 0) с суммой ровно paymentAmount (копейки,
 // с «хвостом» — уникальна среди активных заказов). Реф: пустой комментарий
 // допустим (перевод из другого банка), но чужой ICE-код отвергается — это
-// платёж другого заказа, случайно совпавший суммой.
+// платёж другого заказа, случайно совпавший суммой. Транзакции старше
+// createdAt заказа не матчатся: выписка покрывает всю очередь (до 31 дня),
+// и после освобождения paymentAmountKey старый перевод без комментария
+// иначе подтвердил бы новый заказ с той же суммой.
 export function matchPayment(
   items: StatementItem[],
   paymentRef: string,
   paymentAmount: Prisma.Decimal,
+  createdAt: Date,
 ): boolean {
   const kopecks = paymentAmount.mul(100).toNumber();
+  const notBeforeMs = createdAt.getTime() - CLOCK_SKEW_MS;
   return items.some((item) => {
+    if (item.time * 1000 < notBeforeMs) return false;
     if (item.amount <= 0 || item.amount !== kopecks) return false;
     const ref = extractPaymentRef(item.comment ?? "");
     return ref === null || ref === paymentRef;

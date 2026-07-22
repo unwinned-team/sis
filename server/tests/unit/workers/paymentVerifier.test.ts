@@ -1,16 +1,21 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { Prisma } from "@prisma/client";
-import prisma from "../../../src/prisma.js";
-import { verifyClaimedPayments } from "../../../src/workers/paymentVerifier.js";
 
 test("verifies a scheduled PENDING CARD payment without a webhook claim", async (t) => {
+  process.env.DATABASE_URL ??= "postgresql://localhost:5432/test";
+  const previousDbUrl = process.env.DATABASE_URL;
   const previousToken = process.env.MONOBANK_TOKEN;
   process.env.MONOBANK_TOKEN = "test-token";
   t.after(() => {
     if (previousToken === undefined) delete process.env.MONOBANK_TOKEN;
     else process.env.MONOBANK_TOKEN = previousToken;
+    if (previousDbUrl === undefined) delete process.env.DATABASE_URL;
+    else process.env.DATABASE_URL = previousDbUrl;
   });
+
+  const { default: prisma } = await import("../../../src/prisma.js");
+  const { verifyClaimedPayments } = await import("../../../src/workers/paymentVerifier.js");
 
   const order = {
     id: "pending-order",

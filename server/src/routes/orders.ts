@@ -195,6 +195,7 @@ async function createOrder(req: Request, res: Response, next: NextFunction) {
           paymentStatus: paymentMethod === "BONUS" ? "PAID" : "PENDING",
           paymentAmount,
           paymentAmountKey: paymentAmount ? paymentAmount.toFixed(2) : null,
+          nextCheckAt: paymentMethod === "CARD" ? new Date() : null,
           deliveryCity,
           deliveryRegion,
           deliveryBranch,
@@ -281,9 +282,24 @@ async function updateOrder(req: Request, res: Response, next: NextFunction) {
         throw httpError(409, `Cannot transition from ${existing.status} to ${status}`);
       }
 
+      const paymentData =
+        status === "COMPLETED"
+          ? {
+              paymentStatus: "PAID" as const,
+              paymentAmountKey: null,
+              nextCheckAt: null,
+            }
+          : status === "CANCELLED"
+            ? {
+                paymentStatus: "FAILED" as const,
+                paymentAmountKey: null,
+                nextCheckAt: null,
+              }
+            : {};
+
       const updated = await tx.order.updateMany({
         where: { id, status: existing.status },
-        data: { status },
+        data: { status, ...paymentData },
       });
 
       if (updated.count === 0) {

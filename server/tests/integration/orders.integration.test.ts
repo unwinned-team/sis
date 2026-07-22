@@ -285,8 +285,33 @@ test("CARD and CASH orders award exactly 1% on first completion", async () => {
     );
 
     assert.equal(completed.status, 200);
+    assert.equal(completed.body.paymentStatus, "PAID");
+    assert.equal(completed.body.paymentAmountKey, null);
+    assert.equal(completed.body.nextCheckAt, null);
     await expectBalance(fixture.customer.id, "1.00");
   }
+});
+
+test("CARD payment verification is scheduled and cancellation releases its amount", async () => {
+  const fixture = await addFixture({ suffix: "-payment-cancel" });
+  const created = await postOrder(fixture, "CARD");
+
+  assert.equal(created.status, 201);
+  assert.equal(created.body.paymentStatus, "PENDING");
+  assert.ok(created.body.nextCheckAt);
+  assert.ok(created.body.paymentAmountKey);
+
+  const cancelled = await api(
+    "PUT",
+    `/orders/${created.body.id}`,
+    { status: "CANCELLED" },
+    admin.token,
+  );
+
+  assert.equal(cancelled.status, 200);
+  assert.equal(cancelled.body.paymentStatus, "FAILED");
+  assert.equal(cancelled.body.paymentAmountKey, null);
+  assert.equal(cancelled.body.nextCheckAt, null);
 });
 
 test("repeated COMPLETED does not award a bonus twice", async () => {

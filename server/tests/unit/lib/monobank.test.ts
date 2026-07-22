@@ -6,6 +6,7 @@ import {
   extractPaymentRef,
   generatePaymentRef,
   buildPaymentUrl,
+  clampStatementFrom,
   type StatementItem,
 } from "../../../src/lib/monobank.js";
 
@@ -64,4 +65,14 @@ test("buildPaymentUrl prefills amount and encoded ref", () => {
   );
   delete process.env.MONOBANK_SEND_URL;
   assert.throws(() => buildPaymentUrl("ICE-AB12CD34", paymentAmount));
+});
+
+test("clamps statement start to Monobank's maximum interval", () => {
+  const now = Date.UTC(2026, 6, 22, 12);
+  const recent = new Date(now - 60_000);
+  assert.equal(clampStatementFrom(recent, now).getTime(), recent.getTime());
+  assert.equal(
+    clampStatementFrom(new Date(0), now).getTime(),
+    now - 31 * 24 * 60 * 60 * 1000,
+  );
 });

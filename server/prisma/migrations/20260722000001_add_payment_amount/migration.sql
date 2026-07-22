@@ -4,4 +4,3 @@ ADD COLUMN     "paymentAmountKey" TEXT;
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Order_paymentAmountKey_key" ON "Order"("paymentAmountKey");
-

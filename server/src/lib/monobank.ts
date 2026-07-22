@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { Prisma } from "@prisma/client";
 
 const API_BASE = "https://api.monobank.ua";
+const MAX_STATEMENT_INTERVAL_MS = 31 * 24 * 60 * 60 * 1000;
 
 // Поля выписки, которые использует матчинг; остальное monobank шлёт, но нам не нужно.
 export interface StatementItem {
@@ -35,9 +36,15 @@ export async function setWebhook(webHookUrl: string): Promise<void> {
 // Лимит monobank: 1 запрос / 60 сек — единственный вызов делает воркер (1 pull за tick).
 // ponytail: без пагинации — monobank отдаёт до 500 транзакций за окно; окно
 // у нас ~35 мин, при переполнении добавить постранично по item.time.
+export function clampStatementFrom(from: Date, now = Date.now()): Date {
+  return new Date(Math.max(from.getTime(), now - MAX_STATEMENT_INTERVAL_MS));
+}
+
 export async function fetchStatement(from: Date): Promise<StatementItem[]> {
   const account = process.env.MONOBANK_ACCOUNT || "0";
-  const fromSec = Math.floor(from.getTime() / 1000);
+  // Monobank rejects intervals longer than 31 days + 1 hour. Keep a small
+  // safety margin so one old order cannot block verification for all others.
+  const fromSec = Math.floor(clampStatementFrom(from).getTime() / 1000);
   const res = await fetch(`${API_BASE}/personal/statement/${account}/${fromSec}`, {
     headers: { "X-Token": token() },
   });

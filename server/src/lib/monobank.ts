@@ -3,6 +3,9 @@ import { Prisma } from "@prisma/client";
 
 const API_BASE = "https://api.monobank.ua";
 const MAX_STATEMENT_INTERVAL_MS = 31 * 24 * 60 * 60 * 1000;
+// Зависший запрос иначе блокировал бы tick воркера навсегда: следующий tick
+// планируется только после завершения текущего (цепочка setTimeout).
+const FETCH_TIMEOUT_MS = 10_000;
 
 // Поля выписки, которые использует матчинг; остальное monobank шлёт, но нам не нужно.
 export interface StatementItem {
@@ -27,6 +30,7 @@ export async function setWebhook(webHookUrl: string): Promise<void> {
     method: "POST",
     headers: { "X-Token": token(), "Content-Type": "application/json" },
     body: JSON.stringify({ webHookUrl }),
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   });
   if (!res.ok) {
     throw new Error(`monobank setWebhook: ${res.status} ${await res.text()}`);
@@ -47,6 +51,7 @@ export async function fetchStatement(from: Date): Promise<StatementItem[]> {
   const fromSec = Math.floor(clampStatementFrom(from).getTime() / 1000);
   const res = await fetch(`${API_BASE}/personal/statement/${account}/${fromSec}`, {
     headers: { "X-Token": token() },
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   });
   if (!res.ok) {
     throw new Error(`monobank statement: ${res.status} ${await res.text()}`);

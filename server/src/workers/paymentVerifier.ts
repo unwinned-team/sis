@@ -6,30 +6,43 @@ import { fetchStatement, matchPayment } from "../lib/monobank.js";
 // завершения tick-а (как в refreshTokens cleanup) гарантирует паузу >= TICK_MS
 // между запросами независимо от длительности самого запроса.
 const TICK_MS = 60_000;
-// ~30 мин проверок; дальше заказ остаётся CLAIMED для ручного разбора
-// (nextCheckAt=null выводит его из очереди), авто-FAILED сознательно нет.
+// ~30 мин проверок CLAIMED; дальше заказ остаётся для ручного разбора.
+// PENDING проверяется до терминального перехода, чтобы webhook не был
+// единственной точкой доставки подтверждения.
 const MAX_ATTEMPTS = 30;
+const ACTIVE_ORDER_STATUSES = ["NEW", "PROCESSING"] as const;
+const VERIFIABLE_PAYMENT_STATUSES = ["PENDING", "CLAIMED"] as const;
 
 // Один pull выписки за tick покрывает весь период — матчим сразу все заказы
-// очереди. Идемпотентен: PAID ставится условным update из CLAIMED и не понижается.
+// очереди. Идемпотентен: PAID ставится условным update и не понижается.
 // При рестарте очередь восстанавливается из БД (nextCheckAt), не из памяти.
 export async function verifyClaimedPayments(): Promise<void> {
-  const claimed = await prisma.order.findMany({
-    where: { paymentStatus: "CLAIMED", nextCheckAt: { lte: new Date() } },
+  const payments = await prisma.order.findMany({
+    where: {
+      paymentMethod: "CARD",
+      status: { in: [...ACTIVE_ORDER_STATUSES] },
+      paymentStatus: { in: [...VERIFIABLE_PAYMENT_STATUSES] },
+      paymentRef: { not: null },
+      paymentAmount: { not: null },
+      nextCheckAt: { lte: new Date() },
+    },
     orderBy: { nextCheckAt: "asc" },
   });
-  if (claimed.length === 0) return; // пустая очередь — без запроса к API
+  if (payments.length === 0) return; // пустая очередь — без запроса к API
 
-  const oldest = claimed.reduce((a, b) => (a.createdAt < b.createdAt ? a : b));
+  const oldest = payments.reduce((a, b) => (a.createdAt < b.createdAt ? a : b));
   const statement = await fetchStatement(oldest.createdAt);
 
-  for (const order of claimed) {
-    // CLAIMED бывает только у CARD-заказов (webhook матчит ref/paymentAmountKey);
-    // страховка от ручных правок в БД.
+  for (const order of payments) {
+    // Prisma keeps nullable field types even after `not: null` filters.
     if (!order.paymentRef || !order.paymentAmount) continue;
     if (matchPayment(statement, order.paymentRef, order.paymentAmount)) {
       const updated = await prisma.order.updateMany({
-        where: { id: order.id, paymentStatus: "CLAIMED" },
+        where: {
+          id: order.id,
+          status: { in: [...ACTIVE_ORDER_STATUSES] },
+          paymentStatus: { in: [...VERIFIABLE_PAYMENT_STATUSES] },
+        },
         // paymentAmountKey=null освобождает «копеечный хвост» для новых заказов.
         data: { paymentStatus: "PAID", nextCheckAt: null, paymentAmountKey: null },
       });
@@ -39,10 +52,23 @@ export async function verifyClaimedPayments(): Promise<void> {
           "Payment confirmed",
         );
       }
+    } else if (order.paymentStatus === "PENDING") {
+      await prisma.order.updateMany({
+        where: {
+          id: order.id,
+          status: { in: [...ACTIVE_ORDER_STATUSES] },
+          paymentStatus: "PENDING",
+        },
+        data: { nextCheckAt: new Date(Date.now() + TICK_MS) },
+      });
     } else {
       const exhausted = order.verifyAttempts + 1 >= MAX_ATTEMPTS;
       await prisma.order.updateMany({
-        where: { id: order.id, paymentStatus: "CLAIMED" },
+        where: {
+          id: order.id,
+          status: { in: [...ACTIVE_ORDER_STATUSES] },
+          paymentStatus: "CLAIMED",
+        },
         data: {
           verifyAttempts: { increment: 1 },
           nextCheckAt: exhausted ? null : new Date(Date.now() + TICK_MS),

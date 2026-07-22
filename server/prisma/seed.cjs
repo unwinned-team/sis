@@ -1824,6 +1824,12 @@ async function main() {
         customerId: order.customerId,
         paymentMethod: order.paymentMethod,
         status: order.status,
+        paymentStatus:
+          order.status === "CANCELLED"
+            ? "FAILED"
+            : order.paymentMethod === "BONUS" || order.status === "COMPLETED"
+              ? "PAID"
+              : "PENDING",
         createdAt: order.createdAt,
         totalAmount: money(orderTotalCents(order)),
         items: {

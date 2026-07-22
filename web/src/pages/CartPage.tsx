@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Header } from '../components/Header';
 import { BackgroundOrbs } from '../components/BackgroundOrbs';
 import { BackButton } from '../components/BackButton';
 import { useAuth } from '../hooks/useAuth';
 import { useCart } from '../hooks/useCart';
-import { createOrder } from '../api/orders';
+import { createOrder, getOrder } from '../api/orders';
 import { ApiError, apiErrorText } from '../api/client';
 import { formatPrice } from '../utils/format';
 import type { CartItem, Order, PaymentMethod } from '../types';
@@ -145,6 +145,94 @@ function EmptyCart() {
   );
 }
 
+function CopyButton({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        void navigator.clipboard.writeText(value).then(() => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        });
+      }}
+      className="shrink-0 rounded-full border border-white/70 bg-white/60 px-2.5 py-1 text-xs font-semibold text-slate-600 transition hover:bg-white/80"
+    >
+      {copied ? 'Скопійовано' : 'Копіювати'}
+    </button>
+  );
+}
+
+function CardPayment({ order }: { order: Order }) {
+  const amount = order.paymentAmount ?? order.totalAmount;
+  return (
+    <div className={`${CARD_CLASS} mx-auto max-w-md px-6 py-10`}>
+      <div className="text-center">
+        <p className="text-4xl">💳</p>
+        <h1 className="mt-3 text-2xl font-bold text-slate-900">Оплата замовлення</h1>
+        <p className="mt-2 text-sm text-slate-500">
+          Перекажіть <span className="font-semibold text-slate-700">точну суму до копійки</span> —
+          за нею ми автоматично підтвердимо оплату.
+        </p>
+      </div>
+
+      <dl className="mt-6 flex flex-col gap-2">
+        <div className="flex items-center justify-between gap-2 rounded-xl border border-white/70 bg-white/50 px-3 py-2">
+          <dt className="text-sm text-slate-600">Сума</dt>
+          <dd className="flex items-center gap-2">
+            <span className="text-lg font-bold text-slate-900">{formatPrice(amount)}</span>
+            <CopyButton value={amount} />
+          </dd>
+        </div>
+        {order.paymentRef && (
+          <div className="flex items-center justify-between gap-2 rounded-xl border border-white/70 bg-white/50 px-3 py-2">
+            <dt className="text-sm text-slate-600">Коментар до переказу</dt>
+            <dd className="flex items-center gap-2">
+              <span className="font-mono text-sm font-semibold text-slate-900">
+                {order.paymentRef}
+              </span>
+              <CopyButton value={order.paymentRef} />
+            </dd>
+          </div>
+        )}
+      </dl>
+
+      {order.paymentUrl && (
+        <a
+          href={order.paymentUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-4 block w-full rounded-full bg-slate-900 px-5 py-3 text-center text-sm font-semibold text-white transition hover:bg-slate-700"
+        >
+          Оплатити карткою
+        </a>
+      )}
+
+      {order.paymentDetails && (
+        <p className="mt-3 text-center text-xs text-slate-500">
+          Або переказ за реквізитами:{' '}
+          <span className="font-mono font-semibold text-slate-700">{order.paymentDetails}</span>
+        </p>
+      )}
+
+      <p className="mt-5 text-center text-sm font-semibold text-slate-600" aria-live="polite">
+        {order.paymentStatus === 'CLAIMED'
+          ? 'Платіж отримано, звіряємо…'
+          : order.paymentStatus === 'FAILED'
+            ? 'Оплату не підтверджено. Звʼяжіться з нами.'
+            : 'Очікуємо на оплату…'}
+      </p>
+      <p className="mt-2 text-center text-xs text-slate-400">
+        Сторінку можна закрити — статус замовлення є в{' '}
+        <Link to="/account" className="underline">
+          особистому кабінеті
+        </Link>
+        .
+      </p>
+    </div>
+  );
+}
+
 function OrderSuccess({ order }: { order: Order }) {
   return (
     <div className={`${CARD_CLASS} mx-auto max-w-md px-6 py-12 text-center`}>
@@ -154,6 +242,9 @@ function OrderSuccess({ order }: { order: Order }) {
         Сума: <span className="font-semibold text-slate-800">{formatPrice(order.totalAmount)}</span>
         . Статус можна відстежити в особистому кабінеті.
       </p>
+      {order.paymentMethod === 'CARD' && order.paymentStatus === 'PAID' && (
+        <p className="mt-1 text-sm font-semibold text-emerald-600">Оплату підтверджено.</p>
+      )}
       <div className="mt-6 flex flex-col justify-center gap-2 sm:flex-row">
         <Link
           to="/account"
@@ -191,6 +282,30 @@ export function CartPage() {
   const [error, setError] = useState<string | null>(null);
   const [blockedIds, setBlockedIds] = useState<string[]>([]);
   const [createdOrder, setCreatedOrder] = useState<Order | null>(null);
+
+  // CARD: чекаємо підтвердження оплати воркером — м'який poll статусу.
+  useEffect(() => {
+    if (
+      !accessToken ||
+      !createdOrder ||
+      createdOrder.paymentMethod !== 'CARD' ||
+      (createdOrder.paymentStatus !== 'PENDING' && createdOrder.paymentStatus !== 'CLAIMED')
+    )
+      return;
+    const orderId = createdOrder.id;
+    const timer = setInterval(() => {
+      getOrder(accessToken, orderId)
+        .then((fresh) =>
+          setCreatedOrder((prev) =>
+            prev && prev.id === fresh.id && prev.paymentStatus !== fresh.paymentStatus
+              ? { ...prev, paymentStatus: fresh.paymentStatus }
+              : prev,
+          ),
+        )
+        .catch(() => {}); // транзієнтна помилка — наступний tick
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [accessToken, createdOrder]);
 
   const bonusBalance = user ? Number(user.bonusBalance) : 0;
   const bonusShortfall = paymentMethod === 'BONUS' && user !== null && bonusBalance < totalAmount;
@@ -244,7 +359,11 @@ export function CartPage() {
         </div>
 
         {createdOrder ? (
-          <OrderSuccess order={createdOrder} />
+          createdOrder.paymentMethod === 'CARD' && createdOrder.paymentStatus !== 'PAID' ? (
+            <CardPayment order={createdOrder} />
+          ) : (
+            <OrderSuccess order={createdOrder} />
+          )
         ) : items.length === 0 ? (
           <EmptyCart />
         ) : (

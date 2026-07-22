@@ -45,6 +45,7 @@ const admins = [
     id: "customer-admin",
     name: "Ice-Shop Admin",
     email: "admin@example.test",
+    passwordEnv: "SEED_ADMIN_PASSWORD",
   },
   // {
   //   id: "customer-admin-owner",

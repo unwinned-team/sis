@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { createVariant, deleteVariant, updateVariant } from '../../api/admin';
+import { createVariant, deleteVariant, updateVariant, type VariantInput } from '../../api/admin';
 import { isMissingEndpoint, saveErrorMessage } from './support';
 import { DANGER_BUTTON_CLASS, GHOST_BUTTON_CLASS, INPUT_CLASS, Notice } from './ui';
 import type { Product, ProductVariant } from '../../types';
@@ -7,16 +7,18 @@ import type { Product, ProductVariant } from '../../types';
 interface Draft {
   taste: string;
   size: string;
+  description: string;
   price: string;
 }
 
-const EMPTY_DRAFT: Draft = { taste: '', size: '', price: '' };
+const EMPTY_DRAFT: Draft = { taste: '', size: '', description: '', price: '' };
 
 function toInput(draft: Draft) {
   const price = Number(draft.price);
   return {
     taste: draft.taste.trim() === '' ? null : draft.taste.trim(),
     size: draft.size.trim() === '' ? null : draft.size.trim(),
+    description: draft.description.trim() === '' ? null : draft.description.trim(),
     price: Number.isNaN(price) ? undefined : price,
   };
 }
@@ -32,6 +34,7 @@ export function VariantsEditor({
 }) {
   const variants = product.variants ?? [];
   const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [descDrafts, setDescDrafts] = useState<Record<string, string>>({});
   const [newDraft, setNewDraft] = useState<Draft>(EMPTY_DRAFT);
   const [error, setError] = useState<string | null>(null);
   const [unsupported, setUnsupported] = useState(false);
@@ -46,21 +49,34 @@ export function VariantsEditor({
     setError(saveErrorMessage(err));
   }
 
-  async function handleSavePrice(variant: ProductVariant) {
-    const raw = drafts[variant.id];
-    if (raw === undefined) return;
-    const price = Number(raw);
-    if (Number.isNaN(price) || price <= 0) {
-      setError('Ціна має бути додатним числом.');
-      return;
+  async function handleSave(variant: ProductVariant) {
+    const priceRaw = drafts[variant.id];
+    const descRaw = descDrafts[variant.id];
+    const input: VariantInput = {};
+    if (priceRaw !== undefined) {
+      const price = Number(priceRaw);
+      if (Number.isNaN(price) || price <= 0) {
+        setError('Ціна має бути додатним числом.');
+        return;
+      }
+      input.price = price;
     }
+    if (descRaw !== undefined) {
+      input.description = descRaw.trim() === '' ? null : descRaw.trim();
+    }
+    if (Object.keys(input).length === 0) return;
 
     setError(null);
     setBusyId(variant.id);
     try {
-      const updated = await updateVariant(accessToken, product.id, variant.id, { price });
+      const updated = await updateVariant(accessToken, product.id, variant.id, input);
       onChanged(variants.map((item) => (item.id === variant.id ? updated : item)));
       setDrafts((prev) => {
+        const next = { ...prev };
+        delete next[variant.id];
+        return next;
+      });
+      setDescDrafts((prev) => {
         const next = { ...prev };
         delete next[variant.id];
         return next;
@@ -132,12 +148,25 @@ export function VariantsEditor({
       <ul className="flex flex-col gap-2">
         {variants.map((variant) => {
           const draft = drafts[variant.id];
-          const isDirty = draft !== undefined && draft !== variant.price;
+          const descDraft = descDrafts[variant.id];
+          const isDirty =
+            (draft !== undefined && draft !== variant.price) ||
+            (descDraft !== undefined && descDraft !== (variant.description ?? ''));
           return (
             <li key={variant.id} className="flex flex-wrap items-center gap-2">
               <span className="min-w-32 flex-1 text-sm text-slate-700">
                 {[variant.taste, variant.size].filter(Boolean).join(' · ') || 'Базовий'}
               </span>
+              <input
+                type="text"
+                value={descDraft ?? variant.description ?? ''}
+                onChange={(e) =>
+                  setDescDrafts((prev) => ({ ...prev, [variant.id]: e.target.value }))
+                }
+                placeholder="Опис"
+                disabled={unsupported}
+                className={`${INPUT_CLASS} !w-48`}
+              />
               <input
                 type="number"
                 step="0.01"
@@ -151,7 +180,7 @@ export function VariantsEditor({
               />
               <button
                 type="button"
-                onClick={() => void handleSavePrice(variant)}
+                onClick={() => void handleSave(variant)}
                 disabled={!isDirty || busyId !== null || unsupported}
                 className={`${GHOST_BUTTON_CLASS} !px-4 !py-1.5 !text-xs`}
               >
@@ -186,6 +215,14 @@ export function VariantsEditor({
           placeholder="Об’єм"
           disabled={unsupported}
           className={`${INPUT_CLASS} !w-32`}
+        />
+        <input
+          type="text"
+          value={newDraft.description}
+          onChange={(e) => setNewDraft((prev) => ({ ...prev, description: e.target.value }))}
+          placeholder="Опис"
+          disabled={unsupported}
+          className={`${INPUT_CLASS} !w-48`}
         />
         <input
           type="number"

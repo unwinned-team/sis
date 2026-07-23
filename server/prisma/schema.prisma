@@ -34,13 +34,14 @@ model Product {
 }
 
 model ProductVariant {
-  id        String     @id @default(cuid())
-  productId String
-  taste     String?
-  size      String?
-  price     Decimal    @db.Decimal(10, 2)
-  product   Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
-  cartItems CartItem[]
+  id          String     @id @default(cuid())
+  productId   String
+  taste       String?
+  size        String?
+  description String?
+  price       Decimal    @db.Decimal(10, 2)
+  product     Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  cartItems   CartItem[]
 
   @@index([productId])
 }
@@ -101,31 +102,31 @@ model RefreshToken {
 }
 
 model Order {
-  id            String        @id @default(cuid())
-  customerId    String
-  totalAmount   Decimal       @db.Decimal(10, 2)
-  paymentMethod PaymentMethod
-  status        OrderStatus   @default(NEW)
+  id               String        @id @default(cuid())
+  customerId       String
+  totalAmount      Decimal       @db.Decimal(10, 2)
+  paymentMethod    PaymentMethod
+  status           OrderStatus   @default(NEW)
   // Оплата CARD через личный счёт monobank: клиент указывает paymentRef в
   // комментарии перевода, воркер подтверждает по выписке. BONUS — сразу PAID.
-  paymentStatus  PaymentStatus @default(PENDING)
-  paymentRef     String?       @unique // короткий код для комментария перевода
+  paymentStatus    PaymentStatus @default(PENDING)
+  paymentRef       String?       @unique // короткий код для комментария перевода
   // Сумма к оплате = totalAmount + «копеечный хвост»; уникальна среди активных
   // заказов — по ней матчится перевод без комментария (карта другого банка).
-  paymentAmount Decimal? @db.Decimal(10, 2)
+  paymentAmount    Decimal?      @db.Decimal(10, 2)
   // = paymentAmount.toFixed(2), пока заказ PENDING/CLAIMED; null после PAID.
   // Postgres не сравнивает NULL-ы в unique — уникальность держится только для
   // активных заказов без partial-индекса, который Prisma в схеме не умеет.
-  paymentAmountKey String? @unique
-  verifyAttempts Int           @default(0)
-  nextCheckAt    DateTime? // очередь воркера; null = не проверяется
+  paymentAmountKey String?       @unique
+  verifyAttempts   Int           @default(0)
+  nextCheckAt      DateTime? // очередь воркера; null = не проверяется
   // Доставка Новой Почтой; null у старых заказов, созданных до этих полей.
-  deliveryCity   String?
-  deliveryRegion String?
-  deliveryBranch String? // номер отделения; строка — бывают "1234а" и пункты
-  createdAt     DateTime      @default(now())
-  customer      Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  items         OrderItem[]
+  deliveryCity     String?
+  deliveryRegion   String?
+  deliveryBranch   String? // номер отделения; строка — бывают "1234а" и пункты
+  createdAt        DateTime      @default(now())
+  customer         Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  items            OrderItem[]
 
   @@index([customerId])
   @@index([createdAt])

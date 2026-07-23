@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import { Router } from "express";
+import { Prisma } from "@prisma/client";
 import prisma from "../prisma.js";
 import log from "../logger.js";
 import { requireAuth, requireAdmin } from "../middleware/auth.js";
@@ -41,7 +42,11 @@ function isForeignKeyConstraintViolation(error: unknown) {
 
 // Публичные GET-роуты скрывают архив; ?includeArchived=true доступен только
 // админу, поэтому цепочка auth-middleware включается лишь при этом параметре.
-function requireAdminForArchived(req: Request, res: Response, next: NextFunction) {
+function requireAdminForArchived(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
   if (req.query.includeArchived !== "true") {
     return next();
   }
@@ -51,25 +56,93 @@ function requireAdminForArchived(req: Request, res: Response, next: NextFunction
   });
 }
 
-// GET /api/products
+// GET /api/products?search=...
+// Двухступенчатый поиск: сначала точное вхождение слов (ILIKE), при пустом
+// результате — fuzzy-фолбэк на pg_trgm (опечатки: «пламбир» найдёт «Пломбир»).
 async function getProducts(req: Request, res: Response, next: NextFunction) {
   try {
     const { categoryId } = req.query;
     const includeArchived = req.query.includeArchived === "true";
+    const search =
+      typeof req.query.search === "string"
+        ? req.query.search.trim().slice(0, 200)
+        : "";
+
+    const baseWhere = {
+      ...(includeArchived ? {} : { isArchived: false }),
+      ...(categoryId ? { categoryId: String(categoryId) } : {}),
+    };
+
+    // % и _ — wildcards в ILIKE, Prisma их не экранирует; вырезаем из запроса.
+    const words = search
+      .replace(/[%_]/g, " ")
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 10);
 
     const products = await prisma.product.findMany({
       where: {
-        ...(includeArchived ? {} : { isArchived: false }),
-        ...(categoryId ? { categoryId: String(categoryId) } : {}),
+        ...baseWhere,
+        AND: words.map((word) => ({
+          OR: [
+            { name: { contains: word, mode: "insensitive" as const } },
+            { description: { contains: word, mode: "insensitive" as const } },
+          ],
+        })),
       },
       orderBy: { name: "asc" },
       include: { category: true, variants: true },
     });
 
-    res.json(products);
+    if (products.length > 0 || words.length === 0) {
+      return res.json(products);
+    }
+
+    res.json(await fuzzySearchProducts(search, baseWhere));
   } catch (error) {
     next(error);
   }
+}
+
+// word_similarity сравнивает запрос с лучшим фрагментом текста, поэтому одно
+// слово матчится и внутри длинного description; регистр pg_trgm сворачивает сам.
+// ponytail: функция вместо оператора <% не использует GIN-индекс — на каталоге
+// в сотни позиций это seq scan за миллисекунды; вырастет до тысяч — перейти на
+// оператор <% с SET pg_trgm.word_similarity_threshold.
+async function fuzzySearchProducts(
+  search: string,
+  baseWhere: { isArchived?: boolean; categoryId?: string },
+) {
+  const score = Prisma.sql`GREATEST(word_similarity(${search}, "name"), word_similarity(${search}, "description"))`;
+  const filters = [
+    Prisma.sql`${score} > 0.3`,
+    ...(baseWhere.isArchived === false
+      ? [Prisma.sql`"isArchived" = false`]
+      : []),
+    ...(baseWhere.categoryId
+      ? [Prisma.sql`"categoryId" = ${baseWhere.categoryId}`]
+      : []),
+  ];
+
+  const rows = await prisma.$queryRaw<{ id: string }[]>`
+    SELECT "id" FROM "Product"
+    WHERE ${Prisma.join(filters, " AND ")}
+    ORDER BY ${score} DESC, "name" ASC
+    LIMIT 20
+  `;
+
+  if (rows.length === 0) {
+    return [];
+  }
+
+  const products = await prisma.product.findMany({
+    where: { id: { in: rows.map((row) => row.id) } },
+    include: { category: true, variants: true },
+  });
+
+  // findMany не сохраняет порядок in-списка — восстанавливаем сортировку по score.
+  const rank = new Map(rows.map((row, index) => [row.id, index]));
+  return products.sort((a, b) => rank.get(a.id)! - rank.get(b.id)!);
 }
 
 // GET /api/products/:id
@@ -124,7 +197,10 @@ async function createProduct(req: Request, res: Response, next: NextFunction) {
       include: { category: true },
     });
 
-    log.info({ productId: product.id, categoryId: product.categoryId }, "Product created");
+    log.info(
+      { productId: product.id, categoryId: product.categoryId },
+      "Product created",
+    );
     res.status(201).json(product);
   } catch (error) {
     if (isForeignKeyConstraintViolation(error)) {
@@ -317,7 +393,10 @@ async function createVariant(req: Request, res: Response, next: NextFunction) {
       },
     });
 
-    log.info({ variantId: variant.id, productId: parsedParams.data.productId }, "Variant created");
+    log.info(
+      { variantId: variant.id, productId: parsedParams.data.productId },
+      "Variant created",
+    );
     res.status(201).json(variant);
   } catch (error) {
     next(error);
@@ -364,7 +443,10 @@ async function updateVariant(req: Request, res: Response, next: NextFunction) {
       data,
     });
 
-    log.info({ variantId: variant.id, productId: parsedParams.data.productId }, "Variant updated");
+    log.info(
+      { variantId: variant.id, productId: parsedParams.data.productId },
+      "Variant updated",
+    );
     res.json(variant);
   } catch (error) {
     next(error);
@@ -400,7 +482,13 @@ async function deleteVariant(req: Request, res: Response, next: NextFunction) {
       where: { id: parsedParams.data.variantId },
     });
 
-    log.info({ variantId: parsedParams.data.variantId, productId: parsedParams.data.productId }, "Variant deleted");
+    log.info(
+      {
+        variantId: parsedParams.data.variantId,
+        productId: parsedParams.data.productId,
+      },
+      "Variant deleted",
+    );
     res.status(204).end();
   } catch (error) {
     next(error);
@@ -414,7 +502,17 @@ router.put("/:id", requireAuth, requireAdmin, updateProduct);
 router.delete("/:id", requireAuth, requireAdmin, deleteProduct);
 router.get("/:id/related", getRelatedProducts);
 router.post("/:productId/variants", requireAuth, requireAdmin, createVariant);
-router.put("/:productId/variants/:variantId", requireAuth, requireAdmin, updateVariant);
-router.delete("/:productId/variants/:variantId", requireAuth, requireAdmin, deleteVariant);
+router.put(
+  "/:productId/variants/:variantId",
+  requireAuth,
+  requireAdmin,
+  updateVariant,
+);
+router.delete(
+  "/:productId/variants/:variantId",
+  requireAuth,
+  requireAdmin,
+  deleteVariant,
+);
 
 export default router;

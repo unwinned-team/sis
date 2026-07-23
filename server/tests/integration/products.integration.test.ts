@@ -309,3 +309,65 @@ test("admin deletes an unordered product; ordered products are archived", async 
   const missing = await api("DELETE", `/products/${free.id}`, { token });
   assert.equal(missing.status, 404);
 });
+
+test("product search matches words in any order across name and description", async () => {
+  const category = await addCategory("search");
+  await prisma.product.create({
+    data: {
+      id: `${prefix}-choco`,
+      name: `${prefix} Chocolate Dream`,
+      description: "rich cocoa with hazelnut",
+      price: "10.00",
+      categoryId: category.id,
+      imageUrl: "https://example.test/product.png",
+    },
+  });
+  await addProduct("vanilla", category.id, `${prefix} Vanilla Classic`);
+
+  // Слова в любом порядке, регистр не важен.
+  const byName = await api("GET", `/products?search=dream+${prefix}+CHOCOLATE`);
+  assert.equal(byName.status, 200);
+  assert.deepEqual(
+    byName.body.map((entry: { name: string }) => entry.name),
+    [`${prefix} Chocolate Dream`],
+  );
+
+  // Слово из описания тоже матчится.
+  const byDescription = await api("GET", `/products?search=hazelnut+${prefix}`);
+  assert.equal(byDescription.status, 200);
+  assert.equal(byDescription.body.length, 1);
+  assert.equal(byDescription.body[0].id, `${prefix}-choco`);
+  // Каталогу нужны категория и варианты и в поисковой выдаче.
+  assert.equal(byDescription.body[0].category.id, category.id);
+  assert.ok(Array.isArray(byDescription.body[0].variants));
+
+  const noMatch = await api("GET", "/products?search=xyzzyqwortlebrix");
+  assert.equal(noMatch.status, 200);
+  assert.deepEqual(noMatch.body, []);
+});
+
+test("product search falls back to trigram fuzzy matching on typos", async () => {
+  const category = await addCategory("fuzzy");
+  await addProduct("berry", category.id, `${prefix} Strawberry Sundae`);
+  await prisma.product.create({
+    data: {
+      id: `${prefix}-arch`,
+      name: `${prefix} Strawberry Supreme`,
+      description: "integration fixture",
+      price: "10.00",
+      categoryId: category.id,
+      imageUrl: "https://example.test/product.png",
+      isArchived: true,
+    },
+  });
+
+  // Опечатка: точного вхождения нет, срабатывает pg_trgm-фолбэк.
+  const fuzzy = await api("GET", "/products?search=strawbery");
+  assert.equal(fuzzy.status, 200);
+  const ours = fuzzy.body.filter((entry: { name: string }) => entry.name.startsWith(prefix));
+  // Архивный продукт не попадает и в fuzzy-выдачу.
+  assert.deepEqual(
+    ours.map((entry: { name: string }) => entry.name),
+    [`${prefix} Strawberry Sundae`],
+  );
+});

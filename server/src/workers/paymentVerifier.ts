@@ -12,6 +12,8 @@ const TICK_MS = 60_000;
 // перехода, чтобы webhook не был единственной точкой доставки подтверждения.
 const MAX_ATTEMPTS = 30;
 const EXHAUSTED_BACKOFF_MS = 60 * 60 * 1000;
+// 6 часов часового backoff (30 быстрых + 6 редких = 36 всего), потом FAILED
+const MAX_TOTAL_ATTEMPTS = 36;
 const ACTIVE_ORDER_STATUSES = ["NEW", "PROCESSING"] as const;
 const VERIFIABLE_PAYMENT_STATUSES = ["PENDING", "CLAIMED"] as const;
 
@@ -38,7 +40,14 @@ export async function verifyClaimedPayments(): Promise<void> {
   for (const order of payments) {
     // Prisma keeps nullable field types even after `not: null` filters.
     if (!order.paymentRef || !order.paymentAmount) continue;
-    if (matchPayment(statement, order.paymentRef, order.paymentAmount, order.createdAt)) {
+    if (
+      matchPayment(
+        statement,
+        order.paymentRef,
+        order.paymentAmount,
+        order.createdAt,
+      )
+    ) {
       const updated = await prisma.order.updateMany({
         where: {
           id: order.id,
@@ -46,7 +55,11 @@ export async function verifyClaimedPayments(): Promise<void> {
           paymentStatus: { in: [...VERIFIABLE_PAYMENT_STATUSES] },
         },
         // paymentAmountKey=null освобождает «копеечный хвост» для новых заказов.
-        data: { paymentStatus: "PAID", nextCheckAt: null, paymentAmountKey: null },
+        data: {
+          paymentStatus: "PAID",
+          nextCheckAt: null,
+          paymentAmountKey: null,
+        },
       });
       if (updated.count > 0) {
         log.info(
@@ -66,22 +79,44 @@ export async function verifyClaimedPayments(): Promise<void> {
     } else {
       const attempts = order.verifyAttempts + 1;
       const exhausted = attempts >= MAX_ATTEMPTS;
-      await prisma.order.updateMany({
-        where: {
-          id: order.id,
-          status: { in: [...ACTIVE_ORDER_STATUSES] },
-          paymentStatus: "CLAIMED",
-        },
-        data: {
-          verifyAttempts: { increment: 1 },
-          nextCheckAt: new Date(Date.now() + (exhausted ? EXHAUSTED_BACKOFF_MS : TICK_MS)),
-        },
-      });
-      if (attempts === MAX_ATTEMPTS) {
+      const expired = attempts >= MAX_TOTAL_ATTEMPTS;
+      if (expired) {
+        await prisma.order.updateMany({
+          where: {
+            id: order.id,
+            status: { in: [...ACTIVE_ORDER_STATUSES] },
+            paymentStatus: "CLAIMED",
+          },
+          data: {
+            paymentStatus: "FAILED",
+            nextCheckAt: null,
+            paymentAmountKey: null,
+          },
+        });
         log.warn(
           { orderId: order.id, paymentRef: order.paymentRef },
-          "Payment not found after max attempts; rechecking hourly until order is completed or cancelled",
+          "Payment not confirmed after max total attempts; marked as FAILED",
         );
+      } else {
+        await prisma.order.updateMany({
+          where: {
+            id: order.id,
+            status: { in: [...ACTIVE_ORDER_STATUSES] },
+            paymentStatus: "CLAIMED",
+          },
+          data: {
+            verifyAttempts: { increment: 1 },
+            nextCheckAt: new Date(
+              Date.now() + (exhausted ? EXHAUSTED_BACKOFF_MS : TICK_MS),
+            ),
+          },
+        });
+        if (attempts === MAX_ATTEMPTS) {
+          log.warn(
+            { orderId: order.id, paymentRef: order.paymentRef },
+            "Payment not found after max attempts; rechecking hourly up to 6 more hours",
+          );
+        }
       }
     }
   }

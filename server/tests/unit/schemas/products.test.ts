@@ -112,3 +112,18 @@ test("updateVariantSchema allows partial", () => {
   assert.equal(updateVariantSchema.safeParse({ price: 12.34 }).success, true);
   assert.equal(updateVariantSchema.safeParse({ taste: "Mint" }).success, true);
 });
+
+test("variant schemas accept description and nulls (frontend sends null for empty fields)", () => {
+  assert.equal(
+    createVariantSchema.safeParse({ price: 10.99, taste: "Mint", size: null, description: null })
+      .success,
+    true,
+  );
+  assert.equal(
+    createVariantSchema.safeParse({ price: 10.99, description: "500 ml family pack" }).success,
+    true,
+  );
+  assert.equal(updateVariantSchema.safeParse({ description: "New text" }).success, true);
+  assert.equal(updateVariantSchema.safeParse({ description: null }).success, true);
+  assert.equal(updateVariantSchema.safeParse({ description: 42 }).success, false);
+});

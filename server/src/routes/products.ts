@@ -313,6 +313,7 @@ async function createVariant(req: Request, res: Response, next: NextFunction) {
         price: parsedBody.data.price,
         taste: parsedBody.data.taste ?? null,
         size: parsedBody.data.size ?? null,
+        description: parsedBody.data.description ?? null,
       },
     });
 

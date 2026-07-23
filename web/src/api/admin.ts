@@ -112,6 +112,7 @@ export async function deleteProduct(
 export interface VariantInput {
   taste?: string | null;
   size?: string | null;
+  description?: string | null;
   price?: number;
 }
 

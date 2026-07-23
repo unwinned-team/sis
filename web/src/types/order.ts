@@ -1,5 +1,7 @@
 export type PaymentMethod = 'CARD' | 'CASH' | 'BONUS';
 
+export type PaymentStatus = 'PENDING' | 'CLAIMED' | 'PAID' | 'FAILED';
+
 export type OrderStatus = 'NEW' | 'PROCESSING' | 'COMPLETED' | 'CANCELLED';
 
 export interface OrderItem {
@@ -23,6 +25,15 @@ export interface Order {
   customer?: OrderCustomer;
   totalAmount: string;
   paymentMethod: PaymentMethod;
+  paymentStatus: PaymentStatus;
+  // CARD: точна сума до сплати (з «копійчаним хвостом») і реф для коментаря
+  // до переказу — за ними бекенд матчить оплату.
+  paymentAmount: string | null;
+  paymentRef: string | null;
+  // Тільки у відповіді POST /orders для CARD: лінк send.monobank.ua з
+  // передзаповненими сумою/рефом та ручні реквізити.
+  paymentUrl?: string;
+  paymentDetails?: string;
   status: OrderStatus;
   createdAt: string;
   items: OrderItem[];

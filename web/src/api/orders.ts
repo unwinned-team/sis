@@ -8,11 +8,24 @@ export interface CreateOrderInput {
 }
 
 export function createOrder(accessToken: string, input: CreateOrderInput): Promise<Order> {
+  // Бекенд приймає адресу пласкими полями deliveryCity/deliveryRegion/deliveryBranch.
+  const { shippingAddress, ...rest } = input;
   return apiRequest<Order>('/orders', {
     method: 'POST',
-    body: input,
+    body: {
+      ...rest,
+      ...(shippingAddress && {
+        deliveryCity: shippingAddress.city,
+        deliveryRegion: shippingAddress.oblast,
+        deliveryBranch: shippingAddress.branch,
+      }),
+    },
     accessToken,
   });
+}
+
+export function getOrder(accessToken: string, id: string): Promise<Order> {
+  return apiRequest<Order>(`/orders/${encodeURIComponent(id)}`, { accessToken });
 }
 
 // GET /orders отдаёт {orders, total}; голый массив — формат до пагинации,

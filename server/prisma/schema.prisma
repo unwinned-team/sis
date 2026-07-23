@@ -1,9 +1,11 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider = "postgresql"
+  provider   = "postgresql"
+  extensions = [pg_trgm]
 }
 
 model Category {
@@ -31,6 +33,9 @@ model Product {
 
   @@index([categoryId])
   @@index([categoryId, isArchived])
+  // Триграммные индексы: ускоряют ILIKE-поиск и fuzzy-фолбэк (pg_trgm).
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin)
+  @@index([description(ops: raw("gin_trgm_ops"))], type: Gin)
 }
 
 model ProductVariant {

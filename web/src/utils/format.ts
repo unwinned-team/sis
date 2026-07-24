@@ -7,7 +7,7 @@ function formatAmount(value: number): string {
 export function formatPrice(price: string): string {
   const value = Number(price);
   if (Number.isNaN(value)) return price;
-  return `₴${formatAmount(value)}`;
+  return `${formatAmount(value)} ₴`;
 }
 
 export function formatProductPrice(product: Product): string {
@@ -18,9 +18,11 @@ export function formatProductPrice(product: Product): string {
   if (variantPrices.length === 0) return formatPrice(product.price);
 
   const distinct = [...new Set(variantPrices)].sort((a, b) => a - b);
-  return `₴${distinct
-    .map((value) =>
-      value.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 }),
-    )
-    .join('/')}`;
+  const formattedMin = distinct[0].toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  
+  if (distinct.length > 1) {
+    return `від ${formattedMin} ₴`;
+  }
+  
+  return `${formattedMin} ₴`;
 }

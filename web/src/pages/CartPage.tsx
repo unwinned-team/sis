@@ -13,9 +13,6 @@ import type { CartItem, Order, PaymentMethod } from '../types';
 
 const CARD_CLASS = 'rounded-3xl border border-white/60 bg-white/40 shadow-lg backdrop-blur-md';
 
-const ADDRESS_INPUT_CLASS =
-  'w-full rounded-xl border border-white/70 bg-white/60 px-3 py-2 text-sm text-slate-800 placeholder-slate-400 shadow-sm outline-none backdrop-blur-sm transition focus:border-teal-400 focus:ring-2 focus:ring-teal-300/60';
-
 const PAYMENT_OPTIONS: Array<{ value: PaymentMethod; label: string }> = [
   { value: 'CARD', label: 'Карткою' },
   { value: 'CASH', label: 'Готівкою' },
@@ -23,7 +20,7 @@ const PAYMENT_OPTIONS: Array<{ value: PaymentMethod; label: string }> = [
 ];
 
 function formatTotal(value: number): string {
-  return `₴${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `${value.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} ₴`;
 }
 
 function checkoutErrorText(error: unknown): string {
@@ -166,6 +163,29 @@ function CopyButton({ value }: { value: string }) {
     >
       {copied ? 'Скопійовано' : 'Копіювати'}
     </button>
+  );
+}
+
+interface FloatingInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+  label: string;
+}
+
+function FloatingInput({ label, id, className, ...props }: FloatingInputProps) {
+  return (
+    <div className="relative">
+      <input
+        id={id}
+        placeholder=" "
+        className={`peer w-full rounded-xl border border-white/70 bg-white/60 px-3 pb-1.5 pt-5 text-sm text-slate-800 shadow-sm outline-none backdrop-blur-sm transition focus:border-teal-400 focus:ring-2 focus:ring-teal-300/60 ${className ?? ''}`}
+        {...props}
+      />
+      <label
+        htmlFor={id}
+        className="pointer-events-none absolute left-3 top-1 text-[10px] font-medium text-slate-500 transition-all peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-sm peer-placeholder-shown:font-normal peer-placeholder-shown:text-slate-400 peer-focus:top-1 peer-focus:text-[10px] peer-focus:font-medium peer-focus:text-teal-600"
+      >
+        {label}
+      </label>
+    </div>
   );
 }
 
@@ -446,32 +466,26 @@ export function CartPage() {
                   Доставка (Нова Пошта)
                 </legend>
                 <div className="flex flex-col gap-2">
-                  <input
-                    type="text"
+                  <FloatingInput
+                    id="city"
+                    label="Місто"
                     value={shippingAddress.city}
                     onChange={(e) => updateAddressField('city', e.target.value)}
-                    placeholder="Місто"
                     maxLength={100}
-                    aria-label="Місто"
-                    className={ADDRESS_INPUT_CLASS}
                   />
-                  <input
-                    type="text"
+                  <FloatingInput
+                    id="oblast"
+                    label="Область"
                     value={shippingAddress.oblast}
                     onChange={(e) => updateAddressField('oblast', e.target.value)}
-                    placeholder="Область"
                     maxLength={100}
-                    aria-label="Область"
-                    className={ADDRESS_INPUT_CLASS}
                   />
-                  <input
-                    type="text"
+                  <FloatingInput
+                    id="branch"
+                    label="Номер відділення"
                     value={shippingAddress.branch}
                     onChange={(e) => updateAddressField('branch', e.target.value)}
-                    placeholder="Номер відділення"
                     maxLength={20}
-                    aria-label="Номер відділення Нової Пошти"
-                    className={ADDRESS_INPUT_CLASS}
                   />
                 </div>
               </fieldset>
@@ -479,26 +493,24 @@ export function CartPage() {
               <fieldset className="mt-4">
                 <legend className="mb-2 text-sm font-semibold text-slate-600">Контакти</legend>
                 <div className="flex flex-col gap-2">
-                  <input
+                  <FloatingInput
+                    id="phone"
+                    label="Телефон (+380...)"
                     type="tel"
                     value={shippingAddress.phone}
                     onChange={(e) => updateAddressField('phone', e.target.value)}
-                    placeholder="Телефон (+380...)"
                     required
                     maxLength={20}
                     autoComplete="tel"
-                    aria-label="Номер телефону"
-                    className={ADDRESS_INPUT_CLASS}
                   />
-                  <input
+                  <FloatingInput
+                    id="telegram"
+                    label="Telegram (@username)"
                     type="text"
                     value={shippingAddress.telegram}
                     onChange={(e) => updateAddressField('telegram', e.target.value)}
-                    placeholder="Telegram (@username)"
                     required
                     maxLength={40}
-                    aria-label="Нікнейм у Telegram"
-                    className={ADDRESS_INPUT_CLASS}
                   />
                 </div>
               </fieldset>

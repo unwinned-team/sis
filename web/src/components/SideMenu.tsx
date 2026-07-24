@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCategories } from '../hooks/useCategories';
 import { useAuth } from '../hooks/useAuth';
-import { CategoryPopover } from './CategoryPopover';
+import { MegaMenu } from './MegaMenu';
 import type { Category } from '../types';
 
 interface SideMenuProps {
@@ -10,28 +10,45 @@ interface SideMenuProps {
   onClose: () => void;
 }
 
-const DOUBLE_CLICK_DELAY_MS = 250;
 
 export function SideMenu({ isOpen, onClose }: SideMenuProps) {
   const { categories, isLoading, error } = useCategories();
   const { user, logout } = useAuth();
-  const [activeCategory, setActiveCategory] = useState<Category | null>(null);
-  const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [hoveredCategory, setHoveredCategory] = useState<Category | null>(null);
+  const [hoverOffset, setHoverOffset] = useState<number | null>(null);
+  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const navigate = useNavigate();
+  const clearHoverState = () => {
+    if (hoverTimer.current) clearTimeout(hoverTimer.current);
+    setHoveredCategory(null);
+    setHoverOffset(null);
+  };
+
+
+  const handleClose = () => {
+    clearHoverState();
+    onClose();
+  };
 
   function handleCategoryClick(category: Category) {
-    if (clickTimer.current) {
-      clearTimeout(clickTimer.current);
-      clickTimer.current = null;
-      onClose();
-      navigate(`/category/${category.slug}`);
-      return;
-    }
+    handleClose();
+    navigate(`/category/${category.slug}`);
+  }
 
-    clickTimer.current = setTimeout(() => {
-      clickTimer.current = null;
-      setActiveCategory(category);
-    }, DOUBLE_CLICK_DELAY_MS);
+  function handleMouseEnter(category: Category, e?: React.MouseEvent) {
+    if (hoverTimer.current) clearTimeout(hoverTimer.current);
+    const offset = e ? e.currentTarget.getBoundingClientRect().top : null;
+    hoverTimer.current = setTimeout(() => {
+      setHoveredCategory(category);
+      if (offset !== null) setHoverOffset(offset);
+    }, 300);
+  }
+
+  function handleMouseLeave() {
+    if (hoverTimer.current) clearTimeout(hoverTimer.current);
+    hoverTimer.current = setTimeout(() => {
+      setHoveredCategory(null);
+    }, 300);
   }
 
   return (
@@ -40,13 +57,13 @@ export function SideMenu({ isOpen, onClose }: SideMenuProps) {
         className={`fixed inset-0 z-40 bg-black/40 transition-opacity ${
           isOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
         }`}
-        onClick={onClose}
+        onClick={handleClose}
         aria-hidden="true"
       />
 
       <aside
-        className={`liquid-glass-panel fixed inset-y-0 right-0 z-50 flex w-72 max-w-[85vw] flex-col transition-transform duration-300 ${
-          isOpen ? 'translate-x-0' : 'translate-x-full'
+        className={`liquid-glass-panel fixed inset-y-0 z-50 flex w-72 max-w-[85vw] flex-col transition-transform duration-300 left-0 right-auto sm:left-auto sm:right-0 ${
+          isOpen ? 'translate-x-0' : '-translate-x-full sm:translate-x-full'
         }`}
         aria-hidden={!isOpen}
       >
@@ -54,7 +71,7 @@ export function SideMenu({ isOpen, onClose }: SideMenuProps) {
           <h2 className="text-lg font-semibold text-slate-900">Меню</h2>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             aria-label="Закрити меню"
             className="text-2xl leading-none text-slate-400 hover:text-slate-700"
           >
@@ -71,6 +88,8 @@ export function SideMenu({ isOpen, onClose }: SideMenuProps) {
                 <button
                   type="button"
                   onClick={() => handleCategoryClick(category)}
+                  onMouseEnter={(e) => handleMouseEnter(category, e)}
+                  onMouseLeave={handleMouseLeave}
                   className="block w-full rounded-lg px-3 py-2.5 text-left text-slate-700 transition hover:bg-white/60"
                 >
                   {category.name}
@@ -80,7 +99,7 @@ export function SideMenu({ isOpen, onClose }: SideMenuProps) {
           </ul>
         </nav>
 
-        <div className="border-t border-white/40 p-4">
+        <div className="border-t border-white/40 p-4 md:hidden">
           {user ? (
             <div className="flex flex-col gap-2">
               <p className="truncate text-sm font-semibold text-slate-800">{user.name}</p>
@@ -133,11 +152,13 @@ export function SideMenu({ isOpen, onClose }: SideMenuProps) {
         </div>
       </aside>
 
-      {activeCategory && (
-        <CategoryPopover
-          key={activeCategory.slug}
-          category={activeCategory}
-          onClose={() => setActiveCategory(null)}
+      {isOpen && hoveredCategory && (
+        <MegaMenu
+          key={hoveredCategory.slug}
+          category={hoveredCategory}
+          onMouseEnter={() => handleMouseEnter(hoveredCategory)}
+          onMouseLeave={handleMouseLeave}
+          topOffset={hoverOffset}
         />
       )}
     </>

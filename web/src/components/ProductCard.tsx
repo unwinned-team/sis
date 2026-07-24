@@ -1,53 +1,95 @@
+import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import type { Product } from '../types';
-import { formatProductPrice } from '../utils/format';
+import type { Product, ProductVariant } from '../types';
+import { formatProductPrice, formatPrice } from '../utils/format';
+import { useCart } from '../hooks/useCart';
 
 interface ProductCardProps {
   product: Product;
   showCategory?: boolean;
+  selectedVariant?: ProductVariant | null;
+  customBadge?: string;
 }
 
-export function ProductCard({ product, showCategory = true }: ProductCardProps) {
+export function ProductCard({ product, showCategory = true, selectedVariant = null, customBadge }: ProductCardProps) {
+  const { addItem } = useCart();
   const productUrl = `/product/${product.id}`;
+  const [justAdded, setJustAdded] = useState(false);
+  const addedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (addedTimer.current) clearTimeout(addedTimer.current);
+    };
+  }, []);
+
+  const activeVariant = selectedVariant || (product.variants && product.variants.length > 0 ? product.variants[0] : null);
+
+  const handleAddToCart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    addItem(product, 1, activeVariant);
+    
+    setJustAdded(true);
+    if (addedTimer.current) clearTimeout(addedTimer.current);
+    addedTimer.current = setTimeout(() => setJustAdded(false), 1500);
+  };
+
+  const displayPrice = selectedVariant ? formatPrice(selectedVariant.price) : formatProductPrice(product);
 
   return (
-    <div className="group relative flex aspect-[3/4] flex-col justify-end overflow-hidden rounded-2xl bg-slate-100 shadow-[0_10px_30px_rgb(27_31_58/0.12)] transition duration-200 md:hover:-translate-y-1 md:hover:shadow-[0_16px_40px_rgb(27_31_58/0.2)]">
-      <Link to={productUrl} className="absolute inset-0">
+    <div className="group relative flex h-full flex-col overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200 transition duration-200 md:hover:-translate-y-1 md:hover:shadow-md">
+      <Link to={productUrl} className="absolute inset-0 z-0">
+        <span className="sr-only">Переглянути {product.name}</span>
+      </Link>
+      
+      {/* Top part: Image on light background */}
+      <div className="pointer-events-none relative flex aspect-[4/5] w-full shrink-0 overflow-hidden bg-slate-50/50 p-4">
+        {(customBadge || (showCategory && product.category)) && (
+          <div className="absolute left-3 top-3 z-10">
+            <span className="rounded-md bg-slate-900/60 px-2 py-1 text-[11px] font-medium text-white shadow-sm backdrop-blur-md">
+              {customBadge || product.category?.name}
+            </span>
+          </div>
+        )}
         <img
           src={product.imageUrl}
           alt={product.name}
           loading="lazy"
-          className="h-full w-full object-cover transition-transform duration-300 md:group-hover:scale-105"
+          className="h-full w-full object-contain transition-transform duration-300 md:group-hover:scale-105"
         />
-      </Link>
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-3/5 bg-gradient-to-t from-[#1b1f3a]/95 via-[#1b1f3a]/50 to-transparent" />
-      <div className="pointer-events-none relative flex flex-col gap-1 px-3 py-3 [&_a]:pointer-events-auto [&_button]:pointer-events-auto">
-        {showCategory && product.category && (
-          <span className="text-xs font-medium text-teal-300">{product.category.name}</span>
-        )}
-        <Link
-          to={productUrl}
-          className="line-clamp-2 text-sm font-semibold text-white hover:text-teal-100"
-        >
+      </div>
+      
+      {/* Bottom part: Opaque block, Dark text */}
+      <div className="pointer-events-none relative flex flex-1 flex-col justify-between gap-1.5 bg-white px-3 py-2.5">
+        <h3 className="line-clamp-2 text-sm font-semibold text-slate-900 transition-colors group-hover:text-teal-700">
           {product.name}
-        </Link>
-        <span className="line-clamp-1 text-xs text-slate-300">{product.description}</span>
-        <span className="pt-1 text-base font-bold text-white">
-          {formatProductPrice(product)}
-        </span>
-        <div className="mt-auto flex flex-col gap-2 pt-2 sm:flex-row">
-          <Link
-            to={productUrl}
-            className="flex-1 whitespace-nowrap rounded-full bg-[#aee6df] px-2 py-2 text-center text-xs font-bold uppercase tracking-wide text-[#14403c] shadow-sm transition hover:bg-[#9adfd7]"
+        </h3>
+        
+        <div className="mt-auto flex items-center justify-between gap-2 pt-1">
+          <span className="text-base font-bold text-slate-900">
+            {displayPrice}
+          </span>
+          
+          <button
+            type="button"
+            onClick={handleAddToCart}
+            aria-label="Додати в кошик"
+            title="Додати в кошик"
+            className={`pointer-events-auto relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full shadow-sm transition-all duration-200 active:scale-95 ${
+              justAdded 
+                ? 'bg-teal-600 text-white' 
+                : 'bg-teal-200 text-teal-950 hover:bg-teal-300'
+            }`}
           >
-            Купити
-          </Link>
-          <Link
-            to={productUrl}
-            className="flex-1 whitespace-nowrap rounded-full bg-[#1b1f3a] px-2 py-2 text-center text-xs font-bold uppercase tracking-wide text-white shadow-sm transition hover:bg-[#272c55]"
-          >
-            Детальніше
-          </Link>
+            {justAdded ? (
+              <span className="text-sm font-bold">✓</span>
+            ) : (
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+            )}
+          </button>
         </div>
       </div>
     </div>

@@ -16,8 +16,8 @@ import type { Order, OrderStatus } from '../../types';
 const STATUS_LABELS: Record<OrderStatus, string> = {
   NEW: 'Новий',
   PROCESSING: 'В обробці',
-  COMPLETED: 'Виконано',
-  CANCELLED: 'Скасовано',
+  COMPLETED: 'Відправлено',
+  CANCELLED: 'Відхилено',
 };
 
 const STATUS_CLASSES: Record<OrderStatus, string> = {
@@ -25,6 +25,20 @@ const STATUS_CLASSES: Record<OrderStatus, string> = {
   PROCESSING: 'bg-amber-100 text-amber-700',
   COMPLETED: 'bg-teal-100 text-teal-700',
   CANCELLED: 'bg-slate-200 text-slate-500',
+};
+
+const PAYMENT_LABELS: Record<Order['paymentStatus'], string> = {
+  PENDING: 'Очікує оплати',
+  CLAIMED: 'Перевіряємо оплату',
+  PAID: 'Оплачено',
+  FAILED: 'Не оплачено',
+};
+
+const PAYMENT_CLASSES: Record<Order['paymentStatus'], string> = {
+  PENDING: 'bg-amber-100 text-amber-700',
+  CLAIMED: 'bg-amber-100 text-amber-700',
+  PAID: 'bg-teal-100 text-teal-700',
+  FAILED: 'bg-red-100 text-red-600',
 };
 
 const PAGE_SIZE = 20;
@@ -89,18 +103,33 @@ function OrderRow({
           <p className="text-xs text-slate-500">
             {formatDateTime(order.createdAt)} · {order.paymentMethod} · #{order.id.slice(-6)}
           </p>
-          {order.shippingAddress && (
+          {order.deliveryCity && (
             <p className="mt-1 text-xs text-slate-600">
-              📦 НП: {order.shippingAddress.city}, {order.shippingAddress.oblast} обл., від.{' '}
-              {order.shippingAddress.branch}
+              📦 НП: {order.deliveryCity}, {order.deliveryRegion} обл., від. {order.deliveryBranch}
+            </p>
+          )}
+          {(order.telegramUsername || order.contactPhone) && (
+            <p className="mt-1 text-xs text-slate-600">
+              {order.telegramUsername && <>✈️ {order.telegramUsername}</>}
+              {order.telegramUsername && order.contactPhone && ' · '}
+              {order.contactPhone && <>📞 {order.contactPhone}</>}
             </p>
           )}
         </div>
-        <span
-          className={`rounded-full px-3 py-1 text-xs font-semibold ${STATUS_CLASSES[order.status]}`}
-        >
-          {STATUS_LABELS[order.status]}
-        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          {order.paymentMethod === 'CARD' && (
+            <span
+              className={`rounded-full px-3 py-1 text-xs font-semibold ${PAYMENT_CLASSES[order.paymentStatus]}`}
+            >
+              {PAYMENT_LABELS[order.paymentStatus]}
+            </span>
+          )}
+          <span
+            className={`rounded-full px-3 py-1 text-xs font-semibold ${STATUS_CLASSES[order.status]}`}
+          >
+            {STATUS_LABELS[order.status]}
+          </span>
+        </div>
       </div>
 
       <ul className="mt-3 flex flex-col gap-1.5">
@@ -108,6 +137,8 @@ function OrderRow({
           <li key={item.id} className="flex items-baseline justify-between gap-3 text-sm">
             <span className="text-slate-700">
               {item.product?.name ?? 'Товар'}
+              {item.taste && <span className="font-medium text-teal-700"> · {item.taste}</span>}
+              {item.size && <span className="text-slate-500"> · {item.size}</span>}
               <span className="text-slate-400"> × {item.quantity}</span>
             </span>
             <span className="whitespace-nowrap font-medium text-slate-600">
@@ -127,15 +158,19 @@ function OrderRow({
 
         {isOpen && (
           <div className="flex flex-wrap gap-2">
-            {order.status === 'NEW' && (
-              <button
-                type="button"
-                onClick={() => onChangeStatus(order.id, 'PROCESSING')}
-                disabled={isBusy}
-                className="rounded-full bg-[#aee6df] px-4 py-2 text-xs font-bold uppercase tracking-wide text-[#14403c] shadow-sm transition hover:bg-[#9adfd7] disabled:cursor-not-allowed disabled:opacity-60"
+            {order.telegramUsername && (
+              <a
+                href={`https://t.me/${order.telegramUsername.replace(/^@/, '')}`}
+                target="_blank"
+                rel="noreferrer"
+                onClick={() => {
+                  // Написали клієнту — замовлення переходить у "В обробці".
+                  if (order.status === 'NEW' && !isBusy) onChangeStatus(order.id, 'PROCESSING');
+                }}
+                className="rounded-full bg-[#aee6df] px-4 py-2 text-xs font-bold uppercase tracking-wide text-[#14403c] shadow-sm transition hover:bg-[#9adfd7]"
               >
-                {pendingStatus === 'PROCESSING' ? 'Зачекайте...' : 'Підтвердити'}
-              </button>
+                Написати в Telegram
+              </a>
             )}
             <button
               type="button"
@@ -143,7 +178,7 @@ function OrderRow({
               disabled={isBusy}
               className="rounded-full border border-teal-200 bg-teal-50/80 px-4 py-2 text-xs font-semibold text-teal-700 transition hover:bg-teal-100 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {pendingStatus === 'COMPLETED' ? 'Зачекайте...' : 'Виконано'}
+              {pendingStatus === 'COMPLETED' ? 'Зачекайте...' : 'Відправлено'}
             </button>
             <button
               type="button"

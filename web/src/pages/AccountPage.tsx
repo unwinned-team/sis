@@ -55,6 +55,7 @@ function ProfileCard({ user }: { user: AuthUser }) {
 
   const [name, setName] = useState(user.name);
   const [phone, setPhone] = useState(user.phone ?? '');
+  const [telegram, setTelegram] = useState(user.telegram ?? '');
   const [message, setMessage] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -64,7 +65,12 @@ function ProfileCard({ user }: { user: AuthUser }) {
     setIsSaving(true);
     try {
       const trimmedPhone = phone.trim();
-      await updateProfile({ name: name.trim(), phone: trimmedPhone === '' ? null : trimmedPhone });
+      const trimmedTelegram = telegram.trim();
+      await updateProfile({
+        name: name.trim(),
+        phone: trimmedPhone === '' ? null : trimmedPhone,
+        telegram: trimmedTelegram === '' ? null : trimmedTelegram,
+      });
       setMessage({ kind: 'success', text: 'Дані оновлено.' });
     } catch (err) {
       setMessage({ kind: 'error', text: profileErrorMessage(err) });
@@ -125,6 +131,21 @@ function ProfileCard({ user }: { user: AuthUser }) {
             maxLength={20}
             autoComplete="tel"
             placeholder="+380 XX XXX XX XX"
+            className={INPUT_CLASS}
+          />
+        </div>
+
+        <div>
+          <label htmlFor="profile-telegram" className={LABEL_CLASS}>
+            Telegram
+          </label>
+          <input
+            id="profile-telegram"
+            type="text"
+            value={telegram}
+            onChange={(e) => setTelegram(e.target.value)}
+            maxLength={40}
+            placeholder="@username"
             className={INPUT_CLASS}
           />
         </div>

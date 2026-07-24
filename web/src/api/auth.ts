@@ -47,6 +47,7 @@ export function fetchCurrentUser(accessToken: string): Promise<AuthUser> {
 export interface UpdateProfileInput {
   name?: string;
   phone?: string | null;
+  telegram?: string | null;
 }
 
 export function updateProfile(accessToken: string, input: UpdateProfileInput): Promise<AuthUser> {

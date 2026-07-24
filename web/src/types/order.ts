@@ -11,6 +11,10 @@ export interface OrderItem {
   quantity: number;
   price: string;
   product?: import('./product').Product;
+  // Снапшот варіанта на момент замовлення.
+  variantId?: string | null;
+  taste?: string | null;
+  size?: string | null;
 }
 
 export interface OrderCustomer {
@@ -37,6 +41,11 @@ export interface Order {
   status: OrderStatus;
   createdAt: string;
   items: OrderItem[];
-  // Появится в ответе после того, как бэкенд начнёт сохранять адрес доставки.
-  shippingAddress?: import('./cart').ShippingAddress;
+  // Доставка Новою Поштою; null у замовлень, створених до цих полів.
+  deliveryCity?: string | null;
+  deliveryRegion?: string | null;
+  deliveryBranch?: string | null;
+  // Контакти замовлення; з'являться у відповіді, коли бекенд почне їх зберігати.
+  contactPhone?: string | null;
+  telegramUsername?: string | null;
 }

@@ -47,15 +47,7 @@ function ProductDetails({ product }: ProductDetailsProps) {
     };
   }, []);
 
-  const inCartQuantity = items.find((item) => item.productId === product.id)?.quantity ?? 0;
   const isUnavailable = product.isAvailable === false;
-
-  function handleAddToCart() {
-    addItem(product);
-    setJustAdded(true);
-    if (addedTimer.current) clearTimeout(addedTimer.current);
-    addedTimer.current = setTimeout(() => setJustAdded(false), 1500);
-  }
 
   const variants = useMemo(() => product.variants ?? [], [product.variants]);
   const tastes = useMemo(() => distinct(variants.map((v) => v.taste)), [variants]);
@@ -72,29 +64,24 @@ function ProductDetails({ product }: ProductDetailsProps) {
 
   const price = selectedVariant?.price ?? product.price;
 
-  const description = useMemo(() => {
-    if (!selectedVariant) return product.description;
-    if (selectedVariant.description) return selectedVariant.description;
+  const description = selectedVariant?.description ?? product.description;
 
-    const sentences: string[] = [];
-    if (selectedVariant.taste) {
-      sentences.push(`Смак: ${selectedVariant.taste}.`);
-      const nicotine = product.description.match(/Нікотин:\s*[^.]+/i);
-      if (nicotine) sentences.push(`${nicotine[0].trim()}.`);
-    } else {
-      sentences.push(product.description);
-    }
-    if (selectedVariant.size) {
-      const label = selectedVariant.size.includes('мл') ? "Об'єм" : 'Розмір';
-      sentences.push(`${label}: ${selectedVariant.size}.`);
-    }
-    return sentences.join(' ');
-  }, [selectedVariant, product.description]);
+  const inCartQuantity =
+    items.find(
+      (item) => item.productId === product.id && item.variantId === (selectedVariant?.id ?? null),
+    )?.quantity ?? 0;
+
+  function handleAddToCart() {
+    addItem(product, 1, selectedVariant ?? null);
+    setJustAdded(true);
+    if (addedTimer.current) clearTimeout(addedTimer.current);
+    addedTimer.current = setTimeout(() => setJustAdded(false), 1500);
+  }
 
   return (
     <section className="overflow-hidden rounded-3xl border border-white/60 bg-white/40 shadow-lg backdrop-blur-md">
       <div className="grid sm:grid-cols-[minmax(0,26rem)_1fr]">
-        <div className="aspect-square overflow-hidden bg-gradient-to-br from-teal-100/40 to-sky-100/40">
+        <div className="aspect-square overflow-hidden bg-gradient-to-br from-teal-100/40 to-sky-100/40 sm:aspect-auto">
           <img src={product.imageUrl} alt={product.name} className="h-full w-full object-cover" />
         </div>
 
@@ -147,12 +134,6 @@ function ProductDetails({ product }: ProductDetailsProps) {
             )}
           </div>
 
-          {selectedVariant && selectedVariant.price !== product.price && (
-            <p className="text-xs text-slate-400">
-              Замовлення поки оформлюється за базовою ціною {formatPrice(product.price)} — вибір
-              смаку та об'єму скоро запрацює.
-            </p>
-          )}
         </div>
       </div>
     </section>

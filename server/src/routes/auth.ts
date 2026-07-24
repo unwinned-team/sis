@@ -17,6 +17,7 @@ import {
   registerSchema,
   loginSchema,
   mobileRefreshSchema,
+  updateProfileSchema,
 } from "../schemas/auth.js";
 
 const router = Router();
@@ -36,14 +37,15 @@ interface PublicUser {
   name: string;
   email: string | null;
   phone: string | null;
+  telegram: string | null;
   role: Role;
   bonusBalance: Prisma.Decimal;
   createdAt: Date;
 }
 
 function toPublicUser(customer: PublicUser): PublicUser {
-  const { id, name, email, phone, role, bonusBalance, createdAt } = customer;
-  return { id, name, email, phone, role, bonusBalance, createdAt };
+  const { id, name, email, phone, telegram, role, bonusBalance, createdAt } = customer;
+  return { id, name, email, phone, telegram, role, bonusBalance, createdAt };
 }
 
 // Web и mobile различаются только доставкой refresh-токена:
@@ -240,6 +242,30 @@ async function getMe(req: Request, res: Response, next: NextFunction) {
   }
 }
 
+// PATCH /api/v1/auth/me
+async function updateMe(req: Request, res: Response, next: NextFunction) {
+  try {
+    const parsed = updateProfileSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ errors: parsed.error.issues });
+    }
+    // Дубликат phone (P2002) уходит в errorHandler -> 409.
+    const { name, phone, telegram } = parsed.data;
+    const customer = await prisma.customer.update({
+      where: { id: req.user!.id },
+      data: {
+        ...(name !== undefined && { name }),
+        ...(phone !== undefined && { phone }),
+        ...(telegram !== undefined && { telegram }),
+      },
+    });
+    log.info({ customerId: customer.id }, "Profile updated");
+    res.json(toPublicUser(customer));
+  } catch (error) {
+    next(error);
+  }
+}
+
 router.post("/web/register", registerHandler("WEB"));
 router.post("/mobile/register", registerHandler("MOBILE"));
 router.post("/web/login", loginHandler("WEB"));
@@ -248,5 +274,6 @@ router.post("/web/refresh", webRefresh);
 router.post("/mobile/refresh", mobileRefresh);
 router.post("/logout", logout);
 router.get("/me", requireAuth, getMe);
+router.patch("/me", requireAuth, updateMe);
 
 export default router;

@@ -32,6 +32,8 @@ test("verifies a scheduled PENDING CARD payment without a webhook claim", async 
     deliveryCity: null,
     deliveryRegion: null,
     deliveryBranch: null,
+    contactPhone: null,
+    telegramUsername: null,
     createdAt: new Date(),
   };
 

@@ -3,7 +3,7 @@ import type { Order, PaymentMethod, ShippingAddress } from '../types';
 
 export interface CreateOrderInput {
   paymentMethod: PaymentMethod;
-  items: Array<{ productId: string; quantity: number }>;
+  items: Array<{ productId: string; quantity: number; variantId?: string }>;
   shippingAddress?: ShippingAddress;
 }
 
@@ -18,6 +18,9 @@ export function createOrder(accessToken: string, input: CreateOrderInput): Promi
         deliveryCity: shippingAddress.city,
         deliveryRegion: shippingAddress.oblast,
         deliveryBranch: shippingAddress.branch,
+        // Бекенд поки що ігнорує ці поля (schema не strict) — чекаємо підтримку.
+        contactPhone: shippingAddress.phone,
+        telegramUsername: shippingAddress.telegram,
       }),
     },
     accessToken,

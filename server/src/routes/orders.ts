@@ -131,8 +131,15 @@ async function createOrder(req: Request, res: Response, next: NextFunction) {
     }
 
     const user = req.user!;
-    const { paymentMethod, items, deliveryCity, deliveryRegion, deliveryBranch } =
-      parsed.data;
+    const {
+      paymentMethod,
+      items,
+      deliveryCity,
+      deliveryRegion,
+      deliveryBranch,
+      contactPhone,
+      telegramUsername,
+    } = parsed.data;
     const customerId =
       user.role === "ADMIN" ? (parsed.data.customerId ?? user.id) : user.id;
 
@@ -142,7 +149,8 @@ async function createOrder(req: Request, res: Response, next: NextFunction) {
         throw httpError(404, "Customer not found");
       }
 
-      const productIds = items.map((item) => item.productId);
+      // Один товар может встречаться в нескольких позициях (разные варианты).
+      const productIds = [...new Set(items.map((item) => item.productId))];
       const products = await tx.product.findMany({
         where: { id: { in: productIds } },
       });
@@ -159,12 +167,37 @@ async function createOrder(req: Request, res: Response, next: NextFunction) {
         throw err;
       }
 
+      const variantIds = items
+        .map((item) => item.variantId)
+        .filter((value): value is string => value !== undefined);
+      const variants = variantIds.length
+        ? await tx.productVariant.findMany({ where: { id: { in: variantIds } } })
+        : [];
+      const variantMap = new Map(variants.map((variant) => [variant.id, variant]));
+      for (const item of items) {
+        if (!item.variantId) continue;
+        const variant = variantMap.get(item.variantId);
+        if (!variant || variant.productId !== item.productId) {
+          throw httpError(404, "One or more product variants not found");
+        }
+      }
+
       const productMap = new Map(products.map((product) => [product.id, product]));
       let totalAmount = new Prisma.Decimal(0);
       const orderItems = items.map((item) => {
         const product = productMap.get(item.productId)!;
-        totalAmount = totalAmount.add(product.price.mul(item.quantity));
-        return { productId: item.productId, quantity: item.quantity, price: product.price };
+        const variant = item.variantId ? variantMap.get(item.variantId)! : null;
+        // Цена и смак/объём — снимок варианта (или товара) на момент заказа.
+        const price = variant?.price ?? product.price;
+        totalAmount = totalAmount.add(price.mul(item.quantity));
+        return {
+          productId: item.productId,
+          variantId: item.variantId ?? null,
+          taste: variant?.taste ?? null,
+          size: variant?.size ?? null,
+          quantity: item.quantity,
+          price,
+        };
       });
 
       if (!isOrderTotalValid(totalAmount)) {
@@ -200,6 +233,8 @@ async function createOrder(req: Request, res: Response, next: NextFunction) {
           deliveryCity,
           deliveryRegion,
           deliveryBranch,
+          contactPhone: contactPhone ?? null,
+          telegramUsername: telegramUsername ?? null,
           items: { create: orderItems },
         },
         include: {

@@ -1,44 +1,24 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getMyOrders } from '../api/orders';
-import type { Order } from '../types';
-
-interface MyOrdersState {
-  orders: Order[];
-  loadedFor: string | null;
-  error: string | null;
-}
-
-const INITIAL_STATE: MyOrdersState = { orders: [], loadedFor: null, error: null };
 
 export function useMyOrders(accessToken: string | null) {
-  const [state, setState] = useState<MyOrdersState>(INITIAL_STATE);
-  const [reloadKey, setReloadKey] = useState(0);
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    if (!accessToken) return;
-    let cancelled = false;
-    getMyOrders(accessToken)
-      .then((orders) => {
-        if (cancelled) return;
-        setState({ orders, loadedFor: accessToken, error: null });
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setState({ orders: [], loadedFor: accessToken, error: 'Не вдалося завантажити замовлення.' });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [accessToken, reloadKey]);
+  const { data, isPending, isError } = useQuery({
+    queryKey: ['my-orders', accessToken],
+    enabled: accessToken !== null,
+    queryFn: () => getMyOrders(accessToken!),
+  });
 
   const reload = useCallback(() => {
-    setReloadKey((key) => key + 1);
-  }, []);
+    void queryClient.invalidateQueries({ queryKey: ['my-orders'] });
+  }, [queryClient]);
 
   return {
-    orders: state.orders,
-    isLoading: accessToken !== null && state.loadedFor !== accessToken,
-    error: state.error,
+    orders: data ?? [],
+    isLoading: accessToken !== null && isPending,
+    error: isError ? 'Не вдалося завантажити замовлення.' : null,
     reload,
   };
 }

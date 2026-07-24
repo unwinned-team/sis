@@ -18,10 +18,14 @@ export const createOrderSchema = z.object({
   deliveryCity: z.string().trim().min(1, "City is required").max(100),
   deliveryRegion: z.string().trim().min(1, "Region is required").max(100),
   deliveryBranch: z.string().trim().min(1, "Branch is required").max(20),
+  // Опциональны ради обратной совместимости (POS/mobile); веб-чекаут требует оба.
+  contactPhone: z.string().trim().min(1).max(20).optional(),
+  telegramUsername: z.string().trim().min(1).max(40).optional(),
   items: z
     .array(
       z.object({
         productId: z.string().min(1, "Product ID is required"),
+        variantId: z.string().min(1).optional(),
         quantity: z
           .number()
           .int()
@@ -31,8 +35,10 @@ export const createOrderSchema = z.object({
     )
     .min(1, "At least one item is required")
     .refine(
-      (items) => new Set(items.map((item) => item.productId)).size === items.length,
-      "Duplicate products are not allowed",
+      (items) =>
+        new Set(items.map((item) => `${item.productId}:${item.variantId ?? ""}`)).size ===
+        items.length,
+      "Duplicate order items are not allowed",
     ),
 });
 

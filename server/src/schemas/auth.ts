@@ -16,3 +16,12 @@ export const loginSchema = z.object({
 export const mobileRefreshSchema = z.object({
   refreshToken: z.string().min(1, "Refresh token is required"),
 });
+
+// PATCH /auth/me: все поля опциональны, null стирает значение.
+export const updateProfileSchema = z
+  .object({
+    name: z.string().trim().min(1, "Name is required").max(200).optional(),
+    phone: z.string().trim().min(1).max(20).nullable().optional(),
+    telegram: z.string().trim().min(1).max(40).nullable().optional(),
+  })
+  .strict();

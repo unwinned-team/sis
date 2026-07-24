@@ -78,6 +78,7 @@ model Customer {
   name          String
   email         String?        @unique
   phone         String?        @unique
+  telegram      String? // @username для зв'язку по замовленнях
   bonusBalance  Decimal        @default(0) @db.Decimal(10, 2)
   passwordHash  String? // null = аккаунт без пароля (walk-in/seed), логин невозможен
   role          Role           @default(CUSTOMER)
@@ -129,6 +130,9 @@ model Order {
   deliveryCity     String?
   deliveryRegion   String?
   deliveryBranch   String? // номер отделения; строка — бывают "1234а" и пункты
+  // Контакты по заказу — снимок на момент оформления (профиль потом может измениться).
+  contactPhone     String?
+  telegramUsername String?
   createdAt        DateTime      @default(now())
   customer         Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
   items            OrderItem[]
@@ -143,12 +147,17 @@ model OrderItem {
   id        String  @id @default(cuid())
   orderId   String
   productId String
+  // Снимок варианта на момент заказа (без FK): вариант могут переименовать
+  // или удалить, а история заказа должна сохранить смак/объём как было.
+  variantId String?
+  taste     String?
+  size      String?
   quantity  Int
   price     Decimal @db.Decimal(10, 2)
   order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product   Product @relation(fields: [productId], references: [id], onDelete: Restrict)
 
-  @@unique([orderId, productId])
+  @@unique([orderId, productId, variantId])
   @@index([productId])
 }
 

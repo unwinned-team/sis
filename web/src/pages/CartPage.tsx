@@ -5,6 +5,7 @@ import { BackgroundOrbs } from '../components/BackgroundOrbs';
 import { BackButton } from '../components/BackButton';
 import { useAuth } from '../hooks/useAuth';
 import { useCart } from '../hooks/useCart';
+import { cartLineId } from '../context/cart-context';
 import { createOrder, getOrder } from '../api/orders';
 import { ApiError, apiErrorText } from '../api/client';
 import { formatPrice } from '../utils/format';
@@ -91,6 +92,11 @@ function CartLine({ item, isBlocked, onQuantityChange, onRemove }: CartLineProps
           </button>
         </div>
 
+        {(item.taste || item.size) && (
+          <span className="text-xs font-medium text-teal-700">
+            {[item.taste, item.size].filter(Boolean).join(' · ')}
+          </span>
+        )}
         <span className="text-xs text-slate-500">{formatPrice(item.price)} / шт</span>
         {isBlocked && (
           <span className="text-xs font-semibold text-red-600">Немає в наявності</span>
@@ -312,7 +318,9 @@ export function CartPage() {
   const addressComplete =
     shippingAddress.city.trim() !== '' &&
     shippingAddress.oblast.trim() !== '' &&
-    shippingAddress.branch.trim() !== '';
+    shippingAddress.branch.trim() !== '' &&
+    shippingAddress.phone.trim() !== '' &&
+    shippingAddress.telegram.trim() !== '';
 
   function updateAddressField(field: keyof typeof shippingAddress, value: string) {
     setShippingAddress({ ...shippingAddress, [field]: value });
@@ -329,7 +337,11 @@ export function CartPage() {
     try {
       const order = await createOrder(accessToken, {
         paymentMethod,
-        items: items.map((item) => ({ productId: item.productId, quantity: item.quantity })),
+        items: items.map((item) => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          variantId: item.variantId ?? undefined,
+        })),
         shippingAddress,
       });
       clear();
@@ -343,7 +355,9 @@ export function CartPage() {
   }
 
   function removeBlocked() {
-    blockedIds.forEach(removeItem);
+    items
+      .filter((item) => blockedIds.includes(item.productId))
+      .forEach((item) => removeItem(cartLineId(item)));
     setBlockedIds([]);
     setError(null);
   }
@@ -378,11 +392,11 @@ export function CartPage() {
               <ul className="divide-y divide-white/50">
                 {items.map((item) => (
                   <CartLine
-                    key={item.productId}
+                    key={cartLineId(item)}
                     item={item}
                     isBlocked={blockedIds.includes(item.productId)}
-                    onQuantityChange={(quantity) => setQuantity(item.productId, quantity)}
-                    onRemove={() => removeItem(item.productId)}
+                    onQuantityChange={(quantity) => setQuantity(cartLineId(item), quantity)}
+                    onRemove={() => removeItem(cartLineId(item))}
                   />
                 ))}
               </ul>
@@ -457,6 +471,33 @@ export function CartPage() {
                     placeholder="Номер відділення"
                     maxLength={20}
                     aria-label="Номер відділення Нової Пошти"
+                    className={ADDRESS_INPUT_CLASS}
+                  />
+                </div>
+              </fieldset>
+
+              <fieldset className="mt-4">
+                <legend className="mb-2 text-sm font-semibold text-slate-600">Контакти</legend>
+                <div className="flex flex-col gap-2">
+                  <input
+                    type="tel"
+                    value={shippingAddress.phone}
+                    onChange={(e) => updateAddressField('phone', e.target.value)}
+                    placeholder="Телефон (+380...)"
+                    required
+                    maxLength={20}
+                    autoComplete="tel"
+                    aria-label="Номер телефону"
+                    className={ADDRESS_INPUT_CLASS}
+                  />
+                  <input
+                    type="text"
+                    value={shippingAddress.telegram}
+                    onChange={(e) => updateAddressField('telegram', e.target.value)}
+                    placeholder="Telegram (@username)"
+                    required
+                    maxLength={40}
+                    aria-label="Нікнейм у Telegram"
                     className={ADDRESS_INPUT_CLASS}
                   />
                 </div>

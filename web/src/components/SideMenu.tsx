@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCategories } from '../hooks/useCategories';
 import { useAuth } from '../hooks/useAuth';
@@ -19,6 +19,13 @@ export function SideMenu({ isOpen, onClose }: SideMenuProps) {
   const [hoverOffset, setHoverOffset] = useState<number | null>(null);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!isOpen) {
+      setHoveredCategory(null);
+      if (hoverTimer.current) clearTimeout(hoverTimer.current);
+    }
+  }, [isOpen]);
 
   function handleCategoryClick(category: Category) {
     onClose();
@@ -142,7 +149,7 @@ export function SideMenu({ isOpen, onClose }: SideMenuProps) {
         </div>
       </aside>
 
-      {hoveredCategory && (
+      {isOpen && hoveredCategory && (
         <MegaMenu
           key={hoveredCategory.slug}
           category={hoveredCategory}

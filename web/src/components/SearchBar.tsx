@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { searchProducts } from '../api/products';
 import { formatProductPrice } from '../utils/format';
+import { Search } from 'lucide-react';
 
 export function SearchBar() {
   const [isOpen, setIsOpen] = useState(false);
@@ -42,7 +43,9 @@ export function SearchBar() {
   return (
     <div ref={wrapperRef} className="relative flex w-full items-center">
       <div className="relative flex w-full items-center">
-        <span className="absolute left-3 text-slate-500">🔍</span>
+        <div className="absolute left-3 text-slate-500 pointer-events-none flex items-center justify-center">
+          <Search className="h-5 w-5" strokeWidth={1.5} />
+        </div>
         <input
           type="text"
           value={query}

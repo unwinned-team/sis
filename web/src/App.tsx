@@ -6,6 +6,7 @@ import { ProductPage } from './pages/ProductPage';
 import { AuthPage } from './pages/AuthPage';
 import { AccountPage } from './pages/AccountPage';
 import { CartPage } from './pages/CartPage';
+import { SearchPage } from './pages/SearchPage';
 import { RequireRole } from './components/RequireRole';
 import { AuthProvider } from './context/AuthProvider';
 import { CartProvider } from './context/CartProvider';
@@ -38,6 +39,7 @@ function App() {
             <Route path="/category/:slug" element={<CategoryPage />} />
             <Route path="/product/:id" element={<ProductPage />} />
             <Route path="/cart" element={<CartPage />} />
+            <Route path="/search" element={<SearchPage />} />
             <Route path="/auth" element={<AuthPage />} />
             <Route path="/account" element={<AccountPage />} />
             <Route path="/admin" element={<AdminRoute />} />

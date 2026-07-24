@@ -12,3 +12,8 @@ export function getProductById(id: string): Promise<Product> {
 export function getRelatedProducts(id: string): Promise<Product[]> {
   return apiGet<Product[]>(`/products/${encodeURIComponent(id)}/related`);
 }
+
+// ILIKE + fuzzy-фолбек (pg_trgm) на бекенді — опечатки теж знаходяться.
+export function searchProducts(query: string): Promise<Product[]> {
+  return apiGet<Product[]>(`/products?search=${encodeURIComponent(query)}`);
+}

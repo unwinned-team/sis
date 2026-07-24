@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
-import { getCategories, getCategoryPopularProduct } from '../api/categories';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { getCategoryPopularProduct } from '../api/categories';
 import { getProductsByCategory } from '../api/products';
+import { CATEGORIES_QUERY } from './useCategories';
 import type { Category, Product } from '../types';
 
 interface UseCategoryDetailsResult {
@@ -13,80 +14,48 @@ interface UseCategoryDetailsResult {
   error: string | null;
 }
 
-interface DetailsState {
-  slug: string | undefined;
-  category: Category | null;
-  otherCategories: Category[];
-  popularProduct: Product | null;
-  products: Product[];
-  notFound: boolean;
-  error: string | null;
-}
-
-const EMPTY_STATE: DetailsState = {
-  slug: undefined,
-  category: null,
-  otherCategories: [],
-  popularProduct: null,
-  products: [],
-  notFound: false,
-  error: null,
-};
-
 export function useCategoryDetails(slug: string | undefined): UseCategoryDetailsResult {
-  const [state, setState] = useState<DetailsState>(EMPTY_STATE);
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    if (!slug) return;
+  const { data, isPending, isError } = useQuery({
+    queryKey: ['category', slug],
+    enabled: slug !== undefined,
+    queryFn: async () => {
+      // ensureQueryData ділить кеш зі списком категорій замість повторного запиту.
+      const categories = await queryClient.ensureQueryData(CATEGORIES_QUERY);
+      const current = categories.find((item) => item.slug === slug) ?? null;
+      if (!current) {
+        return {
+          notFound: true,
+          category: null,
+          otherCategories: [] as Category[],
+          popularProduct: null,
+          products: [] as Product[],
+        };
+      }
 
-    let cancelled = false;
+      const [popularProduct, products] = await Promise.all([
+        getCategoryPopularProduct(slug!).catch(() => null),
+        getProductsByCategory(current.id),
+      ]);
 
-    getCategories()
-      .then(async (categories) => {
-        if (cancelled) return;
-
-        const current = categories.find((item) => item.slug === slug) ?? null;
-        if (!current) {
-          setState({ ...EMPTY_STATE, slug, notFound: true });
-          return;
-        }
-
-        const [product, products] = await Promise.all([
-          getCategoryPopularProduct(slug).catch(() => null),
-          getProductsByCategory(current.id),
-        ]);
-        if (cancelled) return;
-
-        setState({
-          slug,
-          category: current,
-          otherCategories: categories.filter((item) => item.slug !== slug),
-          popularProduct: product,
-          products,
-          notFound: false,
-          error: null,
-        });
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setState({ ...EMPTY_STATE, slug, error: 'Не вдалося завантажити категорію' });
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [slug]);
-
-  const isCurrent = slug !== undefined && state.slug === slug;
+      return {
+        notFound: false,
+        category: current as Category | null,
+        otherCategories: categories.filter((item) => item.slug !== slug),
+        popularProduct,
+        products,
+      };
+    },
+  });
 
   return {
-    category: isCurrent ? state.category : null,
-    otherCategories: isCurrent ? state.otherCategories : [],
-    popularProduct: isCurrent ? state.popularProduct : null,
-    products: isCurrent ? state.products : [],
-    isLoading: slug !== undefined && !isCurrent,
-    notFound: !slug || (isCurrent && state.notFound),
-    error: isCurrent ? state.error : null,
+    category: data?.category ?? null,
+    otherCategories: data?.otherCategories ?? [],
+    popularProduct: data?.popularProduct ?? null,
+    products: data?.products ?? [],
+    isLoading: slug !== undefined && isPending,
+    notFound: !slug || (data?.notFound ?? false),
+    error: isError ? 'Не вдалося завантажити категорію' : null,
   };
 }

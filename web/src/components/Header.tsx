@@ -3,13 +3,14 @@ import { Link } from 'react-router-dom';
 import { Logo } from './Logo';
 import { BurgerButton } from './BurgerButton';
 import { SideMenu } from './SideMenu';
-import { useAuth } from '../hooks/useAuth';
 import { useCart } from '../hooks/useCart';
+import { useAuth } from '../hooks/useAuth';
 import { SearchBar } from './SearchBar';
 import { ShoppingCart, User } from 'lucide-react';
 
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isSearchActive, setIsSearchActive] = useState(false);
   const { totalQuantity } = useCart();
   const { user, isReady } = useAuth();
 
@@ -18,16 +19,20 @@ export function Header() {
   return (
     <>
       <header className="liquid-glass sticky top-0 z-30">
-        <div className="flex items-center justify-between gap-4 px-3 py-3 sm:px-4">
-          <div className="flex shrink-0 items-center">
+        <div className="flex items-center gap-2 px-2 py-3 sm:gap-4 sm:px-4">
+          <div className={`order-1 sm:order-4 ${isSearchActive ? 'max-sm:hidden' : ''}`}>
+            <BurgerButton isOpen={isMenuOpen} onClick={() => setIsMenuOpen((open) => !open)} />
+          </div>
+          
+          <div className={`order-2 sm:order-1 flex shrink-0 items-center ${isSearchActive ? 'max-sm:hidden' : ''}`}>
             <Logo />
           </div>
           
-          <div className="flex flex-1 justify-center max-w-2xl mx-auto">
-            <SearchBar />
+          <div className="order-3 sm:order-2 flex flex-1 justify-center max-w-2xl mx-auto">
+            <SearchBar onActiveChange={setIsSearchActive} />
           </div>
           
-          <div className="flex shrink-0 items-center justify-end gap-2 sm:gap-4">
+          <div className={`order-4 sm:order-3 flex shrink-0 items-center justify-end gap-2 sm:gap-4 ${isSearchActive ? 'max-sm:hidden' : ''}`}>
             <Link
               to="/cart"
               aria-label={`Кошик${totalQuantity > 0 ? `, товарів: ${totalQuantity}` : ''}`}
@@ -40,14 +45,14 @@ export function Header() {
                 </span>
               )}
             </Link>
+            
             <Link
               to={profileTo}
               aria-label="Профіль"
-              className="flex h-10 w-10 items-center justify-center rounded-lg transition hover:bg-white/50 text-slate-700"
+              className="hidden sm:flex h-10 w-10 items-center justify-center rounded-lg transition hover:bg-white/50 text-slate-700"
             >
               <User className="h-6 w-6" strokeWidth={1.5} />
             </Link>
-            <BurgerButton isOpen={isMenuOpen} onClick={() => setIsMenuOpen((open) => !open)} />
           </div>
         </div>
       </header>

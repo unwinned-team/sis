@@ -20,9 +20,5 @@ export function formatProductPrice(product: Product): string {
   const distinct = [...new Set(variantPrices)].sort((a, b) => a - b);
   const formattedMin = distinct[0].toLocaleString('uk-UA', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
   
-  if (distinct.length > 1) {
-    return `від ${formattedMin} ₴`;
-  }
-  
-  return `${formattedMin} ₴`;
+  return `від ${formattedMin} ₴`;
 }

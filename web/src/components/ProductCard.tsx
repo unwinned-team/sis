@@ -35,16 +35,16 @@ export function ProductCard({ product, showCategory = true, selectedVariant = nu
     addedTimer.current = setTimeout(() => setJustAdded(false), 1500);
   };
 
-  const displayPrice = activeVariant ? formatPrice(activeVariant.price) : formatProductPrice(product);;
+  const displayPrice = selectedVariant ? formatPrice(selectedVariant.price) : formatProductPrice(product);
 
   return (
-    <div className="group relative flex aspect-[3/4] flex-col overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200 transition duration-200 md:hover:-translate-y-1 md:hover:shadow-md">
+    <div className="group relative flex h-full flex-col overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200 transition duration-200 md:hover:-translate-y-1 md:hover:shadow-md">
       <Link to={productUrl} className="absolute inset-0 z-0">
         <span className="sr-only">Переглянути {product.name}</span>
       </Link>
       
       {/* Top part: Image on light background */}
-      <div className="pointer-events-none relative flex flex-1 overflow-hidden bg-slate-50/50 p-4">
+      <div className="pointer-events-none relative flex aspect-[4/5] w-full shrink-0 overflow-hidden bg-slate-50/50 p-4">
         {(customBadge || (showCategory && product.category)) && (
           <div className="absolute left-3 top-3 z-10">
             <span className="rounded-md bg-slate-900/60 px-2 py-1 text-[11px] font-medium text-white shadow-sm backdrop-blur-md">
@@ -61,12 +61,12 @@ export function ProductCard({ product, showCategory = true, selectedVariant = nu
       </div>
       
       {/* Bottom part: Opaque block, Dark text */}
-      <div className="pointer-events-none relative flex shrink-0 flex-col gap-1.5 bg-white px-3 py-2.5">
+      <div className="pointer-events-none relative flex flex-1 flex-col justify-between gap-1.5 bg-white px-3 py-2.5">
         <h3 className="line-clamp-2 text-sm font-semibold text-slate-900 transition-colors group-hover:text-teal-700">
           {product.name}
         </h3>
         
-        <div className="mt-1 flex items-center justify-between gap-2">
+        <div className="mt-auto flex items-center justify-between gap-2 pt-1">
           <span className="text-base font-bold text-slate-900">
             {displayPrice}
           </span>

@@ -62,8 +62,8 @@ export function SideMenu({ isOpen, onClose }: SideMenuProps) {
       />
 
       <aside
-        className={`liquid-glass-panel fixed inset-y-0 right-0 z-50 flex w-72 max-w-[85vw] flex-col transition-transform duration-300 ${
-          isOpen ? 'translate-x-0' : 'translate-x-full'
+        className={`liquid-glass-panel fixed inset-y-0 z-50 flex w-72 max-w-[85vw] flex-col transition-transform duration-300 left-0 right-auto sm:left-auto sm:right-0 ${
+          isOpen ? 'translate-x-0' : '-translate-x-full sm:translate-x-full'
         }`}
         aria-hidden={!isOpen}
       >

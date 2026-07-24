@@ -20,7 +20,7 @@ const PAYMENT_OPTIONS: Array<{ value: PaymentMethod; label: string }> = [
 ];
 
 function formatTotal(value: number): string {
-  return `${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₴`;
+  return `${value.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} ₴`;
 }
 
 function checkoutErrorText(error: unknown): string {

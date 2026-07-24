@@ -1,15 +1,17 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import type { Product } from '../types';
+import type { Product, ProductVariant } from '../types';
 import { formatProductPrice } from '../utils/format';
 import { useCart } from '../hooks/useCart';
 
 interface ProductCardProps {
   product: Product;
   showCategory?: boolean;
+  selectedVariant?: ProductVariant | null;
+  customBadge?: string;
 }
 
-export function ProductCard({ product, showCategory = true }: ProductCardProps) {
+export function ProductCard({ product, showCategory = true, selectedVariant = null, customBadge }: ProductCardProps) {
   const { addItem } = useCart();
   const productUrl = `/product/${product.id}`;
   const [justAdded, setJustAdded] = useState(false);
@@ -24,7 +26,7 @@ export function ProductCard({ product, showCategory = true }: ProductCardProps) 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const variant = product.variants && product.variants.length > 0 ? product.variants[0] : null;
+    const variant = selectedVariant || (product.variants && product.variants.length > 0 ? product.variants[0] : null);
     addItem(product, 1, variant);
     
     setJustAdded(true);
@@ -40,10 +42,10 @@ export function ProductCard({ product, showCategory = true }: ProductCardProps) 
       
       {/* Top part: Image on light background */}
       <div className="pointer-events-none relative flex flex-1 overflow-hidden bg-slate-50/50 p-4">
-        {showCategory && product.category && (
+        {(customBadge || (showCategory && product.category)) && (
           <div className="absolute left-3 top-3 z-10">
             <span className="rounded-md bg-slate-900/60 px-2 py-1 text-[11px] font-medium text-white shadow-sm backdrop-blur-md">
-              {product.category.name}
+              {customBadge || product.category?.name}
             </span>
           </div>
         )}
@@ -74,13 +76,13 @@ export function ProductCard({ product, showCategory = true }: ProductCardProps) 
             className={`pointer-events-auto relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full shadow-sm transition-all duration-200 active:scale-95 ${
               justAdded 
                 ? 'bg-teal-600 text-white' 
-                : 'bg-teal-100 text-slate-900 hover:bg-teal-200'
+                : 'bg-teal-200 text-teal-950 hover:bg-teal-300'
             }`}
           >
             {justAdded ? (
               <span className="text-sm font-bold">✓</span>
             ) : (
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
             )}

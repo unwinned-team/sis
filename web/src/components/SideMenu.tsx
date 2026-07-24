@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCategories } from '../hooks/useCategories';
 import { useAuth } from '../hooks/useAuth';
-import { CategoryPopover } from './CategoryPopover';
+import { MegaMenu } from './MegaMenu';
 import type { Category } from '../types';
 
 interface SideMenuProps {
@@ -15,23 +15,30 @@ const DOUBLE_CLICK_DELAY_MS = 250;
 export function SideMenu({ isOpen, onClose }: SideMenuProps) {
   const { categories, isLoading, error } = useCategories();
   const { user, logout } = useAuth();
-  const [activeCategory, setActiveCategory] = useState<Category | null>(null);
-  const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [hoveredCategory, setHoveredCategory] = useState<Category | null>(null);
+  const [hoverOffset, setHoverOffset] = useState<number | null>(null);
+  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const navigate = useNavigate();
 
   function handleCategoryClick(category: Category) {
-    if (clickTimer.current) {
-      clearTimeout(clickTimer.current);
-      clickTimer.current = null;
-      onClose();
-      navigate(`/category/${category.slug}`);
-      return;
-    }
+    onClose();
+    navigate(`/category/${category.slug}`);
+  }
 
-    clickTimer.current = setTimeout(() => {
-      clickTimer.current = null;
-      setActiveCategory(category);
-    }, DOUBLE_CLICK_DELAY_MS);
+  function handleMouseEnter(category: Category, e?: React.MouseEvent) {
+    if (hoverTimer.current) clearTimeout(hoverTimer.current);
+    const offset = e ? e.currentTarget.getBoundingClientRect().top : null;
+    hoverTimer.current = setTimeout(() => {
+      setHoveredCategory(category);
+      if (offset !== null) setHoverOffset(offset);
+    }, 300);
+  }
+
+  function handleMouseLeave() {
+    if (hoverTimer.current) clearTimeout(hoverTimer.current);
+    hoverTimer.current = setTimeout(() => {
+      setHoveredCategory(null);
+    }, 300);
   }
 
   return (
@@ -71,6 +78,8 @@ export function SideMenu({ isOpen, onClose }: SideMenuProps) {
                 <button
                   type="button"
                   onClick={() => handleCategoryClick(category)}
+                  onMouseEnter={(e) => handleMouseEnter(category, e)}
+                  onMouseLeave={handleMouseLeave}
                   className="block w-full rounded-lg px-3 py-2.5 text-left text-slate-700 transition hover:bg-white/60"
                 >
                   {category.name}
@@ -133,11 +142,13 @@ export function SideMenu({ isOpen, onClose }: SideMenuProps) {
         </div>
       </aside>
 
-      {activeCategory && (
-        <CategoryPopover
-          key={activeCategory.slug}
-          category={activeCategory}
-          onClose={() => setActiveCategory(null)}
+      {hoveredCategory && (
+        <MegaMenu
+          key={hoveredCategory.slug}
+          category={hoveredCategory}
+          onMouseEnter={() => handleMouseEnter(hoveredCategory)}
+          onMouseLeave={handleMouseLeave}
+          topOffset={hoverOffset}
         />
       )}
     </>

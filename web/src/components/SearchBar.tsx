@@ -52,7 +52,7 @@ export function SearchBar() {
           }}
           onFocus={() => setIsOpen(true)}
           placeholder="Поиск товаров..."
-          className="h-10 w-full rounded-lg bg-black/5 pl-10 pr-4 text-slate-700 outline-none transition focus:bg-black/10 focus:ring-2 focus:ring-teal-400"
+          className="h-10 w-full rounded-lg bg-black/10 pl-10 pr-4 text-slate-700 outline-none transition focus:bg-black/20 focus:ring-2 focus:ring-teal-400"
         />
       </div>
 

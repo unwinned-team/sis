@@ -20,11 +20,15 @@ export function ProductCard({ product, showCategory = true }: ProductCardProps) 
           className="h-full w-full object-cover transition-transform duration-300 md:group-hover:scale-105"
         />
       </Link>
+      {showCategory && product.category && (
+        <div className="pointer-events-none absolute left-3 top-3 z-10">
+          <span className="rounded-md bg-black/40 px-2 py-1 text-[11px] font-medium text-white shadow-sm backdrop-blur-md">
+            {product.category.name}
+          </span>
+        </div>
+      )}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-3/5 bg-gradient-to-t from-[#1b1f3a]/95 via-[#1b1f3a]/50 to-transparent" />
       <div className="pointer-events-none relative flex flex-col gap-1 px-3 py-3 [&_a]:pointer-events-auto [&_button]:pointer-events-auto">
-        {showCategory && product.category && (
-          <span className="text-xs font-medium text-teal-300">{product.category.name}</span>
-        )}
         <Link
           to={productUrl}
           className="line-clamp-2 text-sm font-semibold text-white hover:text-teal-100"

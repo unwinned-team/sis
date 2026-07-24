@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCategories } from '../hooks/useCategories';
 import { useAuth } from '../hooks/useAuth';
@@ -10,7 +10,6 @@ interface SideMenuProps {
   onClose: () => void;
 }
 
-const DOUBLE_CLICK_DELAY_MS = 250;
 
 export function SideMenu({ isOpen, onClose }: SideMenuProps) {
   const { categories, isLoading, error } = useCategories();
@@ -19,16 +18,20 @@ export function SideMenu({ isOpen, onClose }: SideMenuProps) {
   const [hoverOffset, setHoverOffset] = useState<number | null>(null);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const navigate = useNavigate();
+  const clearHoverState = () => {
+    if (hoverTimer.current) clearTimeout(hoverTimer.current);
+    setHoveredCategory(null);
+    setHoverOffset(null);
+  };
 
-  useEffect(() => {
-    if (!isOpen) {
-      setHoveredCategory(null);
-      if (hoverTimer.current) clearTimeout(hoverTimer.current);
-    }
-  }, [isOpen]);
+
+  const handleClose = () => {
+    clearHoverState();
+    onClose();
+  };
 
   function handleCategoryClick(category: Category) {
-    onClose();
+    handleClose();
     navigate(`/category/${category.slug}`);
   }
 
@@ -54,7 +57,7 @@ export function SideMenu({ isOpen, onClose }: SideMenuProps) {
         className={`fixed inset-0 z-40 bg-black/40 transition-opacity ${
           isOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
         }`}
-        onClick={onClose}
+        onClick={handleClose}
         aria-hidden="true"
       />
 
@@ -68,7 +71,7 @@ export function SideMenu({ isOpen, onClose }: SideMenuProps) {
           <h2 className="text-lg font-semibold text-slate-900">Меню</h2>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             aria-label="Закрити меню"
             className="text-2xl leading-none text-slate-400 hover:text-slate-700"
           >
@@ -96,7 +99,7 @@ export function SideMenu({ isOpen, onClose }: SideMenuProps) {
           </ul>
         </nav>
 
-        <div className="border-t border-white/40 p-4">
+        <div className="border-t border-white/40 p-4 md:hidden">
           {user ? (
             <div className="flex flex-col gap-2">
               <p className="truncate text-sm font-semibold text-slate-800">{user.name}</p>

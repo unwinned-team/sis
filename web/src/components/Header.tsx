@@ -11,7 +11,9 @@ import { ShoppingCart, User } from 'lucide-react';
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { totalQuantity } = useCart();
-  const { user } = useAuth();
+  const { user, isReady } = useAuth();
+
+  const profileTo = !isReady ? '#' : user ? '/account' : '/auth';
 
   return (
     <>
@@ -39,7 +41,7 @@ export function Header() {
               )}
             </Link>
             <Link
-              to={user ? "/account" : "/auth"}
+              to={profileTo}
               aria-label="Профіль"
               className="flex h-10 w-10 items-center justify-center rounded-lg transition hover:bg-white/50 text-slate-700"
             >

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import type { Product, ProductVariant } from '../types';
-import { formatProductPrice } from '../utils/format';
+import { formatProductPrice, formatPrice } from '../utils/format';
 import { useCart } from '../hooks/useCart';
 
 interface ProductCardProps {
@@ -23,16 +23,19 @@ export function ProductCard({ product, showCategory = true, selectedVariant = nu
     };
   }, []);
 
+  const activeVariant = selectedVariant || (product.variants && product.variants.length > 0 ? product.variants[0] : null);
+
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const variant = selectedVariant || (product.variants && product.variants.length > 0 ? product.variants[0] : null);
-    addItem(product, 1, variant);
+    addItem(product, 1, activeVariant);
     
     setJustAdded(true);
     if (addedTimer.current) clearTimeout(addedTimer.current);
     addedTimer.current = setTimeout(() => setJustAdded(false), 1500);
   };
+
+  const displayPrice = activeVariant ? formatPrice(activeVariant.price) : formatProductPrice(product);;
 
   return (
     <div className="group relative flex aspect-[3/4] flex-col overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200 transition duration-200 md:hover:-translate-y-1 md:hover:shadow-md">
@@ -65,7 +68,7 @@ export function ProductCard({ product, showCategory = true, selectedVariant = nu
         
         <div className="mt-1 flex items-center justify-between gap-2">
           <span className="text-base font-bold text-slate-900">
-            {formatProductPrice(product)}
+            {displayPrice}
           </span>
           
           <button

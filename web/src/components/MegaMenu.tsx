@@ -12,13 +12,9 @@ interface MegaMenuProps {
 
 export function MegaMenu({ category, onMouseEnter, onMouseLeave, topOffset }: MegaMenuProps) {
   const [product, setProduct] = useState<Product | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    setIsLoading(true);
-    setError(null);
     getCategoryPopularProduct(category.slug)
       .then((data) => {
         if (!cancelled) {
@@ -26,10 +22,7 @@ export function MegaMenu({ category, onMouseEnter, onMouseLeave, topOffset }: Me
         }
       })
       .catch(() => {
-        if (!cancelled) setError('Не вдалося завантажити товар');
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoading(false);
+        // silently ignore — no product shown is acceptable
       });
 
     return () => { cancelled = true; };

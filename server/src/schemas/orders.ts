@@ -21,6 +21,7 @@ export const createOrderSchema = z.object({
   // CUSTOMER: игнорируется, id берётся из токена. ADMIN: заказ от имени
   // клиента (POS-сценарий); без поля — заказ на самого админа.
   customerId: z.string().min(1, "Customer ID is required").optional(),
+  isAgeConfirmed: z.literal(true, "Age confirmation is required"),
   paymentMethod: paymentMethodSchema,
   deliveryCity: z.string().trim().min(1, "City is required").max(100),
   deliveryRegion: z.string().trim().min(1, "Region is required").max(100),

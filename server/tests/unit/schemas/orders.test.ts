@@ -11,7 +11,7 @@ import {
 const item = { productId: "product-1", quantity: 1 };
 
 test("order input requires non-empty delivery fields and trims them", () => {
-  const base = { paymentMethod: "CARD", items: [item] };
+  const base = { isAgeConfirmed: true, paymentMethod: "CARD", items: [item] };
   const delivery = {
     deliveryCity: " Київ ",
     deliveryRegion: "Київська",
@@ -31,10 +31,27 @@ test("order input requires non-empty delivery fields and trims them", () => {
   );
 });
 
+test("order input requires explicit age confirmation", () => {
+  const input = {
+    isAgeConfirmed: true,
+    paymentMethod: "CARD",
+    deliveryCity: "Київ",
+    deliveryRegion: "Київська",
+    deliveryBranch: "42",
+    items: [item],
+  };
+
+  assert.equal(createOrderSchema.safeParse(input).success, true);
+  assert.equal(createOrderSchema.safeParse({ ...input, isAgeConfirmed: false }).success, false);
+  const { isAgeConfirmed: _omitted, ...withoutConfirmation } = input;
+  assert.equal(createOrderSchema.safeParse(withoutConfirmation).success, false);
+});
+
 test("order input rejects duplicate products", () => {
   assert.equal(
     createOrderSchema.safeParse({
       customerId: "customer-1",
+      isAgeConfirmed: true,
       paymentMethod: "CARD",
       items: [item, item],
     }).success,
@@ -46,6 +63,7 @@ test("order input rejects an empty item list", () => {
   assert.equal(
     createOrderSchema.safeParse({
       customerId: "customer-1",
+      isAgeConfirmed: true,
       paymentMethod: "CARD",
       items: [],
     }).success,
@@ -58,6 +76,7 @@ test("order input rejects invalid PostgreSQL Int quantities", () => {
     assert.equal(
       createOrderSchema.safeParse({
         customerId: "customer-1",
+        isAgeConfirmed: true,
         paymentMethod: "CARD",
         items: [{ ...item, quantity }],
       }).success,

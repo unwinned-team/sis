@@ -10,6 +10,7 @@ import { SearchPage } from './pages/SearchPage';
 import { RequireRole } from './components/RequireRole';
 import { AuthProvider } from './context/AuthProvider';
 import { CartProvider } from './context/CartProvider';
+import { AgeGate } from './components/AgeGate';
 
 const AdminPage = lazy(() => import('./pages/admin/AdminPage'));
 
@@ -32,6 +33,7 @@ function AdminRoute() {
 function App() {
   return (
     <BrowserRouter>
+      <AgeGate />
       <AuthProvider>
         <CartProvider>
           <Routes>

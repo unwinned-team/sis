@@ -393,6 +393,7 @@ test("customers see only their own orders; foreign order ids answer 404", async 
   const order = await api("POST", "/orders", {
     token: alice!.body.accessToken,
     body: {
+      isAgeConfirmed: true,
       paymentMethod: "CARD",
       items: [{ productId: product.id, quantity: 1 }],
       deliveryCity: "Київ",

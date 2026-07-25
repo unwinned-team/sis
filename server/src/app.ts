@@ -7,6 +7,17 @@ import errorHandler from "./middleware/errorHandler.js";
 
 const app = express();
 
+function trustProxySetting(): false | number {
+  const raw = process.env.TRUST_PROXY_HOPS;
+  if (raw == null || raw === "" || raw === "0") return false;
+  if (!/^\d+$/.test(raw) || !Number.isSafeInteger(Number(raw))) {
+    throw new Error("TRUST_PROXY_HOPS must be a non-negative integer");
+  }
+  return Number(raw);
+}
+
+app.set("trust proxy", trustProxySetting());
+
 // credentials: true — браузер шлёт/принимает refresh-cookie только при
 // явном origin (wildcard с credentials запрещён спекой CORS).
 app.use(

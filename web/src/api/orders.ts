@@ -2,6 +2,7 @@ import { apiRequest } from './client';
 import type { Order, PaymentMethod, ShippingAddress } from '../types';
 
 export interface CreateOrderInput {
+  isAgeConfirmed: boolean;
   paymentMethod: PaymentMethod;
   items: Array<{ productId: string; quantity: number; variantId?: string }>;
   shippingAddress?: ShippingAddress;

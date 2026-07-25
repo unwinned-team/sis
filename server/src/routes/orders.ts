@@ -296,7 +296,11 @@ async function updateOrder(req: Request, res: Response, next: NextFunction) {
     const VALID_TRANSITIONS: Record<string, string[]> = {
       NEW: ["PROCESSING", "COMPLETED", "CANCELLED"],
       PROCESSING: ["COMPLETED", "CANCELLED"],
-      COMPLETED: [],
+      // COMPLETED = відправлено; бонуси нараховуються лише після підтвердження
+      // отримання (RECEIVED) — клієнт може відмовитись забирати посилку (REJECTED).
+      COMPLETED: ["RECEIVED", "REJECTED"],
+      RECEIVED: [],
+      REJECTED: [],
       CANCELLED: [],
     };
 
@@ -330,7 +334,7 @@ async function updateOrder(req: Request, res: Response, next: NextFunction) {
               paymentAmountKey: null,
               nextCheckAt: null,
             }
-          : status === "CANCELLED"
+          : status === "CANCELLED" || status === "REJECTED"
             ? { paymentAmountKey: null, nextCheckAt: null }
             : {};
 
@@ -347,17 +351,20 @@ async function updateOrder(req: Request, res: Response, next: NextFunction) {
         throw httpError(409, "Order was concurrently modified");
       }
 
-      // Отмена не понижает PAID (деньги уже получены — факт нужен для
+      // Отмена/отказ не понижает PAID (деньги уже получены — факт нужен для
       // возврата); FAILED ставится условно, чтобы не перетереть PAID,
       // выставленный воркером параллельно.
-      if (status === "CANCELLED") {
+      if (status === "CANCELLED" || status === "REJECTED") {
         await tx.order.updateMany({
           where: { id, paymentStatus: { in: ["PENDING", "CLAIMED"] } },
           data: { paymentStatus: "FAILED" },
         });
       }
 
-      if (status === "COMPLETED" && existing.paymentMethod !== "BONUS") {
+      // Бонус нараховується лише коли клієнт підтвердив отримання (RECEIVED),
+      // не в момент відправки (COMPLETED) — інакше відмова від посилки
+      // (REJECTED) вже нарахувала б бонус.
+      if (status === "RECEIVED" && existing.paymentMethod !== "BONUS") {
         const bonus = existing.totalAmount.mul("0.01").toDecimalPlaces(2);
         await tx.customer.update({
           where: { id: existing.customerId },
@@ -365,7 +372,7 @@ async function updateOrder(req: Request, res: Response, next: NextFunction) {
         });
       }
 
-      if (status === "CANCELLED" && existing.paymentMethod === "BONUS") {
+      if ((status === "CANCELLED" || status === "REJECTED") && existing.paymentMethod === "BONUS") {
         await tx.customer.update({
           where: { id: existing.customerId },
           data: { bonusBalance: { increment: existing.totalAmount } },

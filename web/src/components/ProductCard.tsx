@@ -38,7 +38,7 @@ export function ProductCard({ product, showCategory = true, selectedVariant = nu
   const displayPrice = selectedVariant ? formatPrice(selectedVariant.price) : formatProductPrice(product);
 
   return (
-    <div className="group relative flex h-full flex-col overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200 transition duration-200 md:hover:-translate-y-1 md:hover:shadow-md">
+    <div className="group relative flex h-full flex-col overflow-hidden rounded-2xl bg-white/30 shadow-sm ring-1 ring-slate-200 backdrop-blur-sm transition duration-200 md:hover:-translate-y-1 md:hover:shadow-md">
       <Link to={productUrl} className="absolute inset-0 z-0">
         <span className="sr-only">Переглянути {product.name}</span>
       </Link>
@@ -61,7 +61,7 @@ export function ProductCard({ product, showCategory = true, selectedVariant = nu
       </div>
       
       {/* Bottom part: Opaque block, Dark text */}
-      <div className="pointer-events-none relative flex flex-1 flex-col justify-between gap-1.5 bg-white px-3 py-2.5">
+      <div className="pointer-events-none relative flex flex-1 flex-col justify-between gap-1.5 bg-white/30 px-3 py-2.5">
         <h3 className="line-clamp-2 text-sm font-semibold text-slate-900 transition-colors group-hover:text-teal-700">
           {product.name}
         </h3>

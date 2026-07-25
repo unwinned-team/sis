@@ -2,7 +2,14 @@ import { z } from "zod";
 import { Prisma } from "@prisma/client";
 
 const paymentMethodSchema = z.enum(["CARD", "CASH", "BONUS"]);
-const orderStatusSchema = z.enum(["NEW", "PROCESSING", "COMPLETED", "CANCELLED"]);
+const orderStatusSchema = z.enum([
+  "NEW",
+  "PROCESSING",
+  "COMPLETED",
+  "RECEIVED",
+  "REJECTED",
+  "CANCELLED",
+]);
 const MAX_DATABASE_INT = 2_147_483_647;
 const MAX_ORDER_TOTAL = new Prisma.Decimal("99999999.99");
 

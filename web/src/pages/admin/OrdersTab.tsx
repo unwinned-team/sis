@@ -17,6 +17,8 @@ const STATUS_LABELS: Record<OrderStatus, string> = {
   NEW: 'Новий',
   PROCESSING: 'В обробці',
   COMPLETED: 'Відправлено',
+  RECEIVED: 'Отримано',
+  REJECTED: 'Відмова від отримання',
   CANCELLED: 'Відхилено',
 };
 
@@ -24,6 +26,8 @@ const STATUS_CLASSES: Record<OrderStatus, string> = {
   NEW: 'bg-sky-100 text-sky-700',
   PROCESSING: 'bg-amber-100 text-amber-700',
   COMPLETED: 'bg-teal-100 text-teal-700',
+  RECEIVED: 'bg-emerald-100 text-emerald-700',
+  REJECTED: 'bg-red-100 text-red-600',
   CANCELLED: 'bg-slate-200 text-slate-500',
 };
 
@@ -88,7 +92,8 @@ function OrderRow({
   pendingStatus: OrderStatus | null;
 }) {
   const isBusy = pendingStatus !== null;
-  const isOpen = order.status === 'NEW' || order.status === 'PROCESSING';
+  const isPending = order.status === 'NEW' || order.status === 'PROCESSING';
+  const isShipped = order.status === 'COMPLETED';
 
   return (
     <article className={`${CARD_CLASS} p-5`}>
@@ -156,7 +161,7 @@ function OrderRow({
           </span>
         </p>
 
-        {isOpen && (
+        {isPending && (
           <div className="flex flex-wrap gap-2">
             {order.telegramUsername && (
               <a
@@ -187,6 +192,27 @@ function OrderRow({
               className={DANGER_BUTTON_CLASS}
             >
               {pendingStatus === 'CANCELLED' ? 'Зачекайте...' : 'Відхилити'}
+            </button>
+          </div>
+        )}
+
+        {isShipped && (
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => onChangeStatus(order.id, 'RECEIVED')}
+              disabled={isBusy}
+              className="rounded-full border border-emerald-200 bg-emerald-50/80 px-4 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {pendingStatus === 'RECEIVED' ? 'Зачекайте...' : 'Отримано'}
+            </button>
+            <button
+              type="button"
+              onClick={() => onChangeStatus(order.id, 'REJECTED')}
+              disabled={isBusy}
+              className={DANGER_BUTTON_CLASS}
+            >
+              {pendingStatus === 'REJECTED' ? 'Зачекайте...' : 'Відмовився забирати'}
             </button>
           </div>
         )}

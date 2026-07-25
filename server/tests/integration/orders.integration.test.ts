@@ -268,7 +268,7 @@ test("concurrent BONUS orders cannot spend the same balance twice", async () => 
   await expectBalance(fixture.customer.id, "0.00");
 });
 
-test("CARD and CASH orders award exactly 1% on first completion", async () => {
+test("CARD and CASH orders award exactly 1% on confirmed receipt, not on shipping", async () => {
   for (const paymentMethod of ["CARD", "CASH"] as const) {
     const fixture = await addFixture({
       suffix: `-${paymentMethod.toLowerCase()}`,
@@ -288,8 +288,52 @@ test("CARD and CASH orders award exactly 1% on first completion", async () => {
     assert.equal(completed.body.paymentStatus, "PAID");
     assert.equal(completed.body.paymentAmountKey, null);
     assert.equal(completed.body.nextCheckAt, null);
+    // Відправлено ще не означає отримано — бонус ще не нараховано.
+    await expectBalance(fixture.customer.id, "0.00");
+
+    const received = await api(
+      "PUT",
+      `/orders/${created.body.id}`,
+      { status: "RECEIVED" },
+      admin.token,
+    );
+
+    assert.equal(received.status, 200);
     await expectBalance(fixture.customer.id, "1.00");
   }
+});
+
+test("rejecting a shipped order does not award a bonus", async () => {
+  const fixture = await addFixture({ prices: ["100.00"] });
+  const created = await postOrder(fixture, "CASH");
+
+  await api("PUT", `/orders/${created.body.id}`, { status: "COMPLETED" }, admin.token);
+  const rejected = await api(
+    "PUT",
+    `/orders/${created.body.id}`,
+    { status: "REJECTED" },
+    admin.token,
+  );
+
+  assert.equal(rejected.status, 200);
+  await expectBalance(fixture.customer.id, "0.00");
+});
+
+test("rejecting a shipped BONUS order refunds the full amount", async () => {
+  const fixture = await addFixture({ bonusBalance: "100.00", prices: ["25.00"] });
+  const created = await postOrder(fixture, "BONUS");
+  await expectBalance(fixture.customer.id, "75.00");
+
+  await api("PUT", `/orders/${created.body.id}`, { status: "COMPLETED" }, admin.token);
+  const rejected = await api(
+    "PUT",
+    `/orders/${created.body.id}`,
+    { status: "REJECTED" },
+    admin.token,
+  );
+
+  assert.equal(rejected.status, 200);
+  await expectBalance(fixture.customer.id, "100.00");
 });
 
 test("CARD payment verification is scheduled and cancellation releases its amount", async () => {
@@ -356,20 +400,21 @@ test("customer cannot delete a CARD order with a claimed payment", async () => {
   assert.ok(stillThere);
 });
 
-test("repeated COMPLETED does not award a bonus twice", async () => {
+test("repeated RECEIVED does not award a bonus twice", async () => {
   const fixture = await addFixture({ prices: ["100.00"] });
   const created = await postOrder(fixture, "CARD");
+  await api("PUT", `/orders/${created.body.id}`, { status: "COMPLETED" }, admin.token);
 
   const first = await api(
     "PUT",
     `/orders/${created.body.id}`,
-    { status: "COMPLETED" },
+    { status: "RECEIVED" },
     admin.token,
   );
   const second = await api(
     "PUT",
     `/orders/${created.body.id}`,
-    { status: "COMPLETED" },
+    { status: "RECEIVED" },
     admin.token,
   );
 
@@ -378,18 +423,19 @@ test("repeated COMPLETED does not award a bonus twice", async () => {
   await expectBalance(fixture.customer.id, "1.00");
 });
 
-test("completing a BONUS order does not award 1%", async () => {
+test("receiving a BONUS order does not award 1%", async () => {
   const fixture = await addFixture({ bonusBalance: "200.00", prices: ["100.00"] });
   const created = await postOrder(fixture, "BONUS");
+  await api("PUT", `/orders/${created.body.id}`, { status: "COMPLETED" }, admin.token);
 
-  const completed = await api(
+  const received = await api(
     "PUT",
     `/orders/${created.body.id}`,
-    { status: "COMPLETED" },
+    { status: "RECEIVED" },
     admin.token,
   );
 
-  assert.equal(completed.status, 200);
+  assert.equal(received.status, 200);
   await expectBalance(fixture.customer.id, "100.00");
 });
 

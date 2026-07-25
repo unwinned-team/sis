@@ -21,7 +21,9 @@ const LABEL_CLASS = 'mb-1.5 block text-sm font-semibold text-slate-600';
 const STATUS_LABELS: Record<OrderStatus, string> = {
   NEW: 'Новий',
   PROCESSING: 'В обробці',
-  COMPLETED: 'Виконано',
+  COMPLETED: 'Відправлено',
+  RECEIVED: 'Отримано',
+  REJECTED: 'Відмова від отримання',
   CANCELLED: 'Скасовано',
 };
 
@@ -29,6 +31,8 @@ const STATUS_CLASSES: Record<OrderStatus, string> = {
   NEW: 'bg-sky-100 text-sky-700',
   PROCESSING: 'bg-amber-100 text-amber-700',
   COMPLETED: 'bg-teal-100 text-teal-700',
+  RECEIVED: 'bg-emerald-100 text-emerald-700',
+  REJECTED: 'bg-red-100 text-red-600',
   CANCELLED: 'bg-slate-200 text-slate-500',
 };
 

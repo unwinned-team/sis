@@ -131,7 +131,7 @@ export function SearchBar({ onActiveChange }: SearchBarProps = {}) {
             setIsOpen(true);
           }}
           onFocus={() => setIsOpen(true)}
-          placeholder="Поиск товаров..."
+          placeholder="Пошук товарів..."
           className={`h-10 w-full rounded-lg bg-black/10 pl-10 text-slate-700 outline-none transition focus:bg-black/20 focus:ring-2 focus:ring-teal-400 ${isOpen ? 'max-sm:pr-10 pr-4' : 'pr-4'}`}
         />
         {isOpen && (

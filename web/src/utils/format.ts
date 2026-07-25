@@ -1,13 +1,13 @@
 import type { Product } from '../types';
 
 function formatAmount(value: number): string {
-  return value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return value.toLocaleString('uk-UA', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 }
 
 export function formatPrice(price: string): string {
   const value = Number(price);
   if (Number.isNaN(value)) return price;
-  return `₴${formatAmount(value)}`;
+  return `${formatAmount(value)} ₴`;
 }
 
 export function formatProductPrice(product: Product): string {
@@ -18,9 +18,7 @@ export function formatProductPrice(product: Product): string {
   if (variantPrices.length === 0) return formatPrice(product.price);
 
   const distinct = [...new Set(variantPrices)].sort((a, b) => a - b);
-  return `₴${distinct
-    .map((value) =>
-      value.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 }),
-    )
-    .join('/')}`;
+  const formattedMin = distinct[0].toLocaleString('uk-UA', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  
+  return `від ${formattedMin} ₴`;
 }

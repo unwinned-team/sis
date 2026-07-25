@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Header } from '../components/Header';
 import { BackgroundOrbs } from '../components/BackgroundOrbs';
-import { BackButton } from '../components/BackButton';
 import { ProductCard } from '../components/ProductCard';
 import { VariantChooser } from '../components/VariantChooser';
 import { useProduct } from '../hooks/useProduct';
@@ -150,8 +149,22 @@ export function ProductPage() {
       <Header />
 
       <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
-        <div className="mb-6">
-          <BackButton />
+        <div className="mb-6 flex flex-wrap items-center gap-4">
+          {product && !isLoading && (
+            <nav className="flex items-center gap-2 text-sm font-medium text-slate-500" aria-label="Breadcrumb">
+              <Link to="/" className="transition hover:text-slate-900">Головна</Link>
+              <span>›</span>
+              {product.category && (
+                <>
+                  <Link to={`/category/${product.category.slug}`} className="transition hover:text-slate-900">
+                    {product.category.name}
+                  </Link>
+                  <span>›</span>
+                </>
+              )}
+              <span className="text-slate-900">{product.name}</span>
+            </nav>
+          )}
         </div>
 
         {isLoading && <ProductSkeleton />}

@@ -1,3 +1,5 @@
+import { Menu, X } from 'lucide-react';
+
 interface BurgerButtonProps {
   isOpen: boolean;
   onClick: () => void;
@@ -10,23 +12,9 @@ export function BurgerButton({ isOpen, onClick }: BurgerButtonProps) {
       onClick={onClick}
       aria-label={isOpen ? 'Закрити меню' : 'Відкрити меню'}
       aria-expanded={isOpen}
-      className="flex h-10 w-10 flex-col items-center justify-center gap-1.5 rounded-lg transition-colors hover:bg-white/50"
+      className="flex h-10 w-10 items-center justify-center rounded-lg transition-colors hover:bg-white/50 text-slate-700"
     >
-      <span
-        className={`block h-0.5 w-6 bg-slate-900 transition-transform ${
-          isOpen ? 'translate-y-2 rotate-45' : ''
-        }`}
-      />
-      <span
-        className={`block h-0.5 w-6 bg-slate-900 transition-opacity ${
-          isOpen ? 'opacity-0' : ''
-        }`}
-      />
-      <span
-        className={`block h-0.5 w-6 bg-slate-900 transition-transform ${
-          isOpen ? '-translate-y-2 -rotate-45' : ''
-        }`}
-      />
+      {isOpen ? <X className="h-6 w-6" strokeWidth={1.5} /> : <Menu className="h-6 w-6" strokeWidth={1.5} />}
     </button>
   );
 }

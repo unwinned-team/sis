@@ -6,7 +6,7 @@ import { SideMenu } from './SideMenu';
 import { useCart } from '../hooks/useCart';
 import { useAuth } from '../hooks/useAuth';
 import { SearchBar } from './SearchBar';
-import { ShoppingCart, User } from 'lucide-react';
+import { ShoppingCart, User, ShieldCheck } from 'lucide-react';
 
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -46,6 +46,16 @@ export function Header() {
               )}
             </Link>
             
+            {user?.role === 'ADMIN' && (
+              <Link
+                to="/admin"
+                aria-label="Панель адміністратора"
+                className="hidden sm:flex h-10 w-10 items-center justify-center rounded-lg transition hover:bg-white/50 text-slate-700"
+              >
+                <ShieldCheck className="h-6 w-6" strokeWidth={1.5} />
+              </Link>
+            )}
+
             <Link
               to={profileTo}
               aria-label="Профіль"

@@ -142,6 +142,10 @@ async function createOrder(req: Request, res: Response, next: NextFunction) {
     } = parsed.data;
     const customerId =
       user.role === "ADMIN" ? (parsed.data.customerId ?? user.id) : user.id;
+    const ipAddress = req.ip ?? req.socket.remoteAddress;
+    if (!ipAddress) {
+      throw httpError(500, "Client IP unavailable");
+    }
 
     const order = await prisma.$transaction(async (tx) => {
       const customer = await tx.customer.findUnique({ where: { id: customerId } });
@@ -235,6 +239,7 @@ async function createOrder(req: Request, res: Response, next: NextFunction) {
           deliveryBranch,
           contactPhone: contactPhone ?? null,
           telegramUsername: telegramUsername ?? null,
+          ageVerification: { create: { ipAddress } },
           items: { create: orderItems },
         },
         include: {
@@ -296,7 +301,11 @@ async function updateOrder(req: Request, res: Response, next: NextFunction) {
     const VALID_TRANSITIONS: Record<string, string[]> = {
       NEW: ["PROCESSING", "COMPLETED", "CANCELLED"],
       PROCESSING: ["COMPLETED", "CANCELLED"],
-      COMPLETED: [],
+      // COMPLETED = відправлено; бонуси нараховуються лише після підтвердження
+      // отримання (RECEIVED) — клієнт може відмовитись забирати посилку (REJECTED).
+      COMPLETED: ["RECEIVED", "REJECTED"],
+      RECEIVED: [],
+      REJECTED: [],
       CANCELLED: [],
     };
 
@@ -330,7 +339,7 @@ async function updateOrder(req: Request, res: Response, next: NextFunction) {
               paymentAmountKey: null,
               nextCheckAt: null,
             }
-          : status === "CANCELLED"
+          : status === "CANCELLED" || status === "REJECTED"
             ? { paymentAmountKey: null, nextCheckAt: null }
             : {};
 
@@ -347,17 +356,20 @@ async function updateOrder(req: Request, res: Response, next: NextFunction) {
         throw httpError(409, "Order was concurrently modified");
       }
 
-      // Отмена не понижает PAID (деньги уже получены — факт нужен для
+      // Отмена/отказ не понижает PAID (деньги уже получены — факт нужен для
       // возврата); FAILED ставится условно, чтобы не перетереть PAID,
       // выставленный воркером параллельно.
-      if (status === "CANCELLED") {
+      if (status === "CANCELLED" || status === "REJECTED") {
         await tx.order.updateMany({
           where: { id, paymentStatus: { in: ["PENDING", "CLAIMED"] } },
           data: { paymentStatus: "FAILED" },
         });
       }
 
-      if (status === "COMPLETED" && existing.paymentMethod !== "BONUS") {
+      // Бонус нараховується лише коли клієнт підтвердив отримання (RECEIVED),
+      // не в момент відправки (COMPLETED) — інакше відмова від посилки
+      // (REJECTED) вже нарахувала б бонус.
+      if (status === "RECEIVED" && existing.paymentMethod !== "BONUS") {
         const bonus = existing.totalAmount.mul("0.01").toDecimalPlaces(2);
         await tx.customer.update({
           where: { id: existing.customerId },
@@ -365,7 +377,7 @@ async function updateOrder(req: Request, res: Response, next: NextFunction) {
         });
       }
 
-      if (status === "CANCELLED" && existing.paymentMethod === "BONUS") {
+      if ((status === "CANCELLED" || status === "REJECTED") && existing.paymentMethod === "BONUS") {
         await tx.customer.update({
           where: { id: existing.customerId },
           data: { bonusBalance: { increment: existing.totalAmount } },
@@ -401,16 +413,35 @@ async function deleteOrder(req: Request, res: Response, next: NextFunction) {
     }
 
     const user = req.user!;
-    await prisma.$transaction(async (tx) => {
+    const action = await prisma.$transaction(async (tx) => {
       const existing = await tx.order.findUnique({ where: { id: parsed.data.id } });
       if (!existing || (user.role !== "ADMIN" && existing.customerId !== user.id)) {
         throw httpError(404, "Order not found");
       }
 
-      // CARD-заказ с заявленной/подтверждённой оплатой не удаляется: деньги
-      // уже (возможно) пришли — след нужен для сверки и возврата. BONUS PAID
-      // удалять можно — бонусы возвращаются ниже в этой же транзакции.
-      if (existing.paymentMethod === "CARD" && existing.paymentStatus !== "PENDING") {
+      // BONUS списан сразу, поэтому отмена сохраняет заказ и AgeVerification,
+      // а бонусы возвращает атомарно. Повтор/гонка не вернёт баланс дважды.
+      if (existing.paymentMethod === "BONUS") {
+        const cancelled = await tx.order.updateMany({
+          where: { id: existing.id, status: "NEW", paymentStatus: "PAID" },
+          data: { status: "CANCELLED" },
+        });
+        if (cancelled.count === 0) {
+          throw httpError(409, "Only paid BONUS orders with status NEW can be cancelled");
+        }
+        await tx.customer.update({
+          where: { id: existing.customerId },
+          data: { bonusBalance: { increment: existing.totalAmount } },
+        });
+        return "cancelled" as const;
+      }
+
+      // Оплаченные заказы и CARD с заявленной оплатой не удаляются: нужны
+      // заказ, платёжный след и подтверждение возраста для сверки/возврата.
+      if (
+        existing.paymentStatus === "PAID" ||
+        (existing.paymentMethod === "CARD" && existing.paymentStatus !== "PENDING")
+      ) {
         throw httpError(409, "Order has a claimed or confirmed payment and cannot be deleted");
       }
 
@@ -426,15 +457,9 @@ async function deleteOrder(req: Request, res: Response, next: NextFunction) {
       if (deleted.count === 0) {
         throw httpError(409, "Only unpaid orders with status NEW can be cancelled");
       }
-
-      if (existing.paymentMethod === "BONUS") {
-        await tx.customer.update({
-          where: { id: existing.customerId },
-          data: { bonusBalance: { increment: existing.totalAmount } },
-        });
-      }
+      return "deleted" as const;
     });
-    log.info({ orderId: parsed.data.id, customerId: user.id }, "Order deleted");
+    log.info({ orderId: parsed.data.id, customerId: user.id, action }, "Order cancellation completed");
     res.status(204).end();
   } catch (error) {
     next(error);

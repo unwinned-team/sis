@@ -304,6 +304,7 @@ export function CartPage() {
   const navigate = useNavigate();
 
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CARD');
+  const [isAgeConfirmed, setIsAgeConfirmed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [blockedIds, setBlockedIds] = useState<string[]>([]);
@@ -351,11 +352,16 @@ export function CartPage() {
       navigate('/auth?next=/cart');
       return;
     }
+    if (!isAgeConfirmed) {
+      setError('Підтвердьте, що вам виповнилося 18 років.');
+      return;
+    }
     setError(null);
     setBlockedIds([]);
     setIsSubmitting(true);
     try {
       const order = await createOrder(accessToken, {
+        isAgeConfirmed,
         paymentMethod,
         items: items.map((item) => ({
           productId: item.productId,
@@ -522,6 +528,17 @@ export function CartPage() {
                 </span>
               </div>
 
+              <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-white/70 bg-white/40 px-3 py-3 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  required
+                  checked={isAgeConfirmed}
+                  onChange={(event) => setIsAgeConfirmed(event.target.checked)}
+                  className="mt-0.5 h-4 w-4 shrink-0 accent-teal-500"
+                />
+                <span>Підтверджую, що мені виповнилося 18 років.</span>
+              </label>
+
               {bonusShortfall && (
                 <p className="mt-2 text-xs text-red-600">
                   Недостатньо бонусів: доступно {formatPrice(user.bonusBalance)}.
@@ -556,7 +573,13 @@ export function CartPage() {
                 <button
                   type="button"
                   onClick={handleCheckout}
-                  disabled={isSubmitting || !isReady || bonusShortfall || !addressComplete}
+                  disabled={
+                    isSubmitting ||
+                    !isReady ||
+                    bonusShortfall ||
+                    !addressComplete ||
+                    !isAgeConfirmed
+                  }
                   className="mt-4 w-full rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-900/50"
                 >
                   {isSubmitting ? 'Оформлюємо…' : 'Оформити замовлення'}

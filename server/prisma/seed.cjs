@@ -1958,6 +1958,7 @@ function orderTotalCents(order) {
 }
 
 async function main() {
+  await prisma.ageVerification.deleteMany();
   await prisma.orderItem.deleteMany();
   await prisma.order.deleteMany();
   await prisma.customer.deleteMany();
@@ -2028,7 +2029,7 @@ async function main() {
   }
 
   const usedAmountKeys = new Set();
-  for (const order of orders) {
+  for (const [orderIndex, order] of orders.entries()) {
     const totalCents = orderTotalCents(order);
     const isCardActive =
       order.paymentMethod === "CARD" &&
@@ -2064,6 +2065,13 @@ async function main() {
         nextCheckAt: isCardActive ? new Date() : undefined,
         createdAt: order.createdAt,
         totalAmount: money(totalCents),
+        ageVerification: {
+          create: {
+            id: `age-verification-${order.id}`,
+            ipAddress: `192.0.2.${orderIndex + 1}`,
+            createdAt: order.createdAt,
+          },
+        },
         items: {
           create: order.items.map((item) => {
             const product = productsById[item.productId];
@@ -2080,7 +2088,7 @@ async function main() {
   }
 
   console.log(
-    `Seeded ${categories.length} categories, ${products.length} products, ${variantCount} variants, ${customers.length} customers (+${admins.length} admin${admins.length === 1 ? "" : "s"}: ${admins.map((entry) => entry.email).join(", ")}), ${orders.length} orders.`,
+    `Seeded ${categories.length} categories, ${products.length} products, ${variantCount} variants, ${customers.length} customers (+${admins.length} admin${admins.length === 1 ? "" : "s"}: ${admins.map((entry) => entry.email).join(", ")}), ${orders.length} orders and age verifications.`,
   );
 }
 

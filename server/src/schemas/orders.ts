@@ -2,7 +2,14 @@ import { z } from "zod";
 import { Prisma } from "@prisma/client";
 
 const paymentMethodSchema = z.enum(["CARD", "CASH", "BONUS"]);
-const orderStatusSchema = z.enum(["NEW", "PROCESSING", "COMPLETED", "CANCELLED"]);
+const orderStatusSchema = z.enum([
+  "NEW",
+  "PROCESSING",
+  "COMPLETED",
+  "RECEIVED",
+  "REJECTED",
+  "CANCELLED",
+]);
 const MAX_DATABASE_INT = 2_147_483_647;
 const MAX_ORDER_TOTAL = new Prisma.Decimal("99999999.99");
 
@@ -14,6 +21,7 @@ export const createOrderSchema = z.object({
   // CUSTOMER: игнорируется, id берётся из токена. ADMIN: заказ от имени
   // клиента (POS-сценарий); без поля — заказ на самого админа.
   customerId: z.string().min(1, "Customer ID is required").optional(),
+  isAgeConfirmed: z.literal(true, "Age confirmation is required"),
   paymentMethod: paymentMethodSchema,
   deliveryCity: z.string().trim().min(1, "City is required").max(100),
   deliveryRegion: z.string().trim().min(1, "Region is required").max(100),

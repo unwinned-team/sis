@@ -85,12 +85,14 @@ async function api(
   path: string,
   body?: Record<string, unknown>,
   token?: string,
+  headers: Record<string, string> = {},
 ): Promise<ApiResult> {
   const response = await fetch(`${baseUrl}${path}`, {
     method,
     headers: {
       ...(token === undefined ? {} : { authorization: `Bearer ${token}` }),
       ...(body === undefined ? {} : { "content-type": "application/json" }),
+      ...headers,
     },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
@@ -160,7 +162,10 @@ async function addFixture(
     ),
     addCatalog(suffix, options.prices),
   ]);
-  const customerToken = await signAccessToken({ sub: customer.id, role: "CUSTOMER" });
+  const customerToken = await signAccessToken({
+    sub: customer.id,
+    role: "CUSTOMER",
+  });
   return { customer, customerToken, products };
 }
 
@@ -186,7 +191,12 @@ function postOrder(
   return api(
     "POST",
     "/orders",
-    { paymentMethod, items: orderItems(fixture, quantities), ...delivery },
+    {
+      isAgeConfirmed: true,
+      paymentMethod,
+      items: orderItems(fixture, quantities),
+      ...delivery,
+    },
     fixture.customerToken,
   );
 }
@@ -196,6 +206,14 @@ async function expectBalance(customerId: string, expected: string) {
     where: { id: customerId },
   });
   assert.equal(customer.bonusBalance.toFixed(2), expected);
+}
+
+async function expectAgeVerification(orderId: string, customerId: string) {
+  const verification = await prisma.ageVerification.findUniqueOrThrow({
+    where: { orderId },
+    include: { order: { select: { customerId: true } } },
+  });
+  assert.equal(verification.order.customerId, customerId);
 }
 
 test("BONUS order debits the full amount when balance is sufficient", async () => {
@@ -208,6 +226,52 @@ test("BONUS order debits the full amount when balance is sufficient", async () =
   await expectBalance(fixture.customer.id, "3.50");
 });
 
+test("order requires age confirmation and records customer, order, time, and client IP", async () => {
+  const fixture = await addFixture({ suffix: "-age-verification" });
+  const body = {
+    paymentMethod: "CASH",
+    items: orderItems(fixture),
+    ...delivery,
+  };
+
+  const missing = await api("POST", "/orders", body, fixture.customerToken);
+  const denied = await api(
+    "POST",
+    "/orders",
+    { ...body, isAgeConfirmed: false },
+    fixture.customerToken,
+  );
+  assert.equal(missing.status, 400);
+  assert.equal(denied.status, 400);
+  assert.equal(
+    await prisma.ageVerification.count({
+      where: { order: { customerId: fixture.customer.id } },
+    }),
+    0,
+  );
+
+  const before = Date.now();
+  const created = await api(
+    "POST",
+    "/orders",
+    { ...body, isAgeConfirmed: true },
+    fixture.customerToken,
+    { "x-forwarded-for": "203.0.113.10" },
+  );
+  const after = Date.now();
+
+  assert.equal(created.status, 201);
+  const verification = await prisma.ageVerification.findUniqueOrThrow({
+    where: { orderId: created.body.id },
+    include: { order: { select: { customerId: true } } },
+  });
+  assert.equal(verification.order.customerId, fixture.customer.id);
+  assert.match(verification.ipAddress, /127\.0\.0\.1$/);
+  assert.notEqual(verification.ipAddress, "203.0.113.10");
+  assert.ok(verification.createdAt.getTime() >= before);
+  assert.ok(verification.createdAt.getTime() <= after);
+});
+
 test("order stores and returns delivery fields", async () => {
   const fixture = await addFixture({ suffix: "-delivery" });
 
@@ -217,7 +281,12 @@ test("order stores and returns delivery fields", async () => {
   assert.equal(created.body.deliveryRegion, delivery.deliveryRegion);
   assert.equal(created.body.deliveryBranch, delivery.deliveryBranch);
 
-  const fetched = await api("GET", `/orders/${created.body.id}`, undefined, admin.token);
+  const fetched = await api(
+    "GET",
+    `/orders/${created.body.id}`,
+    undefined,
+    admin.token,
+  );
   assert.equal(fetched.status, 200);
   assert.equal(fetched.body.deliveryCity, delivery.deliveryCity);
   assert.equal(fetched.body.deliveryBranch, delivery.deliveryBranch);
@@ -229,7 +298,7 @@ test("order without delivery fields returns 400", async () => {
   const result = await api(
     "POST",
     "/orders",
-    { paymentMethod: "CARD", items: orderItems(fixture) },
+    { isAgeConfirmed: true, paymentMethod: "CARD", items: orderItems(fixture) },
     fixture.customerToken,
   );
 
@@ -250,17 +319,17 @@ test("BONUS order returns 409 without changes when balance is insufficient", asy
 });
 
 test("concurrent BONUS orders cannot spend the same balance twice", async () => {
-  const fixture = await addFixture({ bonusBalance: "10.00", prices: ["10.00"] });
+  const fixture = await addFixture({
+    bonusBalance: "10.00",
+    prices: ["10.00"],
+  });
 
   const results = await Promise.all([
     postOrder(fixture, "BONUS"),
     postOrder(fixture, "BONUS"),
   ]);
 
-  assert.deepEqual(
-    results.map((result) => result.status).sort(),
-    [201, 409],
-  );
+  assert.deepEqual(results.map((result) => result.status).sort(), [201, 409]);
   assert.equal(
     await prisma.order.count({ where: { customerId: fixture.customer.id } }),
     1,
@@ -268,7 +337,7 @@ test("concurrent BONUS orders cannot spend the same balance twice", async () => 
   await expectBalance(fixture.customer.id, "0.00");
 });
 
-test("CARD and CASH orders award exactly 1% on first completion", async () => {
+test("CARD and CASH orders award exactly 1% on confirmed receipt, not on shipping", async () => {
   for (const paymentMethod of ["CARD", "CASH"] as const) {
     const fixture = await addFixture({
       suffix: `-${paymentMethod.toLowerCase()}`,
@@ -288,8 +357,65 @@ test("CARD and CASH orders award exactly 1% on first completion", async () => {
     assert.equal(completed.body.paymentStatus, "PAID");
     assert.equal(completed.body.paymentAmountKey, null);
     assert.equal(completed.body.nextCheckAt, null);
+    // Відправлено ще не означає отримано — бонус ще не нараховано.
+    await expectBalance(fixture.customer.id, "0.00");
+
+    const received = await api(
+      "PUT",
+      `/orders/${created.body.id}`,
+      { status: "RECEIVED" },
+      admin.token,
+    );
+
+    assert.equal(received.status, 200);
     await expectBalance(fixture.customer.id, "1.00");
   }
+});
+
+test("rejecting a shipped order does not award a bonus", async () => {
+  const fixture = await addFixture({ prices: ["100.00"] });
+  const created = await postOrder(fixture, "CASH");
+
+  await api(
+    "PUT",
+    `/orders/${created.body.id}`,
+    { status: "COMPLETED" },
+    admin.token,
+  );
+  const rejected = await api(
+    "PUT",
+    `/orders/${created.body.id}`,
+    { status: "REJECTED" },
+    admin.token,
+  );
+
+  assert.equal(rejected.status, 200);
+  await expectBalance(fixture.customer.id, "0.00");
+});
+
+test("rejecting a shipped BONUS order refunds the full amount", async () => {
+  const fixture = await addFixture({
+    bonusBalance: "100.00",
+    prices: ["25.00"],
+  });
+  const created = await postOrder(fixture, "BONUS");
+  await expectBalance(fixture.customer.id, "75.00");
+
+  await api(
+    "PUT",
+    `/orders/${created.body.id}`,
+    { status: "COMPLETED" },
+    admin.token,
+  );
+  const rejected = await api(
+    "PUT",
+    `/orders/${created.body.id}`,
+    { status: "REJECTED" },
+    admin.token,
+  );
+
+  assert.equal(rejected.status, 200);
+  await expectBalance(fixture.customer.id, "100.00");
 });
 
 test("CARD payment verification is scheduled and cancellation releases its amount", async () => {
@@ -312,6 +438,7 @@ test("CARD payment verification is scheduled and cancellation releases its amoun
   assert.equal(cancelled.body.paymentStatus, "FAILED");
   assert.equal(cancelled.body.paymentAmountKey, null);
   assert.equal(cancelled.body.nextCheckAt, null);
+  await expectAgeVerification(created.body.id, fixture.customer.id);
 });
 
 test("CANCELLED does not downgrade a PAID card payment", async () => {
@@ -333,6 +460,7 @@ test("CANCELLED does not downgrade a PAID card payment", async () => {
   assert.equal(cancelled.status, 200);
   assert.equal(cancelled.body.status, "CANCELLED");
   assert.equal(cancelled.body.paymentStatus, "PAID");
+  await expectAgeVerification(created.body.id, fixture.customer.id);
 });
 
 test("customer cannot delete a CARD order with a claimed payment", async () => {
@@ -352,49 +480,71 @@ test("customer cannot delete a CARD order with a claimed payment", async () => {
   );
 
   assert.equal(deleted.status, 409);
-  const stillThere = await prisma.order.findUnique({ where: { id: created.body.id } });
+  const stillThere = await prisma.order.findUnique({
+    where: { id: created.body.id },
+  });
   assert.ok(stillThere);
+  await expectAgeVerification(created.body.id, fixture.customer.id);
 });
 
-test("repeated COMPLETED does not award a bonus twice", async () => {
+test("repeated RECEIVED does not award a bonus twice", async () => {
   const fixture = await addFixture({ prices: ["100.00"] });
   const created = await postOrder(fixture, "CARD");
-
-  const first = await api(
+  await api(
     "PUT",
     `/orders/${created.body.id}`,
     { status: "COMPLETED" },
     admin.token,
   );
+
+  const first = await api(
+    "PUT",
+    `/orders/${created.body.id}`,
+    { status: "RECEIVED" },
+    admin.token,
+  );
   const second = await api(
     "PUT",
     `/orders/${created.body.id}`,
-    { status: "COMPLETED" },
+    { status: "RECEIVED" },
     admin.token,
   );
 
   assert.equal(first.status, 200);
   assert.equal(second.status, 200);
   await expectBalance(fixture.customer.id, "1.00");
+  await expectAgeVerification(created.body.id, fixture.customer.id);
 });
 
-test("completing a BONUS order does not award 1%", async () => {
-  const fixture = await addFixture({ bonusBalance: "200.00", prices: ["100.00"] });
+test("receiving a BONUS order does not award 1%", async () => {
+  const fixture = await addFixture({
+    bonusBalance: "200.00",
+    prices: ["100.00"],
+  });
   const created = await postOrder(fixture, "BONUS");
-
-  const completed = await api(
+  await api(
     "PUT",
     `/orders/${created.body.id}`,
     { status: "COMPLETED" },
     admin.token,
   );
 
-  assert.equal(completed.status, 200);
+  const received = await api(
+    "PUT",
+    `/orders/${created.body.id}`,
+    { status: "RECEIVED" },
+    admin.token,
+  );
+
+  assert.equal(received.status, 200);
   await expectBalance(fixture.customer.id, "100.00");
 });
 
-test("deleting a NEW BONUS order refunds the full amount", async () => {
-  const fixture = await addFixture({ bonusBalance: "100.00", prices: ["25.00"] });
+test("cancelling a paid NEW BONUS order refunds it and preserves age verification", async () => {
+  const fixture = await addFixture({
+    bonusBalance: "100.00",
+    prices: ["25.00"],
+  });
   const created = await postOrder(fixture, "BONUS");
   await expectBalance(fixture.customer.id, "75.00");
 
@@ -406,10 +556,21 @@ test("deleting a NEW BONUS order refunds the full amount", async () => {
   );
 
   assert.equal(deleted.status, 204);
-  assert.equal(
-    await prisma.order.count({ where: { id: created.body.id } }),
-    0,
+  const cancelled = await prisma.order.findUniqueOrThrow({
+    where: { id: created.body.id },
+  });
+  assert.equal(cancelled.status, "CANCELLED");
+  assert.equal(cancelled.paymentStatus, "PAID");
+  await expectBalance(fixture.customer.id, "100.00");
+  await expectAgeVerification(created.body.id, fixture.customer.id);
+
+  const repeated = await api(
+    "DELETE",
+    `/orders/${created.body.id}`,
+    undefined,
+    fixture.customerToken,
   );
+  assert.equal(repeated.status, 409);
   await expectBalance(fixture.customer.id, "100.00");
 });
 
@@ -436,29 +597,49 @@ test("deleting PROCESSING or COMPLETED orders returns 409 and keeps them", async
     );
 
     assert.equal(deleted.status, 409);
-    const saved = await prisma.order.findUnique({ where: { id: created.body.id } });
+    const saved = await prisma.order.findUnique({
+      where: { id: created.body.id },
+    });
     assert.equal(saved?.status, status);
+    await expectAgeVerification(created.body.id, fixture.customer.id);
   }
 });
 
-test("concurrent completion and deletion produce one valid final state", async () => {
-  const fixture = await addFixture({ bonusBalance: "50.00", prices: ["50.00"] });
+test("concurrent completion and paid cancellation produce one valid final state", async () => {
+  const fixture = await addFixture({
+    bonusBalance: "50.00",
+    prices: ["50.00"],
+  });
   const created = await postOrder(fixture, "BONUS");
 
   const [completed, deleted] = await Promise.all([
-    api("PUT", `/orders/${created.body.id}`, { status: "COMPLETED" }, admin.token),
-    api("DELETE", `/orders/${created.body.id}`, undefined, fixture.customerToken),
+    api(
+      "PUT",
+      `/orders/${created.body.id}`,
+      { status: "COMPLETED" },
+      admin.token,
+    ),
+    api(
+      "DELETE",
+      `/orders/${created.body.id}`,
+      undefined,
+      fixture.customerToken,
+    ),
   ]);
-  const saved = await prisma.order.findUnique({ where: { id: created.body.id } });
+  const saved = await prisma.order.findUnique({
+    where: { id: created.body.id },
+  });
 
-  if (saved) {
+  assert.ok(saved);
+  if (saved.status === "COMPLETED") {
     assert.deepEqual([completed.status, deleted.status], [200, 409]);
-    assert.equal(saved.status, "COMPLETED");
     await expectBalance(fixture.customer.id, "0.00");
   } else {
-    assert.deepEqual([completed.status, deleted.status], [404, 204]);
+    assert.equal(saved.status, "CANCELLED");
+    assert.deepEqual([completed.status, deleted.status], [409, 204]);
     await expectBalance(fixture.customer.id, "50.00");
   }
+  await expectAgeVerification(created.body.id, fixture.customer.id);
 });
 
 test("money calculation avoids floating-point errors", async () => {
@@ -528,6 +709,12 @@ test("an error inside the transaction rolls back order and bonus debit", async (
     await prisma.order.count({ where: { customerId: fixture.customer.id } }),
     0,
   );
+  assert.equal(
+    await prisma.ageVerification.count({
+      where: { order: { customerId: fixture.customer.id } },
+    }),
+    0,
+  );
   await expectBalance(fixture.customer.id, "10.00");
 });
 
@@ -539,6 +726,7 @@ test("admin can create an order on behalf of a customer (POS)", async () => {
     "/orders",
     {
       customerId: fixture.customer.id,
+      isAgeConfirmed: true,
       paymentMethod: "CASH",
       items: orderItems(fixture),
       ...delivery,
@@ -548,6 +736,11 @@ test("admin can create an order on behalf of a customer (POS)", async () => {
 
   assert.equal(result.status, 201);
   assert.equal(result.body.customer.id, fixture.customer.id);
+  const verification = await prisma.ageVerification.findUniqueOrThrow({
+    where: { orderId: result.body.id },
+    include: { order: { select: { customerId: true } } },
+  });
+  assert.equal(verification.order.customerId, fixture.customer.id);
 });
 
 test("customerId in the body is ignored for customers", async () => {
@@ -559,6 +752,7 @@ test("customerId in the body is ignored for customers", async () => {
     "/orders",
     {
       customerId: other.id,
+      isAgeConfirmed: true,
       paymentMethod: "CARD",
       items: orderItems(fixture),
       ...delivery,
@@ -578,6 +772,7 @@ test("creating an order for a missing customer returns 404", async () => {
     "/orders",
     {
       customerId: `${prefix}-missing-customer`,
+      isAgeConfirmed: true,
       paymentMethod: "CARD",
       items: orderItems(fixture),
       ...delivery,
@@ -595,6 +790,7 @@ test("creating an order with a missing product returns 404", async () => {
     "POST",
     "/orders",
     {
+      isAgeConfirmed: true,
       paymentMethod: "CARD",
       items: [{ productId: `${prefix}-missing-product`, quantity: 1 }],
       ...delivery,
@@ -624,6 +820,7 @@ test("changing a completed order returns 409", async () => {
   );
 
   assert.equal(result.status, 409);
+  await expectAgeVerification(created.body.id, fixture.customer.id);
 });
 
 test("duplicate email returns 409 for customer POST and PUT", async () => {
@@ -641,7 +838,12 @@ test("duplicate email returns 409 for customer POST and PUT", async () => {
     },
     admin.token,
   );
-  const updated = await api("PUT", `/customers/${target.id}`, { email }, admin.token);
+  const updated = await api(
+    "PUT",
+    `/customers/${target.id}`,
+    { email },
+    admin.token,
+  );
 
   assert.ok(existing);
   assert.equal(posted.status, 409);
@@ -663,7 +865,12 @@ test("duplicate phone returns 409 for customer POST and PUT", async () => {
     },
     admin.token,
   );
-  const updated = await api("PUT", `/customers/${target.id}`, { phone }, admin.token);
+  const updated = await api(
+    "PUT",
+    `/customers/${target.id}`,
+    { phone },
+    admin.token,
+  );
 
   assert.ok(existing);
   assert.equal(posted.status, 409);

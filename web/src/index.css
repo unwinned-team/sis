@@ -17,6 +17,16 @@ body {
   background-color: #f0f8f7;
 }
 
+.age-gate {
+  margin: auto;
+}
+
+.age-gate::backdrop {
+  background: rgb(15 23 42 / 0.72);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+
 /* Liquid-glass scrollbars — Firefox only supports flat colors */
 html {
   scrollbar-width: thin;

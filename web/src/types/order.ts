@@ -2,7 +2,7 @@ export type PaymentMethod = 'CARD' | 'CASH' | 'BONUS';
 
 export type PaymentStatus = 'PENDING' | 'CLAIMED' | 'PAID' | 'FAILED';
 
-export type OrderStatus = 'NEW' | 'PROCESSING' | 'COMPLETED' | 'CANCELLED';
+export type OrderStatus = 'NEW' | 'PROCESSING' | 'COMPLETED' | 'RECEIVED' | 'REJECTED' | 'CANCELLED';
 
 export interface OrderItem {
   id: string;

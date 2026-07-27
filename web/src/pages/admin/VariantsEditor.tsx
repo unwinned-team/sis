@@ -1,8 +1,69 @@
-import { useState } from 'react';
-import { createVariant, deleteVariant, updateVariant, type VariantInput } from '../../api/admin';
+import { useRef, useState } from 'react';
+import {
+  createVariant,
+  deleteVariant,
+  updateVariant,
+  uploadImage,
+  type VariantInput,
+} from '../../api/admin';
 import { isMissingEndpoint, saveErrorMessage } from './support';
 import { DANGER_BUTTON_CLASS, GHOST_BUTTON_CLASS, INPUT_CLASS, Notice } from './ui';
 import type { Product, ProductVariant } from '../../types';
+
+// Фото смаку редагується прямо в рядку: клік по мініатюрі відкриває вибір файлу,
+// завантаження одразу зберігається — окрема форма заради одного поля зайва.
+function VariantImage({
+  imageUrl,
+  disabled,
+  onPick,
+  onClear,
+}: {
+  imageUrl: string | null | undefined;
+  disabled: boolean;
+  onPick: (file: File) => void;
+  onClear: () => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  return (
+    <div className="relative shrink-0">
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/jpeg,image/png"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) onPick(file);
+          e.target.value = '';
+        }}
+        className="hidden"
+      />
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        disabled={disabled}
+        title={imageUrl ? 'Змінити фото смаку' : 'Додати фото смаку'}
+        className="h-11 w-11 overflow-hidden rounded-xl border border-white/70 bg-white/50 text-lg text-slate-400 transition hover:border-teal-300 hover:text-teal-600 disabled:opacity-50"
+      >
+        {imageUrl ? (
+          <img src={imageUrl} alt="" className="h-full w-full object-cover" />
+        ) : (
+          '＋'
+        )}
+      </button>
+      {imageUrl && !disabled && (
+        <button
+          type="button"
+          onClick={onClear}
+          title="Прибрати фото смаку"
+          className="absolute -right-1.5 -top-1.5 h-5 w-5 rounded-full border border-white bg-slate-700 text-xs leading-none text-white"
+        >
+          ×
+        </button>
+      )}
+    </div>
+  );
+}
 
 interface Draft {
   taste: string;
@@ -88,6 +149,36 @@ export function VariantsEditor({
     }
   }
 
+  async function patchVariant(variant: ProductVariant, input: VariantInput) {
+    setError(null);
+    setBusyId(variant.id);
+    try {
+      const updated = await updateVariant(accessToken, product.id, variant.id, input);
+      onChanged(variants.map((item) => (item.id === variant.id ? updated : item)));
+    } catch (err) {
+      handleError(err);
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function handleImagePick(variant: ProductVariant, file: File) {
+    setError(null);
+    setBusyId(variant.id);
+    try {
+      const { url } = await uploadImage(accessToken, file);
+      await patchVariant(variant, { imageUrl: url });
+    } catch (err) {
+      handleError(err);
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  function handleToggleAvailable(variant: ProductVariant) {
+    return patchVariant(variant, { isAvailable: !variant.isAvailable });
+  }
+
   async function handleDelete(variant: ProductVariant) {
     setError(null);
     setBusyId(variant.id);
@@ -154,9 +245,33 @@ export function VariantsEditor({
             (descDraft !== undefined && descDraft !== (variant.description ?? ''));
           return (
             <li key={variant.id} className="flex flex-wrap items-center gap-2">
-              <span className="min-w-32 flex-1 text-sm text-slate-700">
+              <VariantImage
+                imageUrl={variant.imageUrl}
+                disabled={busyId !== null || unsupported}
+                onPick={(file) => void handleImagePick(variant, file)}
+                onClear={() => void patchVariant(variant, { imageUrl: null })}
+              />
+              <span
+                className={`min-w-32 flex-1 text-sm ${
+                  variant.isAvailable ? 'text-slate-700' : 'text-slate-400 line-through'
+                }`}
+              >
                 {[variant.taste, variant.size].filter(Boolean).join(' · ') || 'Базовий'}
               </span>
+              <button
+                type="button"
+                onClick={() => void handleToggleAvailable(variant)}
+                disabled={busyId !== null || unsupported}
+                aria-pressed={variant.isAvailable}
+                title="Клікніть, щоб змінити доступність смаку"
+                className={`!px-3 !py-1.5 !text-xs ${
+                  variant.isAvailable
+                    ? 'rounded-full border border-emerald-300 bg-emerald-50 font-semibold text-emerald-700'
+                    : GHOST_BUTTON_CLASS
+                }`}
+              >
+                {busyId === variant.id ? '...' : variant.isAvailable ? '✓ Доступний' : 'Недоступний'}
+              </button>
               <input
                 type="text"
                 value={descDraft ?? variant.description ?? ''}

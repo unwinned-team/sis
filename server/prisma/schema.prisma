@@ -45,6 +45,9 @@ model ProductVariant {
   size        String?
   description String?
   price       Decimal    @db.Decimal(10, 2)
+  isAvailable Boolean    @default(true)
+  // Фото конкретного смаку; null — показуємо загальне фото товару.
+  imageUrl    String?
   product     Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
   cartItems   CartItem[]
 

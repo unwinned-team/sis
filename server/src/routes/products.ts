@@ -91,7 +91,12 @@ async function getProducts(req: Request, res: Response, next: NextFunction) {
         })),
       },
       orderBy: { name: "asc" },
-      include: { category: true, variants: true },
+      include: {
+        category: true,
+        // Без orderBy Postgres віддає оновлені рядки в кінці — смаки
+        // стрибали б у списку після кожного редагування.
+        variants: { orderBy: { id: "asc" } },
+      },
     });
 
     if (products.length > 0 || words.length === 0) {
@@ -137,7 +142,12 @@ async function fuzzySearchProducts(
 
   const products = await prisma.product.findMany({
     where: { id: { in: rows.map((row) => row.id) } },
-    include: { category: true, variants: true },
+    include: {
+      category: true,
+      // Без orderBy Postgres віддає оновлені рядки в кінці — смаки
+      // стрибали б у списку після кожного редагування.
+      variants: { orderBy: { id: "asc" } },
+    },
   });
 
   // findMany не сохраняет порядок in-списка — восстанавливаем сортировку по score.
@@ -161,7 +171,12 @@ async function getProductById(req: Request, res: Response, next: NextFunction) {
         id: parsed.data.id,
         ...(includeArchived ? {} : { isArchived: false }),
       },
-      include: { category: true, variants: true },
+      include: {
+        category: true,
+        // Без orderBy Postgres віддає оновлені рядки в кінці — смаки
+        // стрибали б у списку після кожного редагування.
+        variants: { orderBy: { id: "asc" } },
+      },
     });
 
     if (!product) {
@@ -390,6 +405,8 @@ async function createVariant(req: Request, res: Response, next: NextFunction) {
         taste: parsedBody.data.taste ?? null,
         size: parsedBody.data.size ?? null,
         description: parsedBody.data.description ?? null,
+        isAvailable: parsedBody.data.isAvailable ?? true,
+        imageUrl: parsedBody.data.imageUrl ?? null,
       },
     });
 

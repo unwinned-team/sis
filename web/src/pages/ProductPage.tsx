@@ -46,11 +46,13 @@ function ProductDetails({ product }: ProductDetailsProps) {
     };
   }, []);
 
-  const isUnavailable = product.isAvailable === false;
-
   const variants = useMemo(() => product.variants ?? [], [product.variants]);
-  const tastes = useMemo(() => distinct(variants.map((v) => v.taste)), [variants]);
-  const sizes = useMemo(() => distinct(variants.map((v) => v.size)), [variants]);
+  const availableVariants = useMemo(
+    () => variants.filter((v) => v.isAvailable !== false),
+    [variants],
+  );
+  const tastes = useMemo(() => distinct(availableVariants.map((v) => v.taste)), [availableVariants]);
+  const sizes = useMemo(() => distinct(availableVariants.map((v) => v.size)), [availableVariants]);
 
   const [selectedTaste, setSelectedTaste] = useState<string | null>(tastes[0] ?? null);
   const [selectedSize, setSelectedSize] = useState<string | null>(sizes[0] ?? null);
@@ -61,9 +63,13 @@ function ProductDetails({ product }: ProductDetailsProps) {
       (sizes.length === 0 || variant.size === selectedSize),
   );
 
+  const isUnavailable = product.isAvailable === false || selectedVariant?.isAvailable === false;
+
   const price = selectedVariant?.price ?? product.price;
 
   const description = selectedVariant?.description ?? product.description;
+
+  const imageUrl = selectedVariant?.imageUrl || product.imageUrl;
 
   const inCartQuantity =
     items.find(
@@ -81,7 +87,12 @@ function ProductDetails({ product }: ProductDetailsProps) {
     <section className="overflow-hidden rounded-3xl border border-white/60 bg-white/40 shadow-lg backdrop-blur-md">
       <div className="grid sm:grid-cols-[minmax(0,26rem)_1fr]">
         <div className="aspect-square overflow-hidden bg-gradient-to-br from-teal-100/40 to-sky-100/40 sm:aspect-auto">
-          <img src={product.imageUrl} alt={product.name} className="h-full w-full object-cover" />
+          <img
+            key={imageUrl}
+            src={imageUrl}
+            alt={[product.name, selectedVariant?.taste].filter(Boolean).join(' — ')}
+            className="variant-image h-full w-full object-cover"
+          />
         </div>
 
         <div className="flex flex-col justify-center gap-4 p-6 sm:p-10">

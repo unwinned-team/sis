@@ -64,7 +64,12 @@ async function getCategoryPopularProduct(
 
     const product = await prisma.product.findFirst({
       where: { id: topItem[0]!.productId, isArchived: false },
-      include: { category: true, variants: true },
+      include: {
+        category: true,
+        // Без orderBy Postgres віддає оновлені рядки в кінці — смаки
+        // стрибали б у списку після кожного редагування.
+        variants: { orderBy: { id: "asc" } },
+      },
     });
 
     if (!product) {
@@ -95,7 +100,10 @@ async function createCategory(req: Request, res: Response, next: NextFunction) {
       select: { id: true, name: true, slug: true, imageUrl: true },
     });
 
-    log.info({ categoryId: category.id, slug: category.slug, name: category.name }, "Category created");
+    log.info(
+      { categoryId: category.id, slug: category.slug, name: category.name },
+      "Category created",
+    );
     res.status(201).json(category);
   } catch (error) {
     next(error);
@@ -135,7 +143,10 @@ async function updateCategory(req: Request, res: Response, next: NextFunction) {
       select: { id: true, name: true, slug: true, imageUrl: true },
     });
 
-    log.info({ categoryId: category.id, slug: category.slug }, "Category updated");
+    log.info(
+      { categoryId: category.id, slug: category.slug },
+      "Category updated",
+    );
     res.json(category);
   } catch (error) {
     next(error);
@@ -166,7 +177,10 @@ async function deleteCategory(req: Request, res: Response, next: NextFunction) {
 
     await prisma.category.delete({ where: { id: category.id } });
 
-    log.info({ categoryId: category.id, slug: parsed.data.slug }, "Category deleted");
+    log.info(
+      { categoryId: category.id, slug: parsed.data.slug },
+      "Category deleted",
+    );
     res.status(204).end();
   } catch (error) {
     next(error);

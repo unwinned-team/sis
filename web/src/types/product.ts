@@ -7,6 +7,8 @@ export interface ProductVariant {
   size: string | null;
   price: string;
   description?: string | null;
+  isAvailable: boolean;
+  imageUrl?: string | null;
 }
 
 export interface Product {

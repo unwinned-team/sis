@@ -114,6 +114,8 @@ export interface VariantInput {
   size?: string | null;
   description?: string | null;
   price?: number;
+  isAvailable?: boolean;
+  imageUrl?: string | null;
 }
 
 export function createVariant(

@@ -219,6 +219,20 @@ html {
   }
 }
 
+/* Вибір смаку підміняє фото товару — коротке проявлення, щоб підміна не різала око. */
+.variant-image {
+  animation: variant-image-fade 0.2s ease-out;
+}
+
+@keyframes variant-image-fade {
+  from {
+    opacity: 0.35;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 /* Lighter blur on small screens: big blur radii are GPU-expensive on phones */
 @media (max-width: 640px) {
   .orb {
@@ -232,7 +246,8 @@ html {
 
 @media (prefers-reduced-motion: reduce) {
   .orb,
-  .smoke {
+  .smoke,
+  .variant-image {
     animation: none;
   }
 }

@@ -44,6 +44,8 @@ export const createVariantSchema = z.object({
   size: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
   price: priceSchema,
+  isAvailable: z.boolean().optional(),
+  imageUrl: z.string().nullable().optional(),
 });
 
 export const updateVariantSchema = z.object({
@@ -51,4 +53,6 @@ export const updateVariantSchema = z.object({
   size: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
   price: priceSchema.optional(),
+  isAvailable: z.boolean().optional(),
+  imageUrl: z.string().nullable().optional(),
 });

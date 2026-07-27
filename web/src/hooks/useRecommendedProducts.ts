@@ -1,6 +1,4 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getCategoryPopularProduct } from '../api/categories';
-import { CATEGORIES_QUERY } from './useCategories';
+import { usePopularByCategory } from './usePopularByCategory';
 import type { Product } from '../types';
 
 interface UseRecommendedProductsResult {
@@ -10,26 +8,19 @@ interface UseRecommendedProductsResult {
 }
 
 export function useRecommendedProducts(): UseRecommendedProductsResult {
-  const queryClient = useQueryClient();
+  const { data, isPending, isError } = usePopularByCategory();
 
-  const { data, isPending, isError } = useQuery({
-    queryKey: ['recommended-products'],
-    queryFn: async () => {
-      const categories = await queryClient.ensureQueryData(CATEGORIES_QUERY);
-      const results = await Promise.all(
-        categories.map((category) => getCategoryPopularProduct(category.slug).catch(() => null)),
-      );
-      const seen = new Set<string>();
-      return results.filter((product): product is Product => {
-        if (!product || seen.has(product.id)) return false;
-        seen.add(product.id);
-        return true;
-      });
-    },
+  // Один товар може бути хітом лише своєї категорії, але підстраховка від
+  // дублів у стрічці лишається — категорії обходяться по порядку.
+  const seen = new Set<string>();
+  const products = Object.values(data ?? {}).filter((product) => {
+    if (seen.has(product.id)) return false;
+    seen.add(product.id);
+    return true;
   });
 
   return {
-    products: data ?? [],
+    products,
     isLoading: isPending,
     error: isError ? 'Не вдалося завантажити рекомендовані товари' : null,
   };

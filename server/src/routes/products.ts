@@ -14,6 +14,7 @@ import {
   createProductSchema,
   updateProductSchema,
   variantParamsSchema,
+  createVariantParamsSchema,
   createVariantSchema,
   updateVariantSchema,
 } from "../schemas/products.js";
@@ -376,7 +377,7 @@ async function getRelatedProducts(
 // POST /api/products/:productId/variants
 async function createVariant(req: Request, res: Response, next: NextFunction) {
   try {
-    const parsedParams = variantParamsSchema.safeParse(req.params);
+    const parsedParams = createVariantParamsSchema.safeParse(req.params);
 
     if (!parsedParams.success) {
       return res.status(400).json({ errors: parsedParams.error.issues });

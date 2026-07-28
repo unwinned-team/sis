@@ -156,6 +156,74 @@ test("product by id includes category and variants; missing id answers 404", asy
   assert.equal(missing.status, 404);
 });
 
+// Вся линейка вариантов — то, чем админка наполняет каталог (смаки/сопротивления).
+// Раньше POST падал 400: params-схема требовала ещё не существующий variantId.
+test("admin creates, updates and deletes a product variant", async () => {
+  const token = await addAdmin();
+  const category = await addCategory("variant-crud");
+  const product = await addProduct("variant-crud", category.id);
+
+  const created = await api("POST", `/products/${product.id}/variants`, {
+    token,
+    body: { taste: "Mojito", price: 99.99, imageUrl: "/uploads/probe.png" },
+  });
+  assert.equal(created.status, 201, JSON.stringify(created.body));
+  assert.equal(created.body.taste, "Mojito");
+  assert.equal(created.body.imageUrl, "/uploads/probe.png");
+  assert.equal(created.body.productId, product.id);
+
+  // Вариант должен сразу приезжать вместе с товаром на витрину.
+  const withVariant = await api("GET", `/products/${product.id}`);
+  assert.equal(withVariant.body.variants.length, 1);
+  assert.equal(withVariant.body.variants[0].id, created.body.id);
+
+  const updated = await api(
+    "PUT",
+    `/products/${product.id}/variants/${created.body.id}`,
+    { token, body: { price: 55.5, isAvailable: false } },
+  );
+  assert.equal(updated.status, 200, JSON.stringify(updated.body));
+  assert.equal(updated.body.price, "55.5");
+  assert.equal(updated.body.isAvailable, false);
+
+  const removed = await api(
+    "DELETE",
+    `/products/${product.id}/variants/${created.body.id}`,
+    { token },
+  );
+  assert.equal(removed.status, 204);
+  assert.equal(
+    await prisma.productVariant.count({ where: { id: created.body.id } }),
+    0,
+  );
+});
+
+test("variant create requires an admin and a real product", async () => {
+  const token = await addAdmin();
+  const category = await addCategory("variant-guard");
+  const product = await addProduct("variant-guard", category.id);
+  const body = { taste: "Guard", price: 10 };
+
+  assert.equal(
+    (await api("POST", `/products/${product.id}/variants`, { body })).status,
+    401,
+  );
+  assert.equal(
+    (await api("POST", `/products/${prefix}-missing/variants`, { token, body }))
+      .status,
+    404,
+  );
+  assert.equal(
+    (
+      await api("POST", `/products/${product.id}/variants`, {
+        token,
+        body: { taste: "Bad", price: -1 },
+      })
+    ).status,
+    400,
+  );
+});
+
 test("product mutations require an admin", async () => {
   const category = await addCategory("guard");
   const product = await addProduct("guard", category.id);

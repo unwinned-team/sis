@@ -13,6 +13,10 @@ model Category {
   name     String
   slug     String    @unique
   imageUrl String?
+  // Архив категории не переписывает isArchived товаров — витрина прячет их
+  // через relation-фильтр, поэтому снятие с архива возвращает ровно то,
+  // что было видно раньше (индивидуально архивные так и остаются в архиве).
+  isArchived Boolean @default(false)
   products Product[]
 }
 

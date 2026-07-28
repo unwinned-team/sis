@@ -3,7 +3,12 @@ import { Router } from "express";
 import { Prisma } from "@prisma/client";
 import prisma from "../prisma.js";
 import log from "../logger.js";
-import { requireAuth, requireAdmin } from "../middleware/auth.js";
+import {
+  requireAuth,
+  requireAdmin,
+  requireAdminForArchived,
+} from "../middleware/auth.js";
+import { VISIBLE_PRODUCT } from "../lib/visibility.js";
 import {
   productParamsSchema,
   createProductSchema,
@@ -40,22 +45,6 @@ function isForeignKeyConstraintViolation(error: unknown) {
   );
 }
 
-// Публичные GET-роуты скрывают архив; ?includeArchived=true доступен только
-// админу, поэтому цепочка auth-middleware включается лишь при этом параметре.
-function requireAdminForArchived(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) {
-  if (req.query.includeArchived !== "true") {
-    return next();
-  }
-  requireAuth(req, res, (err?: unknown) => {
-    if (err) return next(err);
-    requireAdmin(req, res, next);
-  });
-}
-
 // GET /api/products?search=...
 // Двухступенчатый поиск: сначала точное вхождение слов (ILIKE), при пустом
 // результате — fuzzy-фолбэк на pg_trgm (опечатки: «пламбир» найдёт «Пломбир»).
@@ -69,7 +58,7 @@ async function getProducts(req: Request, res: Response, next: NextFunction) {
         : "";
 
     const baseWhere = {
-      ...(includeArchived ? {} : { isArchived: false }),
+      ...(includeArchived ? {} : VISIBLE_PRODUCT),
       ...(categoryId ? { categoryId: String(categoryId) } : {}),
     };
 
@@ -103,7 +92,12 @@ async function getProducts(req: Request, res: Response, next: NextFunction) {
       return res.json(products);
     }
 
-    res.json(await fuzzySearchProducts(search, baseWhere));
+    res.json(
+      await fuzzySearchProducts(search, {
+        visibleOnly: !includeArchived,
+        categoryId: categoryId ? String(categoryId) : undefined,
+      }),
+    );
   } catch (error) {
     next(error);
   }
@@ -116,16 +110,20 @@ async function getProducts(req: Request, res: Response, next: NextFunction) {
 // оператор <% с SET pg_trgm.word_similarity_threshold.
 async function fuzzySearchProducts(
   search: string,
-  baseWhere: { isArchived?: boolean; categoryId?: string },
+  options: { visibleOnly: boolean; categoryId?: string | undefined },
 ) {
   const score = Prisma.sql`GREATEST(word_similarity(${search}, "name"), word_similarity(${search}, "description"))`;
   const filters = [
     Prisma.sql`${score} > 0.3`,
-    ...(baseWhere.isArchived === false
-      ? [Prisma.sql`"isArchived" = false`]
+    // Ручной аналог VISIBLE_PRODUCT: raw-SQL не умеет relation-фильтры Prisma.
+    ...(options.visibleOnly
+      ? [
+          Prisma.sql`"isArchived" = false`,
+          Prisma.sql`"categoryId" IN (SELECT "id" FROM "Category" WHERE "isArchived" = false)`,
+        ]
       : []),
-    ...(baseWhere.categoryId
-      ? [Prisma.sql`"categoryId" = ${baseWhere.categoryId}`]
+    ...(options.categoryId
+      ? [Prisma.sql`"categoryId" = ${options.categoryId}`]
       : []),
   ];
 
@@ -169,7 +167,7 @@ async function getProductById(req: Request, res: Response, next: NextFunction) {
     const product = await prisma.product.findFirst({
       where: {
         id: parsed.data.id,
-        ...(includeArchived ? {} : { isArchived: false }),
+        ...(includeArchived ? {} : VISIBLE_PRODUCT),
       },
       include: {
         category: true,
@@ -351,7 +349,7 @@ async function getRelatedProducts(
     }
 
     const product = await prisma.product.findFirst({
-      where: { id: parsed.data.id, isArchived: false },
+      where: { id: parsed.data.id, ...VISIBLE_PRODUCT },
     });
 
     if (!product) {
@@ -362,7 +360,7 @@ async function getRelatedProducts(
       where: {
         categoryId: product.categoryId,
         id: { not: product.id },
-        isArchived: false,
+        ...VISIBLE_PRODUCT,
       },
       take: 4,
       orderBy: { name: "asc" },

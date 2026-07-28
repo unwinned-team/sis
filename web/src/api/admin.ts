@@ -159,6 +159,24 @@ export interface CategoryInput {
   imageUrl?: string | null;
 }
 
+// Архивные категории отдаются только активному админу — как и у товаров,
+// запрос обязательно идёт с токеном.
+export function getAllCategories(
+  accessToken?: string,
+  includeArchived = false,
+): Promise<Category[]> {
+  const search = includeArchived ? '?includeArchived=true' : '';
+  return apiRequest<Category[]>(`/categories${search}`, { accessToken });
+}
+
+export function setCategoryArchived(
+  accessToken: string,
+  slug: string,
+  isArchived: boolean,
+): Promise<Category> {
+  return updateCategory(accessToken, slug, { isArchived });
+}
+
 export function createCategory(accessToken: string, input: CategoryInput): Promise<Category> {
   return apiRequest<Category>('/categories', { method: 'POST', body: input, accessToken });
 }
@@ -166,7 +184,7 @@ export function createCategory(accessToken: string, input: CategoryInput): Promi
 export function updateCategory(
   accessToken: string,
   slug: string,
-  input: Partial<CategoryInput>,
+  input: Partial<CategoryInput> & { isArchived?: boolean },
 ): Promise<Category> {
   return apiRequest<Category>(`/categories/${encodeURIComponent(slug)}`, {
     method: 'PUT',

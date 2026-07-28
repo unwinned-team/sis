@@ -3,11 +3,11 @@ import type { FormEvent } from 'react';
 import {
   createProduct,
   deleteProduct,
+  getAllCategories,
   getAllProducts,
   setProductArchived,
   updateProduct,
 } from '../../api/admin';
-import { getCategories } from '../../api/categories';
 import { formatPrice } from '../../utils/format';
 import { ImageField } from './ImageField';
 import { VariantsEditor } from './VariantsEditor';
@@ -242,14 +242,15 @@ function ProductCard({
     }
   }
 
-  async function handleUnarchive() {
+  async function handleToggleArchived() {
+    const next = !product.isArchived;
     setError(null);
     setInfo(null);
     setBusy('archive');
     try {
-      const updated = await setProductArchived(accessToken, product.id, false);
+      const updated = await setProductArchived(accessToken, product.id, next);
       onUpdated({ ...product, ...updated });
-      setInfo('Товар повернуто з архіву.');
+      setInfo(next ? 'Товар заархівовано.' : 'Товар повернуто з архіву.');
     } catch (err) {
       setError(saveErrorMessage(err));
     } finally {
@@ -258,6 +259,9 @@ function ProductCard({
   }
 
   const isAvailable = product.isAvailable ?? true;
+  // Категория в архиве прячет товар вместе с собой, не трогая его собственный
+  // флаг — показываем это отдельной пометкой, чтобы админ не искал причину.
+  const hiddenByCategory = product.category?.isArchived ?? false;
 
   return (
     <article className={`${CARD_CLASS} p-5`}>
@@ -275,6 +279,11 @@ function ProductCard({
                 {product.isArchived && (
                   <span className="rounded-full bg-slate-200 px-2.5 py-0.5 text-xs font-semibold text-slate-500">
                     В архіві
+                  </span>
+                )}
+                {hiddenByCategory && (
+                  <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-700">
+                    Категорія в архіві
                   </span>
                 )}
                 {availabilitySupported && !isAvailable && (
@@ -311,16 +320,15 @@ function ProductCard({
                   ? 'Позначити «немає»'
                   : 'Позначити «в наявності»'}
             </button>
-            {product.isArchived ? (
-              <button
-                type="button"
-                onClick={() => void handleUnarchive()}
-                disabled={busy !== null}
-                className={`${GHOST_BUTTON_CLASS} !px-4 !py-1.5 !text-xs`}
-              >
-                {busy === 'archive' ? '...' : 'Повернути з архіву'}
-              </button>
-            ) : (
+            <button
+              type="button"
+              onClick={() => void handleToggleArchived()}
+              disabled={busy !== null}
+              className={`${GHOST_BUTTON_CLASS} !px-4 !py-1.5 !text-xs`}
+            >
+              {busy === 'archive' ? '...' : product.isArchived ? 'Повернути з архіву' : 'В архів'}
+            </button>
+            {!product.isArchived && (
               <button
                 type="button"
                 onClick={() => void handleDelete()}
@@ -392,7 +400,12 @@ export function ProductsTab({ accessToken }: { accessToken: string }) {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([getAllProducts(accessToken, showArchived), getCategories()])
+    // Архивные категории нужны и в фильтре, и в селекте формы: иначе товар из
+    // архивной категории нельзя ни найти, ни перенести в живую категорию.
+    Promise.all([
+      getAllProducts(accessToken, showArchived),
+      getAllCategories(accessToken, true),
+    ])
       .then(([loadedProducts, loadedCategories]) => {
         if (cancelled) return;
         setProducts(loadedProducts);

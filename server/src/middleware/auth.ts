@@ -21,6 +21,22 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   }
 }
 
+// Публичные GET-роуты скрывают архив; ?includeArchived=true доступен только
+// админу, поэтому цепочка auth-middleware включается лишь при этом параметре.
+export function requireAdminForArchived(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  if (req.query.includeArchived !== "true") {
+    return next();
+  }
+  requireAuth(req, res, (err?: unknown) => {
+    if (err) return next(err);
+    requireAdmin(req, res, next);
+  });
+}
+
 // Для админов stateless-доверие токену запрещено: проверка в БД на каждый
 // запрос — уволенный/заблокированный админ отсекается сразу, не через 15 минут.
 export async function requireAdmin(req: Request, res: Response, next: NextFunction) {

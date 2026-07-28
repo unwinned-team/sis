@@ -157,13 +157,14 @@ async function createOrder(req: Request, res: Response, next: NextFunction) {
       const productIds = [...new Set(items.map((item) => item.productId))];
       const products = await tx.product.findMany({
         where: { id: { in: productIds } },
+        include: { category: { select: { isArchived: true } } },
       });
       if (products.length !== productIds.length) {
         throw httpError(404, "One or more products not found");
       }
 
       const unavailable = products.filter(
-        (p) => !p.isAvailable || p.isArchived,
+        (p) => !p.isAvailable || p.isArchived || p.category.isArchived,
       );
       if (unavailable.length > 0) {
         const err = httpError(409, "Products unavailable");

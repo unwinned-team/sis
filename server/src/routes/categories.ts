@@ -2,7 +2,12 @@ import type { Request, Response, NextFunction } from "express";
 import { Router } from "express";
 import prisma from "../prisma.js";
 import log from "../logger.js";
-import { requireAuth, requireAdmin } from "../middleware/auth.js";
+import {
+  requireAuth,
+  requireAdmin,
+  requireAdminForArchived,
+} from "../middleware/auth.js";
+import { VISIBLE_PRODUCT } from "../lib/visibility.js";
 import {
   popularProductParamsSchema,
   createCategorySchema,
@@ -12,12 +17,21 @@ import {
 
 const router = Router();
 
+const CATEGORY_FIELDS = {
+  id: true,
+  name: true,
+  slug: true,
+  imageUrl: true,
+  isArchived: true,
+} as const;
+
 // GET /api/categories
-async function getCategories(_req: Request, res: Response, next: NextFunction) {
+async function getCategories(req: Request, res: Response, next: NextFunction) {
   try {
     const categories = await prisma.category.findMany({
+      where: req.query.includeArchived === "true" ? {} : { isArchived: false },
       orderBy: { name: "asc" },
-      select: { id: true, name: true, slug: true, imageUrl: true },
+      select: CATEGORY_FIELDS,
     });
 
     res.json(categories);
@@ -43,16 +57,16 @@ async function getCategoryPopularProduct(
 
     const category = await prisma.category.findUnique({
       where: { slug },
-      select: { id: true },
+      select: { id: true, isArchived: true },
     });
 
-    if (!category) {
+    if (!category || category.isArchived) {
       return res.status(404).json({ error: "Category not found" });
     }
 
     const topItem = await prisma.orderItem.groupBy({
       by: ["productId"],
-      where: { product: { categoryId: category.id, isArchived: false } },
+      where: { product: { categoryId: category.id, ...VISIBLE_PRODUCT } },
       _sum: { quantity: true },
       orderBy: { _sum: { quantity: "desc" } },
       take: 1,
@@ -63,7 +77,7 @@ async function getCategoryPopularProduct(
     }
 
     const product = await prisma.product.findFirst({
-      where: { id: topItem[0]!.productId, isArchived: false },
+      where: { id: topItem[0]!.productId, ...VISIBLE_PRODUCT },
       include: {
         category: true,
         // Без orderBy Postgres віддає оновлені рядки в кінці — смаки
@@ -97,7 +111,7 @@ async function createCategory(req: Request, res: Response, next: NextFunction) {
           imageUrl: parsed.data.imageUrl,
         }),
       },
-      select: { id: true, name: true, slug: true, imageUrl: true },
+      select: CATEGORY_FIELDS,
     });
 
     log.info(
@@ -131,7 +145,7 @@ async function updateCategory(req: Request, res: Response, next: NextFunction) {
       return res.status(404).json({ error: "Category not found" });
     }
 
-    const { name, slug, imageUrl } = bodyParsed.data;
+    const { name, slug, imageUrl, isArchived } = bodyParsed.data;
 
     const category = await prisma.category.update({
       where: { slug: paramsParsed.data.slug },
@@ -139,12 +153,13 @@ async function updateCategory(req: Request, res: Response, next: NextFunction) {
         ...(name !== undefined && { name }),
         ...(slug !== undefined && { slug }),
         ...(imageUrl !== undefined && { imageUrl }),
+        ...(isArchived !== undefined && { isArchived }),
       },
-      select: { id: true, name: true, slug: true, imageUrl: true },
+      select: CATEGORY_FIELDS,
     });
 
     log.info(
-      { categoryId: category.id, slug: category.slug },
+      { categoryId: category.id, slug: category.slug, isArchived: category.isArchived },
       "Category updated",
     );
     res.json(category);
@@ -170,9 +185,10 @@ async function deleteCategory(req: Request, res: Response, next: NextFunction) {
     }
 
     if (category._count.products > 0) {
-      return res
-        .status(409)
-        .json({ error: "Cannot delete category with existing products" });
+      return res.status(409).json({
+        error:
+          "Cannot delete category with existing products — archive it instead",
+      });
     }
 
     await prisma.category.delete({ where: { id: category.id } });
@@ -187,7 +203,7 @@ async function deleteCategory(req: Request, res: Response, next: NextFunction) {
   }
 }
 
-router.get("/", getCategories);
+router.get("/", requireAdminForArchived, getCategories);
 router.get("/:slug/popular-product", getCategoryPopularProduct);
 router.post("/", requireAuth, requireAdmin, createCategory);
 router.put("/:slug", requireAuth, requireAdmin, updateCategory);

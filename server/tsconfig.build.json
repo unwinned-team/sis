@@ -1,0 +1,16 @@
+// Продакшен-сборка: только src -> dist.
+// Базовый tsconfig.json намеренно без include — им пользуется `server:check`,
+// который типизирует ещё и tests/. Здесь сужаем вход, иначе тесты уехали бы
+// в dist и потянули за собой devDependencies в рантайм.
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./dist",
+    // Стектрейсы pm2 должны указывать в .ts; .d.ts серверу не нужны.
+    "sourceMap": true,
+    "declaration": false,
+    "declarationMap": false
+  },
+  "include": ["src"]
+}

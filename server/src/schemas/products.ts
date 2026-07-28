@@ -38,6 +38,12 @@ export const variantParamsSchema = z.object({
   variantId: z.string().min(1),
 });
 
+// POST /:productId/variants — variantId ещё не существует, поэтому у создания
+// свой набор params: полная схема отбрасывала бы каждый запрос как невалидный.
+export const createVariantParamsSchema = variantParamsSchema.pick({
+  productId: true,
+});
+
 // nullable: фронт шлёт null для пустых полей (JSON.stringify не отбрасывает null)
 export const createVariantSchema = z.object({
   taste: z.string().nullable().optional(),

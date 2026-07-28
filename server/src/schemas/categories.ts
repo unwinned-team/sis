@@ -33,4 +33,5 @@ export const updateCategorySchema = z.object({
     .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Invalid slug format")
     .optional(),
   imageUrl: z.string().nullable().optional(),
+  isArchived: z.boolean().optional(),
 });

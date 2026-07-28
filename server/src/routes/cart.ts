@@ -34,7 +34,10 @@ async function loadCart(db: Db, customerId: string) {
   let totalAmount = new Prisma.Decimal(0);
 
   const items = rows.map((row) => {
-    const isAvailable = row.product.isAvailable && !row.product.isArchived;
+    const isAvailable =
+      row.product.isAvailable &&
+      !row.product.isArchived &&
+      !row.product.category.isArchived;
     const unitPrice = row.variant?.price ?? row.product.price;
     const lineTotal = unitPrice.mul(row.quantity);
 
@@ -89,6 +92,7 @@ async function addCartItem(req: Request, res: Response, next: NextFunction) {
           id: true,
           isAvailable: true,
           isArchived: true,
+          category: { select: { isArchived: true } },
           _count: { select: { variants: true } },
         },
       });
@@ -96,7 +100,11 @@ async function addCartItem(req: Request, res: Response, next: NextFunction) {
         throw httpError(404, "Product not found");
       }
 
-      if (!product.isAvailable || product.isArchived) {
+      if (
+        !product.isAvailable ||
+        product.isArchived ||
+        product.category.isArchived
+      ) {
         const err = httpError(409, "Products unavailable");
         (err as any).details = { productIds: [product.id] };
         throw err;

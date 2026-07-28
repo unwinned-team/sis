@@ -1,7 +1,12 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
-import { createCategory, deleteCategory, updateCategory } from '../../api/admin';
-import { getCategories } from '../../api/categories';
+import {
+  createCategory,
+  deleteCategory,
+  getAllCategories,
+  setCategoryArchived,
+  updateCategory,
+} from '../../api/admin';
 import { ImageField } from './ImageField';
 import { saveErrorMessage } from './support';
 import {
@@ -136,8 +141,9 @@ function CategoryCard({
     imageUrl: category.imageUrl ?? '',
   });
   const [isSaving, setIsSaving] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [busy, setBusy] = useState<'delete' | 'archive' | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -160,14 +166,35 @@ function CategoryCard({
 
   async function handleDelete() {
     setError(null);
-    setIsDeleting(true);
+    setInfo(null);
+    setBusy('delete');
     try {
       await deleteCategory(accessToken, category.slug);
       onRemoved(category.slug);
     } catch (err) {
       setError(saveErrorMessage(err));
     } finally {
-      setIsDeleting(false);
+      setBusy(null);
+    }
+  }
+
+  async function handleToggleArchived() {
+    const next = !category.isArchived;
+    setError(null);
+    setInfo(null);
+    setBusy('archive');
+    try {
+      const updated = await setCategoryArchived(accessToken, category.slug, next);
+      onUpdated(category.slug, updated);
+      setInfo(
+        next
+          ? 'Категорію заархівовано разом з її товарами — на сайті їх більше не видно.'
+          : 'Категорію повернуто з архіву; товари, заархівовані окремо, лишились в архіві.',
+      );
+    } catch (err) {
+      setError(saveErrorMessage(err));
+    } finally {
+      setBusy(null);
     }
   }
 
@@ -183,7 +210,14 @@ function CategoryCard({
             />
           )}
           <div className="min-w-40 flex-1">
-            <h3 className="text-base font-bold text-slate-900">{category.name}</h3>
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-base font-bold text-slate-900">{category.name}</h3>
+              {category.isArchived && (
+                <span className="rounded-full bg-slate-200 px-2.5 py-0.5 text-xs font-semibold text-slate-500">
+                  В архіві
+                </span>
+              )}
+            </div>
             <p className="text-sm text-slate-500">/{category.slug}</p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -196,11 +230,23 @@ function CategoryCard({
             </button>
             <button
               type="button"
+              onClick={() => void handleToggleArchived()}
+              disabled={busy !== null}
+              className={`${GHOST_BUTTON_CLASS} !px-4 !py-1.5 !text-xs`}
+            >
+              {busy === 'archive'
+                ? '...'
+                : category.isArchived
+                  ? 'Повернути з архіву'
+                  : 'В архів (з товарами)'}
+            </button>
+            <button
+              type="button"
               onClick={() => void handleDelete()}
-              disabled={isDeleting}
+              disabled={busy !== null}
               className={DANGER_BUTTON_CLASS}
             >
-              {isDeleting ? '...' : 'Видалити'}
+              {busy === 'delete' ? '...' : 'Видалити'}
             </button>
           </div>
         </div>
@@ -228,22 +274,33 @@ function CategoryCard({
           <Notice kind="error">{error}</Notice>
         </div>
       )}
+      {info && (
+        <div className="mt-3">
+          <Notice kind="info">{info}</Notice>
+        </div>
+      )}
     </article>
   );
 }
 
 export function CategoriesTab({ accessToken }: { accessToken: string }) {
   const [categories, setCategories] = useState<Category[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [createDraft, setCreateDraft] = useState<CategoryDraft>(EMPTY_DRAFT);
   const [isSaving, setIsSaving] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
+  // Как и в ProductsTab: загрузка выводится из ключа запроса, чтобы переключение
+  // архива снова показало скелет без каскадного рендера.
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
+  const requestKey = String(showArchived);
+  const isLoading = loadedKey !== requestKey;
+
   useEffect(() => {
     let cancelled = false;
-    getCategories()
+    getAllCategories(accessToken, showArchived)
       .then((loaded) => {
         if (cancelled) return;
         setCategories(loaded);
@@ -253,12 +310,12 @@ export function CategoriesTab({ accessToken }: { accessToken: string }) {
         if (!cancelled) setError('Не вдалося завантажити категорії.');
       })
       .finally(() => {
-        if (!cancelled) setIsLoading(false);
+        if (!cancelled) setLoadedKey(requestKey);
       });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [accessToken, showArchived, requestKey]);
 
   async function handleCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -291,6 +348,16 @@ export function CategoriesTab({ accessToken }: { accessToken: string }) {
         >
           {isCreating ? 'Закрити' : 'Нова категорія'}
         </button>
+
+        <label className="flex items-center gap-2 text-sm text-slate-600">
+          <input
+            type="checkbox"
+            checked={showArchived}
+            onChange={(e) => setShowArchived(e.target.checked)}
+            className="h-4 w-4 rounded border-white/70"
+          />
+          Показувати архівні категорії
+        </label>
 
         {isCreating && (
           <div className="border-t border-white/50 pt-4">

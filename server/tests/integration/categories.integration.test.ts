@@ -114,7 +114,13 @@ test("category list is public and sorted by name", async () => {
     [`${prefix} alpha`, `${prefix} zeta`],
   );
   // Публичный список отдаёт только каталожные поля.
-  assert.deepEqual(Object.keys(ours[0]).sort(), ["id", "imageUrl", "name", "slug"]);
+  assert.deepEqual(Object.keys(ours[0]).sort(), [
+    "id",
+    "imageUrl",
+    "isArchived",
+    "name",
+    "slug",
+  ]);
 });
 
 test("popular product is the one with the highest ordered quantity in the category", async () => {
@@ -317,6 +323,61 @@ test("category update rejects an invalid body with 400", async () => {
     const result = await api("PUT", `/categories/${category.slug}`, { token, body });
     assert.equal(result.status, 400, JSON.stringify(body));
   }
+});
+
+test("archived category hides itself and its products; unarchive restores them", async () => {
+  const token = await addAdmin();
+  const category = await addCategory("arch");
+  await prisma.product.createMany({
+    data: ["live", "own-archive"].map((suffix, index) => ({
+      id: `${prefix}-${suffix}`,
+      name: `${prefix} ${suffix}`,
+      description: "integration fixture",
+      price: "10.00",
+      categoryId: category.id,
+      imageUrl: "https://example.test/product.png",
+      // Второй товар архивируем отдельно — он должен остаться в архиве
+      // после того, как категорию вернут из архива.
+      isArchived: index === 1,
+    })),
+  });
+
+  const ours = (body: { id: string }[]) =>
+    body.filter((entry) => entry.id.startsWith(prefix)).map((entry) => entry.id);
+
+  const before = await api("GET", `/products?categoryId=${category.id}`);
+  assert.deepEqual(ours(before.body), [`${prefix}-live`]);
+
+  const archived = await api("PUT", `/categories/${category.slug}`, {
+    body: { isArchived: true },
+    token,
+  });
+  assert.equal(archived.status, 200);
+  assert.equal(archived.body.isArchived, true);
+
+  // Категория и её товары исчезают с витрины...
+  const publicList = await api("GET", "/categories");
+  assert.deepEqual(ours(publicList.body), []);
+  const hidden = await api("GET", `/products?categoryId=${category.id}`);
+  assert.deepEqual(ours(hidden.body), []);
+  assert.equal((await api("GET", `/products/${prefix}-live`)).status, 404);
+  assert.equal((await api("GET", `/categories/${category.slug}/popular-product`)).status, 404);
+
+  // ...но собственный флаг товара не переписан.
+  assert.equal(
+    await prisma.product.count({ where: { id: `${prefix}-live`, isArchived: true } }),
+    0,
+  );
+
+  // ...и админ по-прежнему их видит.
+  const adminList = await api("GET", "/categories?includeArchived=true", { token });
+  assert.deepEqual(ours(adminList.body), [category.id]);
+  assert.equal((await api("GET", "/categories?includeArchived=true")).status, 401);
+
+  await api("PUT", `/categories/${category.slug}`, { body: { isArchived: false }, token });
+
+  const after = await api("GET", `/products?categoryId=${category.id}`);
+  assert.deepEqual(ours(after.body), [`${prefix}-live`]);
 });
 
 test("admin deletes an empty category; a category with products answers 409", async () => {

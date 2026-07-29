@@ -1,0 +1,176 @@
+require("dotenv/config");
+
+const { PrismaPg } = require("@prisma/adapter-pg");
+const { PrismaClient } = require("@prisma/client");
+
+const {
+  categories,
+  products,
+  productVariants,
+  removedVariants,
+} = require("./catalog.cjs");
+
+const connectionString = process.env.DATABASE_URL;
+
+if (!connectionString) {
+  throw new Error("DATABASE_URL is required");
+}
+
+const prisma = new PrismaClient({
+  adapter: new PrismaPg({ connectionString }),
+});
+
+const money = (cents) => (cents / 100).toFixed(2);
+
+// За замовчуванням тексти і фото варіантів лише доповнюються, щоб не затерти
+// правки з адмінки. З --overwrite-text каталог стає джерелом правди: так
+// правлений catalog.cjs доїжджає до бази.
+const overwriteText = process.argv.includes("--overwrite-text");
+
+// Оновлення вітрини на живій базі: на відміну від seed.cjs нічого не видаляє,
+// тому замовлення, клієнти й кошики лишаються на місці. Запускати повторно
+// безпечно: другий прогін не змінює нічого.
+//
+//   npm run server:db:update-catalog
+//
+// Що робить:
+//   1. підпис характеристики і фото категорій (Колір / Опір);
+//   2. описи товарів;
+//   3. відсутні варіанти (кольори pod-систем), фото і описи для тих, у кого їх немає;
+//   4. видаляє варіанти зі списку removedVariants (знято з продажу).
+//
+// Чого свідомо не робить: не чіпає ціни, не видаляє варіанти лише тому, що їх
+// немає в каталозі, і не перезаписує фото чи опис, які адмін поставив руками.
+async function main() {
+  const stats = {
+    categories: 0,
+    descriptions: 0,
+    variantsCreated: 0,
+    variantImages: 0,
+    variantDescriptions: 0,
+    variantsRemoved: 0,
+    missingProducts: [],
+  };
+
+  for (const category of categories) {
+    const { id, ...data } = category;
+    const updated = await prisma.category.updateMany({ where: { id }, data });
+    stats.categories += updated.count;
+  }
+
+  for (const product of products) {
+    const updated = await prisma.product.updateMany({
+      where: { id: product.id, description: { not: product.description } },
+      data: { description: product.description },
+    });
+    stats.descriptions += updated.count;
+  }
+
+  for (const spec of productVariants) {
+    const product = await prisma.product.findUnique({
+      where: { id: spec.productId },
+      select: { id: true },
+    });
+    if (!product) {
+      stats.missingProducts.push(spec.productId);
+      continue;
+    }
+
+    const existing = await prisma.productVariant.findMany({
+      where: { productId: spec.productId },
+    });
+
+    for (const taste of spec.tastes ?? [null]) {
+      const asObject = taste && typeof taste === "object" ? taste : null;
+      const tasteName = asObject?.name ?? taste;
+      const description =
+        asObject?.description ?? spec.descriptions?.[tasteName] ?? spec.description ?? null;
+
+      for (const { size, priceCents } of spec.sizes) {
+        const match = existing.find(
+          (variant) => variant.taste === tasteName && variant.size === (size ?? null),
+        );
+
+        if (!match) {
+          await prisma.productVariant.create({
+            data: {
+              productId: spec.productId,
+              taste: tasteName,
+              size: size ?? null,
+              price: money(priceCents),
+              isAvailable: asObject?.isAvailable ?? true,
+              imageUrl: asObject?.imageUrl ?? null,
+              description,
+            },
+          });
+          stats.variantsCreated += 1;
+          continue;
+        }
+
+        // Фото і опис ставимо лише тим варіантам, у яких їх ще немає: перезапис
+        // затер би те, що адмін уже вніс через панель.
+        if (
+          asObject?.imageUrl &&
+          asObject.imageUrl !== match.imageUrl &&
+          (!match.imageUrl || overwriteText)
+        ) {
+          await prisma.productVariant.update({
+            where: { id: match.id },
+            data: { imageUrl: asObject.imageUrl },
+          });
+          stats.variantImages += 1;
+        }
+
+        if (
+          description &&
+          description !== match.description &&
+          (!match.description || overwriteText)
+        ) {
+          await prisma.productVariant.update({
+            where: { id: match.id },
+            data: { description },
+          });
+          stats.variantDescriptions += 1;
+        }
+      }
+    }
+  }
+
+  // Знятий з продажу варіант може лежати в чиємусь кошику, тому спершу
+  // прибираємо його звідти: FK на CartItem інакше не дасть видалити рядок.
+  for (const { productId, taste } of removedVariants) {
+    const doomed = await prisma.productVariant.findMany({
+      where: { productId, taste },
+      select: { id: true },
+    });
+    if (doomed.length === 0) continue;
+
+    const ids = doomed.map((variant) => variant.id);
+    await prisma.cartItem.deleteMany({ where: { variantId: { in: ids } } });
+    const deleted = await prisma.productVariant.deleteMany({ where: { id: { in: ids } } });
+    stats.variantsRemoved += deleted.count;
+  }
+
+  console.log(
+    [
+      `Categories updated: ${stats.categories}`,
+      `Descriptions updated: ${stats.descriptions}`,
+      `Variants created: ${stats.variantsCreated}`,
+      `Variant images filled: ${stats.variantImages}`,
+      `Variant descriptions filled: ${stats.variantDescriptions}`,
+      `Variants removed: ${stats.variantsRemoved}`,
+      stats.missingProducts.length > 0
+        ? `Skipped (product not in database): ${stats.missingProducts.join(", ")}`
+        : "No missing products.",
+    ].join("\n"),
+  );
+}
+
+main()
+  .catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

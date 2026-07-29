@@ -6,7 +6,14 @@ import type { CartItem, Product, ProductVariant, ShippingAddress } from '../type
 const STORAGE_KEY = 'ice-shop.cart.v1';
 const SHIPPING_KEY = 'ice-shop.cart.shipping.v1';
 const MAX_QUANTITY = 99;
-const EMPTY_ADDRESS: ShippingAddress = { city: '', oblast: '', branch: '', phone: '', telegram: '' };
+const EMPTY_ADDRESS: ShippingAddress = {
+  city: '',
+  oblast: '',
+  branch: '',
+  recipientName: '',
+  phone: '',
+  telegram: '',
+};
 
 function isCartItem(value: unknown): value is CartItem {
   if (!value || typeof value !== 'object') return false;
@@ -64,11 +71,16 @@ function readStoredAddress(): ShippingAddress {
     if (!raw) return EMPTY_ADDRESS;
     const parsed: unknown = JSON.parse(raw);
     if (!parsed || typeof parsed !== 'object') return EMPTY_ADDRESS;
-    const { city, oblast, branch, phone, telegram } = parsed as Record<string, unknown>;
+    const { city, oblast, branch, recipientName, phone, telegram } = parsed as Record<
+      string,
+      unknown
+    >;
     return {
       city: typeof city === 'string' ? city : '',
       oblast: typeof oblast === 'string' ? oblast : '',
       branch: typeof branch === 'string' ? branch : '',
+      // Адреси, збережені до появи поля, приходять без імені.
+      recipientName: typeof recipientName === 'string' ? recipientName : '',
       phone: typeof phone === 'string' ? phone : '',
       telegram: typeof telegram === 'string' ? telegram : '',
     };

@@ -100,7 +100,9 @@ function OrderRow({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-sm font-semibold text-slate-800">
-            {order.customer?.name ?? 'Клієнт'}
+            {/* Отримувач із форми замовлення важливіший за ім'я в профілі —
+                посилку на пошті видають саме за ним. */}
+            {order.recipientName ?? order.customer?.name ?? 'Клієнт'}
             {order.customer?.phone && (
               <span className="font-normal text-slate-500"> · {order.customer.phone}</span>
             )}
@@ -111,6 +113,11 @@ function OrderRow({
           {order.deliveryCity && (
             <p className="mt-1 text-xs text-slate-600">
               📦 НП: {order.deliveryCity}, {order.deliveryRegion} обл., від. {order.deliveryBranch}
+            </p>
+          )}
+          {Number(order.bonusApplied ?? 0) > 0 && (
+            <p className="mt-1 text-xs font-semibold text-teal-700">
+              🎁 Бонусами: −{order.bonusApplied}
             </p>
           )}
           {(order.telegramUsername || order.contactPhone) && (

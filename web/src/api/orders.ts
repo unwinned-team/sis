@@ -6,6 +6,8 @@ export interface CreateOrderInput {
   paymentMethod: PaymentMethod;
   items: Array<{ productId: string; quantity: number; variantId?: string }>;
   shippingAddress?: ShippingAddress;
+  // Скільки бонусів списати як знижку; бекенд обріже до балансу і суми замовлення.
+  bonusToSpend?: number;
 }
 
 export function createOrder(accessToken: string, input: CreateOrderInput): Promise<Order> {
@@ -19,7 +21,7 @@ export function createOrder(accessToken: string, input: CreateOrderInput): Promi
         deliveryCity: shippingAddress.city,
         deliveryRegion: shippingAddress.oblast,
         deliveryBranch: shippingAddress.branch,
-        // Бекенд поки що ігнорує ці поля (schema не strict) — чекаємо підтримку.
+        recipientName: shippingAddress.recipientName,
         contactPhone: shippingAddress.phone,
         telegramUsername: shippingAddress.telegram,
       }),

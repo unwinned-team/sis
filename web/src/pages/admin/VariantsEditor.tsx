@@ -67,21 +67,27 @@ function VariantImage({
 
 interface Draft {
   taste: string;
-  size: string;
   description: string;
   price: string;
+  imageUrl: string;
 }
 
-const EMPTY_DRAFT: Draft = { taste: '', size: '', description: '', price: '' };
+const EMPTY_DRAFT: Draft = { taste: '', description: '', price: '', imageUrl: '' };
 
 function toInput(draft: Draft) {
   const price = Number(draft.price);
   return {
     taste: draft.taste.trim() === '' ? null : draft.taste.trim(),
-    size: draft.size.trim() === '' ? null : draft.size.trim(),
     description: draft.description.trim() === '' ? null : draft.description.trim(),
     price: Number.isNaN(price) ? undefined : price,
+    imageUrl: draft.imageUrl === '' ? null : draft.imageUrl,
   };
+}
+
+// Назва варіанта з імені файлу: «Vaporesso Xros 5 Black (Чорний).webp» стає
+// «Vaporesso Xros 5 Black (Чорний)». Адмін потім може перейменувати.
+function variantNameFromFile(fileName: string): string {
+  return fileName.replace(/\.[^.]+$/, '').trim();
 }
 
 export function VariantsEditor({
@@ -94,12 +100,16 @@ export function VariantsEditor({
   onChanged: (variants: ProductVariant[]) => void;
 }) {
   const variants = product.variants ?? [];
+  // Підпис задається в категорії, тому в редакторі показуємо те саме слово,
+  // що побачить покупець: «Колір» для pod-систем, «Опір» для картриджів.
+  const tasteLabel = product.category?.tasteLabel || 'Смак';
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [descDrafts, setDescDrafts] = useState<Record<string, string>>({});
   const [newDraft, setNewDraft] = useState<Draft>(EMPTY_DRAFT);
   const [error, setError] = useState<string | null>(null);
   const [unsupported, setUnsupported] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const bulkInputRef = useRef<HTMLInputElement>(null);
 
   function handleError(err: unknown) {
     if (isMissingEndpoint(err)) {
@@ -198,8 +208,8 @@ export function VariantsEditor({
       setError('Ціна має бути додатним числом.');
       return;
     }
-    if (input.taste === null && input.size === null) {
-      setError('Вкажіть смак або об’єм.');
+    if (input.taste === null) {
+      setError(`Вкажіть «${tasteLabel}».`);
       return;
     }
 
@@ -212,6 +222,53 @@ export function VariantsEditor({
     } catch (err) {
       handleError(err);
     } finally {
+      setBusyId(null);
+    }
+  }
+
+  // Фото для варіанта, який ще не створено: вантажимо одразу і тримаємо URL
+  // у чернетці, щоб варіант зберігся вже з картинкою.
+  async function handleNewImagePick(file: File) {
+    setError(null);
+    setBusyId('new');
+    try {
+      const { url } = await uploadImage(accessToken, file);
+      setNewDraft((prev) => ({ ...prev, imageUrl: url }));
+    } catch (err) {
+      handleError(err);
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  // Пачка фото за раз: кожен файл стає окремим варіантом, назва береться з
+  // імені файлу. Так 13 кольорів заводяться одним вибором, а не по одному.
+  async function handleBulkUpload(files: File[]) {
+    const price = Number(newDraft.price === '' ? product.price : newDraft.price);
+    if (!Number.isFinite(price) || price <= 0) {
+      setError('Вкажіть ціну для нових варіантів.');
+      return;
+    }
+
+    setError(null);
+    setBusyId('bulk');
+    const created: ProductVariant[] = [];
+    try {
+      for (const file of files) {
+        const { url } = await uploadImage(accessToken, file);
+        created.push(
+          await createVariant(accessToken, product.id, {
+            taste: variantNameFromFile(file.name),
+            price,
+            imageUrl: url,
+          }),
+        );
+      }
+    } catch (err) {
+      handleError(err);
+    } finally {
+      // Показуємо те, що встигло створитись, навіть якщо частина впала.
+      if (created.length > 0) onChanged([...variants, ...created]);
       setBusyId(null);
     }
   }
@@ -315,19 +372,17 @@ export function VariantsEditor({
       </ul>
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
+        <VariantImage
+          imageUrl={newDraft.imageUrl}
+          disabled={busyId !== null || unsupported}
+          onPick={(file) => void handleNewImagePick(file)}
+          onClear={() => setNewDraft((prev) => ({ ...prev, imageUrl: '' }))}
+        />
         <input
           type="text"
           value={newDraft.taste}
           onChange={(e) => setNewDraft((prev) => ({ ...prev, taste: e.target.value }))}
-          placeholder="Смак"
-          disabled={unsupported}
-          className={`${INPUT_CLASS} !w-32`}
-        />
-        <input
-          type="text"
-          value={newDraft.size}
-          onChange={(e) => setNewDraft((prev) => ({ ...prev, size: e.target.value }))}
-          placeholder="Об’єм"
+          placeholder={tasteLabel}
           disabled={unsupported}
           className={`${INPUT_CLASS} !w-32`}
         />
@@ -357,6 +412,33 @@ export function VariantsEditor({
         >
           {busyId === 'new' ? '...' : 'Додати варіант'}
         </button>
+      </div>
+
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <input
+          ref={bulkInputRef}
+          type="file"
+          accept="image/jpeg,image/png"
+          multiple
+          onChange={(e) => {
+            const files = Array.from(e.target.files ?? []);
+            if (files.length > 0) void handleBulkUpload(files);
+            e.target.value = '';
+          }}
+          className="hidden"
+        />
+        <button
+          type="button"
+          onClick={() => bulkInputRef.current?.click()}
+          disabled={busyId !== null || unsupported}
+          className={`${GHOST_BUTTON_CLASS} !px-4 !py-1.5 !text-xs`}
+        >
+          {busyId === 'bulk' ? 'Завантаження...' : 'Завантажити кілька фото'}
+        </button>
+        <span className="text-xs text-slate-500">
+          Кожне фото стане окремим варіантом, назву візьмемо з імені файлу. Ціна з поля вище, або
+          ціна товару.
+        </span>
       </div>
     </div>
   );

@@ -5,12 +5,14 @@ import { useAuth } from '../../hooks/useAuth';
 import { OrdersTab } from './OrdersTab';
 import { ProductsTab } from './ProductsTab';
 import { CategoriesTab } from './CategoriesTab';
+import { UsersTab } from './UsersTab';
 import { useNavigate, useParams } from 'react-router-dom';
 
 const TABS = [
   { key: 'orders', label: 'Замовлення' },
   { key: 'products', label: 'Товари' },
   { key: 'categories', label: 'Категорії' },
+  { key: 'users', label: 'Користувачі' },
 ] as const;
 
 type TabKey = (typeof TABS)[number]['key'];
@@ -60,6 +62,7 @@ export function AdminPage() {
         {accessToken && active === 'orders' && <OrdersTab accessToken={accessToken} />}
         {accessToken && active === 'products' && <ProductsTab accessToken={accessToken} />}
         {accessToken && active === 'categories' && <CategoriesTab accessToken={accessToken} />}
+        {accessToken && active === 'users' && <UsersTab accessToken={accessToken} />}
       </main>
     </div>
   );

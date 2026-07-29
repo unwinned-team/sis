@@ -120,6 +120,7 @@ test("category list is public and sorted by name", async () => {
     "isArchived",
     "name",
     "slug",
+    "tasteLabel",
   ]);
 });
 

@@ -28,6 +28,8 @@ export interface Order {
   customerId: string;
   customer?: OrderCustomer;
   totalAmount: string;
+  // Списані бонуси = знижка. До сплати грошима: totalAmount - bonusApplied.
+  bonusApplied?: string;
   paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
   // CARD: точна сума до сплати (з «копійчаним хвостом») і реф для коментаря
@@ -46,6 +48,7 @@ export interface Order {
   deliveryRegion?: string | null;
   deliveryBranch?: string | null;
   // Контакти замовлення; з'являться у відповіді, коли бекенд почне їх зберігати.
+  recipientName?: string | null;
   contactPhone?: string | null;
   telegramUsername?: string | null;
 }

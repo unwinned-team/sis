@@ -14,6 +14,8 @@ export interface ShippingAddress {
   city: string;
   oblast: string;
   branch: string;
+  // Ім'я та прізвище отримувача — Нова Пошта видає посилку лише за ними.
+  recipientName: string;
   phone: string;
   telegram: string;
 }

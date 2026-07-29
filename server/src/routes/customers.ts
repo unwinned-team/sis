@@ -12,6 +12,7 @@ import {
   updateCustomerSchema,
   updateCustomerRoleSchema,
   updateCustomerActiveSchema,
+  adjustCustomerBonusSchema,
 } from "../schemas/customers.js";
 
 const router = Router();
@@ -29,15 +30,35 @@ async function getCustomers(req: Request, res: Response, next: NextFunction) {
       return res.status(400).json({ errors: parsed.error.issues });
     }
 
-    const { role, take, skip } = parsed.data;
+    const { role, search, take, skip } = parsed.data;
 
-    const customers = await prisma.customer.findMany({
-      where: role ? { role } : {},
-      orderBy: { createdAt: "desc" },
-      ...(take !== undefined && { take }),
-      ...(skip !== undefined && { skip }),
-    });
+    // % и _ — wildcards в ILIKE, Prisma их не экранирует; вырезаем из запроса.
+    const query = search?.replace(/[%_]/g, " ").trim();
+    const where = {
+      ...(role ? { role } : {}),
+      ...(query
+        ? {
+            OR: [
+              { name: { contains: query, mode: "insensitive" as const } },
+              { email: { contains: query, mode: "insensitive" as const } },
+              { phone: { contains: query, mode: "insensitive" as const } },
+              { telegram: { contains: query, mode: "insensitive" as const } },
+            ],
+          }
+        : {}),
+    };
 
+    const [customers, total] = await Promise.all([
+      prisma.customer.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        ...(take !== undefined && { take }),
+        ...(skip !== undefined && { skip }),
+      }),
+      prisma.customer.count({ where }),
+    ]);
+
+    res.setHeader("X-Total-Count", String(total));
     res.json(customers);
   } catch (error) {
     next(error);
@@ -308,12 +329,64 @@ async function updateCustomerActive(req: Request, res: Response, next: NextFunct
   }
 }
 
+// PATCH /api/customers/:id/bonus — начисление (delta > 0) и списание (delta < 0)
+// вручную. Списание идёт updateMany с гардом по балансу: заказ, оформленный
+// параллельно, не даст увести баланс в минус.
+async function adjustCustomerBonus(req: Request, res: Response, next: NextFunction) {
+  try {
+    const parsedParams = customerParamsSchema.safeParse(req.params);
+    if (!parsedParams.success) {
+      return res.status(400).json({ errors: parsedParams.error.issues });
+    }
+
+    const parsedBody = adjustCustomerBonusSchema.safeParse(req.body);
+    if (!parsedBody.success) {
+      return res.status(400).json({ errors: parsedBody.error.issues });
+    }
+
+    const { id } = parsedParams.data;
+    const { delta, reason } = parsedBody.data;
+    const amount = new Prisma.Decimal(delta);
+
+    const existing = await prisma.customer.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+    if (!existing) {
+      return res.status(404).json({ error: "Customer not found" });
+    }
+
+    const updated = await prisma.customer.updateMany({
+      where: {
+        id,
+        ...(amount.isNegative() && { bonusBalance: { gte: amount.abs() } }),
+      },
+      data: { bonusBalance: { increment: amount } },
+    });
+
+    if (updated.count === 0) {
+      return res.status(409).json({ error: "Insufficient bonus balance" });
+    }
+
+    const customer = await prisma.customer.findUnique({ where: { id } });
+
+    log.info(
+      { customerId: id, delta, reason: reason ?? null, by: req.user!.id },
+      "Customer bonus balance adjusted",
+    );
+    res.json(customer);
+  } catch (error) {
+    next(error);
+  }
+}
+
 router.get("/", getCustomers);
 router.get("/:id", getCustomerById);
 router.post("/", createCustomer);
 router.put("/:id", updateCustomer);
 router.patch("/:id/role", updateCustomerRole);
 router.patch("/:id/active", updateCustomerActive);
+router.patch("/:id/bonus", adjustCustomerBonus);
 router.delete("/:id", deleteCustomer);
 router.get("/:id/orders", getCustomerOrders);
 

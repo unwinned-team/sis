@@ -310,3 +310,80 @@ test("customer orders are listed newest first with items and products", async ()
   assert.equal(empty.status, 200);
   assert.deepEqual(empty.body, []);
 });
+
+test("admin adds and removes bonuses, but cannot push the balance below zero", async () => {
+  const token = await addAdmin();
+  const target = await addCustomer("bonus", { bonusBalance: "10.00" });
+
+  const added = await api("PATCH", `/customers/${target.id}/bonus`, {
+    token,
+    body: { delta: 15.5, reason: "compensation" },
+  });
+  assert.equal(added.status, 200);
+  assert.equal(added.body.bonusBalance, "25.5");
+
+  const removed = await api("PATCH", `/customers/${target.id}/bonus`, {
+    token,
+    body: { delta: -5 },
+  });
+  assert.equal(removed.status, 200);
+  assert.equal(removed.body.bonusBalance, "20.5");
+
+  const tooMuch = await api("PATCH", `/customers/${target.id}/bonus`, {
+    token,
+    body: { delta: -100 },
+  });
+  assert.equal(tooMuch.status, 409);
+
+  const zero = await api("PATCH", `/customers/${target.id}/bonus`, {
+    token,
+    body: { delta: 0 },
+  });
+  assert.equal(zero.status, 400);
+
+  const missing = await api("PATCH", `/customers/${prefix}-missing/bonus`, {
+    token,
+    body: { delta: 5 },
+  });
+  assert.equal(missing.status, 404);
+
+  const saved = await prisma.customer.findUniqueOrThrow({ where: { id: target.id } });
+  assert.equal(saved.bonusBalance.toFixed(2), "20.50");
+});
+
+test("customer search matches name, email, phone and telegram", async () => {
+  const token = await addAdmin();
+  await addCustomer("search-one", {
+    name: `${prefix} Оксана`,
+    email: `${prefix}-oksana@example.test`,
+  });
+  await addCustomer("search-two", {
+    name: `${prefix} Petro`,
+    phone: `${prefix}-380991112233`,
+    telegram: `@${prefix}petro`,
+  });
+
+  const byName = await api("GET", `/customers?search=${encodeURIComponent("Оксана")}`, {
+    token,
+  });
+  assert.equal(byName.status, 200);
+  assert.deepEqual(
+    byName.body.map((entry: { id: string }) => entry.id),
+    [`${prefix}-search-one`],
+  );
+
+  const byTelegram = await api("GET", `/customers?search=${prefix}petro`, { token });
+  assert.deepEqual(
+    byTelegram.body.map((entry: { id: string }) => entry.id),
+    [`${prefix}-search-two`],
+  );
+
+  // Размер выборки едет заголовком: тело остаётся массивом. Под префикс
+  // попадает и админ фикстуры, поэтому найденных трое, а отдан один.
+  const paged = await fetch(`${baseUrl}/customers?search=${prefix}&take=1`, {
+    headers: { authorization: `Bearer ${token}` },
+  });
+  const page = await paged.json();
+  assert.equal(page.length, 1);
+  assert.equal(paged.headers.get("x-total-count"), "3");
+});

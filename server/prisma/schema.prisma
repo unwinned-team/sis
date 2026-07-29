@@ -17,6 +17,9 @@ model Category {
   // через relation-фильтр, поэтому снятие с архива возвращает ровно то,
   // что было видно раньше (индивидуально архивные так и остаются в архиве).
   isArchived Boolean @default(false)
+  // Підпис осі вибору варіанта на вітрині: картриджі продаються за опором,
+  // pod-системи за кольором, тютюн за смаком. null — дефолт «Смак».
+  tasteLabel String?
   products Product[]
 }
 
@@ -117,7 +120,10 @@ model RefreshToken {
 model Order {
   id               String           @id @default(cuid())
   customerId       String
+  // Повна вартість позицій. Списані бонуси лежать окремо, бо це знижка, а не
+  // зміна ціни: до сплати = totalAmount - bonusApplied.
   totalAmount      Decimal          @db.Decimal(10, 2)
+  bonusApplied     Decimal          @default(0) @db.Decimal(10, 2)
   paymentMethod    PaymentMethod
   status           OrderStatus      @default(NEW)
   // Оплата CARD через личный счёт monobank: клиент указывает paymentRef в
@@ -138,6 +144,7 @@ model Order {
   deliveryRegion   String?
   deliveryBranch   String? // номер отделения; строка — бывают "1234а" и пункты
   // Контакты по заказу — снимок на момент оформления (профиль потом может измениться).
+  recipientName    String? // ім'я та прізвище отримувача для Нової Пошти
   contactPhone     String?
   telegramUsername String?
   createdAt        DateTime         @default(now())

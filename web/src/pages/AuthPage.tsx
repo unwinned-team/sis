@@ -117,7 +117,7 @@ export function AuthPage() {
             {mode === 'register' && (
               <div>
                 <label htmlFor="auth-name" className={LABEL_CLASS}>
-                  Ім'я
+                  Ім'я та прізвище
                 </label>
                 <input
                   id="auth-name"
@@ -127,7 +127,7 @@ export function AuthPage() {
                   required
                   maxLength={200}
                   autoComplete="name"
-                  placeholder="Ваше ім'я"
+                  placeholder="Іван Петренко"
                   className={INPUT_CLASS}
                 />
               </div>

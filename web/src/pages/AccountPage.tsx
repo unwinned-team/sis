@@ -8,7 +8,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useMyOrders } from '../hooks/useMyOrders';
 import { cancelOrder } from '../api/orders';
 import { ApiError } from '../api/client';
-import { formatPrice } from '../utils/format';
+import { formatBonus, formatPrice } from '../utils/format';
 import type { AuthUser, Order, OrderStatus } from '../types';
 
 const CARD_CLASS = 'rounded-3xl border border-white/60 bg-white/40 shadow-lg backdrop-blur-md';
@@ -98,7 +98,7 @@ function ProfileCard({ user }: { user: AuthUser }) {
       <dl className="grid grid-cols-2 gap-3 text-sm">
         <div className="rounded-2xl border border-white/60 bg-white/50 p-3">
           <dt className="text-xs font-medium text-slate-500">Бонусний баланс</dt>
-          <dd className="mt-1 text-lg font-bold text-teal-700">{formatPrice(user.bonusBalance)}</dd>
+          <dd className="mt-1 text-lg font-bold text-teal-700">{formatBonus(user.bonusBalance)}</dd>
         </div>
         <div className="rounded-2xl border border-white/60 bg-white/50 p-3">
           <dt className="text-xs font-medium text-slate-500">З нами з</dt>
@@ -109,7 +109,7 @@ function ProfileCard({ user }: { user: AuthUser }) {
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <div>
           <label htmlFor="profile-name" className={LABEL_CLASS}>
-            Ім'я
+            Ім'я та прізвище
           </label>
           <input
             id="profile-name"

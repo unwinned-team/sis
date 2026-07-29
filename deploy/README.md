@@ -176,13 +176,28 @@ pm2 logs ice-shop-api --lines 30
 cd /srv/ice-shop
 git pull
 npm ci
-npm run server:deploy
+npm run server:deploy            # prisma migrate deploy
+npm run server:db:update-catalog # описания, подписи характеристик, варианты
 VITE_API_URL=/api/v1 npm run web:build
 npm run server:build
 pm2 reload ice-shop-api
 ```
 
-Сид **не запускать**.
+Сид **не запускать**: он начинается с `deleteMany()` и снесёт живые заказы.
+
+`server:db:update-catalog` — безопасная альтернатива сиду: обновляет категории,
+описания товаров и варианты из `server/prisma/catalog.cjs`, ничего не удаляя
+(кроме явного списка `removedVariants`). Повторный запуск ничего не меняет.
+Тексты и фото варианта он только дополняет, чтобы не затереть правки из
+админки; если каталог в репозитории должен победить — запускать с флагом:
+
+```bash
+npm run server:db:update-catalog -- --overwrite-text
+```
+
+Порядок важен: `server:deploy` до `update-catalog` (скрипт пишет в колонки,
+которых без миграции ещё нет), а `web:build` — после `git pull`, иначе новые
+фото каталога из `web/public/images/products/` не попадут в бандл.
 
 ---
 

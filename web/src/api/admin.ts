@@ -1,5 +1,67 @@
 import { apiRequest, apiUpload } from './client';
-import type { Category, Order, OrderStatus, Product, ProductVariant } from '../types';
+import type {
+  Category,
+  Customer,
+  Order,
+  OrderStatus,
+  Product,
+  ProductVariant,
+} from '../types';
+
+export const CUSTOMERS_PAGE_SIZE = 50;
+
+export interface AdminCustomersPage {
+  customers: Customer[];
+  total: number;
+}
+
+// Тіло лишається масивом (контракт існуючих споживачів), розмір вибірки
+// приходить заголовком X-Total-Count.
+export async function getAdminCustomers(
+  accessToken: string,
+  query: { search?: string; page?: number } = {},
+): Promise<AdminCustomersPage> {
+  const page = query.page ?? 0;
+  const params = new URLSearchParams({
+    take: String(CUSTOMERS_PAGE_SIZE),
+    skip: String(page * CUSTOMERS_PAGE_SIZE),
+  });
+  const search = query.search?.trim();
+  if (search) params.set('search', search);
+
+  let total: number | null = null;
+  const customers = await apiRequest<Customer[]>(`/customers?${params.toString()}`, {
+    accessToken,
+    onResponse: (res) => {
+      const raw = res.headers.get('X-Total-Count');
+      if (raw !== null && Number.isFinite(Number(raw))) total = Number(raw);
+    },
+  });
+
+  // Без заголовка (старий бекенд або прихований CORS-ом) рахуємо мінімум:
+  // повна сторінка означає, що далі є ще щонайменше один клієнт.
+  return {
+    customers,
+    total:
+      total ??
+      page * CUSTOMERS_PAGE_SIZE +
+        customers.length +
+        (customers.length === CUSTOMERS_PAGE_SIZE ? 1 : 0),
+  };
+}
+
+// delta > 0 — нарахувати, delta < 0 — списати. Баланс нижче нуля бекенд не пустить.
+export function adjustCustomerBonus(
+  accessToken: string,
+  id: string,
+  delta: number,
+): Promise<Customer> {
+  return apiRequest<Customer>(`/customers/${encodeURIComponent(id)}/bonus`, {
+    method: 'PATCH',
+    body: { delta },
+    accessToken,
+  });
+}
 
 export interface AdminOrdersQuery {
   from?: string;
@@ -157,6 +219,7 @@ export interface CategoryInput {
   name: string;
   slug: string;
   imageUrl?: string | null;
+  tasteLabel?: string | null;
 }
 
 // Архивные категории отдаются только активному админу — как и у товаров,

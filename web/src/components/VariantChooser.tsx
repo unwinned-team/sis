@@ -1,14 +1,17 @@
-interface VariantChooserGroupProps {
-  label: string;
+interface VariantChooserProps {
   options: string[];
   selected: string | null;
   onSelect: (value: string) => void;
+  // Підпис приходить з категорії: «Смак», «Опір», «Колір».
+  label?: string | null;
 }
 
-function VariantChooserGroup({ label, options, selected, onSelect }: VariantChooserGroupProps) {
+export function VariantChooser({ options, selected, onSelect, label }: VariantChooserProps) {
+  if (options.length === 0) return null;
+
   return (
     <div>
-      <p className="mb-2 text-sm font-semibold text-slate-500">{label}</p>
+      <p className="mb-2 text-sm font-semibold text-slate-500">{label || 'Смак'}</p>
       <div className="flex flex-wrap gap-2">
         {options.map((option) => {
           const isSelected = option === selected;
@@ -29,47 +32,6 @@ function VariantChooserGroup({ label, options, selected, onSelect }: VariantChoo
           );
         })}
       </div>
-    </div>
-  );
-}
-
-interface VariantChooserProps {
-  tastes: string[];
-  sizes: string[];
-  selectedTaste: string | null;
-  selectedSize: string | null;
-  onTasteChange: (taste: string) => void;
-  onSizeChange: (size: string) => void;
-}
-
-export function VariantChooser({
-  tastes,
-  sizes,
-  selectedTaste,
-  selectedSize,
-  onTasteChange,
-  onSizeChange,
-}: VariantChooserProps) {
-  if (tastes.length === 0 && sizes.length === 0) return null;
-
-  return (
-    <div className="flex flex-col gap-4">
-      {tastes.length > 0 && (
-        <VariantChooserGroup
-          label="Смак"
-          options={tastes}
-          selected={selectedTaste}
-          onSelect={onTasteChange}
-        />
-      )}
-      {sizes.length > 0 && (
-        <VariantChooserGroup
-          label="Об'єм / розмір"
-          options={sizes}
-          selected={selectedSize}
-          onSelect={onSizeChange}
-        />
-      )}
     </div>
   );
 }

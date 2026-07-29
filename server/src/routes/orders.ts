@@ -137,6 +137,7 @@ async function createOrder(req: Request, res: Response, next: NextFunction) {
       deliveryCity,
       deliveryRegion,
       deliveryBranch,
+      recipientName,
       contactPhone,
       telegramUsername,
     } = parsed.data;
@@ -209,35 +210,54 @@ async function createOrder(req: Request, res: Response, next: NextFunction) {
         throw httpError(400, "Order total is too large");
       }
 
-      if (paymentMethod === "BONUS") {
+      // BONUS = «плачу лише бонусами», решта методів можуть списати частину.
+      // Обрізаємо до суми замовлення: решта бонусів лишається на балансі.
+      const bonusRequested =
+        paymentMethod === "BONUS"
+          ? totalAmount
+          : Prisma.Decimal.min(
+              new Prisma.Decimal(parsed.data.bonusToSpend ?? 0),
+              totalAmount,
+            );
+
+      let bonusApplied = new Prisma.Decimal(0);
+      if (bonusRequested.greaterThan(0)) {
+        // Списание одним updateMany с гардом по балансу: параллельный заказ не
+        // уведёт баланс в минус, проверка и запись атомарны.
         const debit = await tx.customer.updateMany({
-          where: { id: customerId, bonusBalance: { gte: totalAmount } },
-          data: { bonusBalance: { decrement: totalAmount } },
+          where: { id: customerId, bonusBalance: { gte: bonusRequested } },
+          data: { bonusBalance: { decrement: bonusRequested } },
         });
         if (debit.count === 0) {
           throw httpError(409, "Insufficient bonus balance");
         }
+        bonusApplied = bonusRequested;
       }
 
+      // До сплати грошима. Бонуси покрили все — платити нічого, статус PAID.
+      const payable = totalAmount.sub(bonusApplied);
+      const isCardPayment = paymentMethod === "CARD" && payable.greaterThan(0);
+
       // CARD: реф для комментария к переводу monobank + уникальная сумма к
-      // оплате; BONUS списан в этой же транзакции — сразу PAID. CASH остаётся
+      // оплате; полностью оплаченный бонусами заказ — сразу PAID. CASH остаётся
       // PENDING (оплата при получении).
-      const paymentAmount =
-        paymentMethod === "CARD" ? await allocatePaymentAmount(tx, totalAmount) : null;
+      const paymentAmount = isCardPayment ? await allocatePaymentAmount(tx, payable) : null;
 
       return tx.order.create({
         data: {
           customerId,
           paymentMethod,
           totalAmount,
-          paymentRef: paymentMethod === "CARD" ? generatePaymentRef() : null,
-          paymentStatus: paymentMethod === "BONUS" ? "PAID" : "PENDING",
+          bonusApplied,
+          paymentRef: isCardPayment ? generatePaymentRef() : null,
+          paymentStatus: payable.isZero() ? "PAID" : "PENDING",
           paymentAmount,
           paymentAmountKey: paymentAmount ? paymentAmount.toFixed(2) : null,
-          nextCheckAt: paymentMethod === "CARD" ? new Date() : null,
+          nextCheckAt: isCardPayment ? new Date() : null,
           deliveryCity,
           deliveryRegion,
           deliveryBranch,
+          recipientName: recipientName ?? null,
           contactPhone: contactPhone ?? null,
           telegramUsername: telegramUsername ?? null,
           ageVerification: { create: { ipAddress } },
@@ -369,19 +389,26 @@ async function updateOrder(req: Request, res: Response, next: NextFunction) {
 
       // Бонус нараховується лише коли клієнт підтвердив отримання (RECEIVED),
       // не в момент відправки (COMPLETED) — інакше відмова від посилки
-      // (REJECTED) вже нарахувала б бонус.
-      if (status === "RECEIVED" && existing.paymentMethod !== "BONUS") {
-        const bonus = existing.totalAmount.mul("0.01").toDecimalPlaces(2);
+      // (REJECTED) вже нарахувала б бонус. 1% рахується з грошової частини:
+      // за оплачене бонусами нові бонуси не капають.
+      const paidWithMoney = existing.totalAmount.sub(existing.bonusApplied);
+      if (status === "RECEIVED" && paidWithMoney.greaterThan(0)) {
+        const bonus = paidWithMoney.mul("0.01").toDecimalPlaces(2);
         await tx.customer.update({
           where: { id: existing.customerId },
           data: { bonusBalance: { increment: bonus } },
         });
       }
 
-      if ((status === "CANCELLED" || status === "REJECTED") && existing.paymentMethod === "BONUS") {
+      // Списані бонуси повертаються при будь-якому зриві замовлення, незалежно
+      // від того, покрили вони всю суму чи лише частину.
+      if (
+        (status === "CANCELLED" || status === "REJECTED") &&
+        existing.bonusApplied.greaterThan(0)
+      ) {
         await tx.customer.update({
           where: { id: existing.customerId },
-          data: { bonusBalance: { increment: existing.totalAmount } },
+          data: { bonusBalance: { increment: existing.bonusApplied } },
         });
       }
 
@@ -420,30 +447,35 @@ async function deleteOrder(req: Request, res: Response, next: NextFunction) {
         throw httpError(404, "Order not found");
       }
 
-      // BONUS списан сразу, поэтому отмена сохраняет заказ и AgeVerification,
-      // а бонусы возвращает атомарно. Повтор/гонка не вернёт баланс дважды.
-      if (existing.paymentMethod === "BONUS") {
+      // Оплаченные заказы и CARD с заявленной оплатой не удаляются: нужны
+      // заказ, платёжный след и подтверждение возраста для сверки/возврата.
+      // Полностью бонусный заказ тоже PAID, но денег там нет — его отменяем
+      // ниже с возвратом баланса.
+      const paidWithMoney = existing.totalAmount.sub(existing.bonusApplied).greaterThan(0);
+      if (
+        paidWithMoney &&
+        (existing.paymentStatus === "PAID" ||
+          (existing.paymentMethod === "CARD" && existing.paymentStatus !== "PENDING"))
+      ) {
+        throw httpError(409, "Order has a claimed or confirmed payment and cannot be deleted");
+      }
+
+      // Бонусы списаны при оформлении, поэтому отмена сохраняет заказ и
+      // AgeVerification, а баланс возвращает атомарно: переход NEW -> CANCELLED
+      // проходит один раз, так что повтор/гонка не начислит возврат дважды.
+      if (existing.bonusApplied.greaterThan(0)) {
         const cancelled = await tx.order.updateMany({
-          where: { id: existing.id, status: "NEW", paymentStatus: "PAID" },
-          data: { status: "CANCELLED" },
+          where: { id: existing.id, status: "NEW" },
+          data: { status: "CANCELLED", paymentAmountKey: null, nextCheckAt: null },
         });
         if (cancelled.count === 0) {
-          throw httpError(409, "Only paid BONUS orders with status NEW can be cancelled");
+          throw httpError(409, "Only orders with status NEW can be cancelled");
         }
         await tx.customer.update({
           where: { id: existing.customerId },
-          data: { bonusBalance: { increment: existing.totalAmount } },
+          data: { bonusBalance: { increment: existing.bonusApplied } },
         });
         return "cancelled" as const;
-      }
-
-      // Оплаченные заказы и CARD с заявленной оплатой не удаляются: нужны
-      // заказ, платёжный след и подтверждение возраста для сверки/возврата.
-      if (
-        existing.paymentStatus === "PAID" ||
-        (existing.paymentMethod === "CARD" && existing.paymentStatus !== "PENDING")
-      ) {
-        throw httpError(409, "Order has a claimed or confirmed payment and cannot be deleted");
       }
 
       const deleted = await tx.order.deleteMany({

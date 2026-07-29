@@ -19,6 +19,7 @@
     "server:db:push": "cd server && prisma db push",
     "server:db:migrate": "cd server && prisma migrate dev",
     "server:db:seed": "cd server && node prisma/seed.cjs",
+    "server:db:update-catalog": "cd server && node prisma/update-catalog.cjs",
     "server:db:studio": "cd server && prisma studio"
   },
   "dependencies": {

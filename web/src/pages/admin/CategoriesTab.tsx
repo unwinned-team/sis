@@ -25,9 +25,15 @@ interface CategoryDraft {
   name: string;
   slug: string;
   imageUrl: string;
+  tasteLabel: string;
 }
 
-const EMPTY_DRAFT: CategoryDraft = { name: '', slug: '', imageUrl: '' };
+const EMPTY_DRAFT: CategoryDraft = {
+  name: '',
+  slug: '',
+  imageUrl: '',
+  tasteLabel: '',
+};
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -98,6 +104,24 @@ function CategoryForm({
         </div>
       </div>
 
+      <div>
+        <label htmlFor={`${formId}-taste-label`} className={LABEL_CLASS}>
+          Назва характеристики
+        </label>
+        <input
+          id={`${formId}-taste-label`}
+          type="text"
+          value={draft.tasteLabel}
+          onChange={(e) => setDraft({ ...draft, tasteLabel: e.target.value })}
+          maxLength={40}
+          placeholder="Смак"
+          className={INPUT_CLASS}
+        />
+        <p className="mt-1 text-xs text-slate-500">
+          Що обирає покупець на картці товару: Смак, Опір, Колір. Порожньо — «Смак».
+        </p>
+      </div>
+
       <ImageField
         accessToken={accessToken}
         id={`${formId}-image`}
@@ -139,6 +163,7 @@ function CategoryCard({
     name: category.name,
     slug: category.slug,
     imageUrl: category.imageUrl ?? '',
+    tasteLabel: category.tasteLabel ?? '',
   });
   const [isSaving, setIsSaving] = useState(false);
   const [busy, setBusy] = useState<'delete' | 'archive' | null>(null);
@@ -154,6 +179,7 @@ function CategoryCard({
         name: draft.name.trim(),
         slug: draft.slug.trim(),
         imageUrl: draft.imageUrl.trim() === '' ? null : draft.imageUrl.trim(),
+        tasteLabel: draft.tasteLabel.trim() === '' ? null : draft.tasteLabel.trim(),
       });
       onUpdated(category.slug, updated);
       setIsEditing(false);
@@ -219,6 +245,9 @@ function CategoryCard({
               )}
             </div>
             <p className="text-sm text-slate-500">/{category.slug}</p>
+            {category.tasteLabel && (
+              <p className="text-xs text-slate-500">Характеристика: {category.tasteLabel}</p>
+            )}
           </div>
           <div className="flex flex-wrap gap-2">
             <button
@@ -327,6 +356,7 @@ export function CategoriesTab({ accessToken }: { accessToken: string }) {
         name: createDraft.name.trim(),
         slug: createDraft.slug.trim(),
         imageUrl: trimmedImage === '' ? undefined : trimmedImage,
+        tasteLabel: createDraft.tasteLabel.trim() === '' ? null : createDraft.tasteLabel.trim(),
       });
       setCategories((prev) => [...prev, created]);
       setCreateDraft(EMPTY_DRAFT);

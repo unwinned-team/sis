@@ -23,6 +23,7 @@ const CATEGORY_FIELDS = {
   slug: true,
   imageUrl: true,
   isArchived: true,
+  tasteLabel: true,
 } as const;
 
 // GET /api/categories
@@ -110,6 +111,9 @@ async function createCategory(req: Request, res: Response, next: NextFunction) {
         ...(parsed.data.imageUrl !== undefined && {
           imageUrl: parsed.data.imageUrl,
         }),
+        ...(parsed.data.tasteLabel !== undefined && {
+          tasteLabel: parsed.data.tasteLabel,
+        }),
       },
       select: CATEGORY_FIELDS,
     });
@@ -145,7 +149,7 @@ async function updateCategory(req: Request, res: Response, next: NextFunction) {
       return res.status(404).json({ error: "Category not found" });
     }
 
-    const { name, slug, imageUrl, isArchived } = bodyParsed.data;
+    const { name, slug, imageUrl, isArchived, tasteLabel } = bodyParsed.data;
 
     const category = await prisma.category.update({
       where: { slug: paramsParsed.data.slug },
@@ -154,6 +158,7 @@ async function updateCategory(req: Request, res: Response, next: NextFunction) {
         ...(slug !== undefined && { slug }),
         ...(imageUrl !== undefined && { imageUrl }),
         ...(isArchived !== undefined && { isArchived }),
+        ...(tasteLabel !== undefined && { tasteLabel }),
       },
       select: CATEGORY_FIELDS,
     });

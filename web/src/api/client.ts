@@ -42,10 +42,12 @@ interface ApiRequestOptions {
   body?: unknown;
   accessToken?: string | null;
   withCredentials?: boolean;
+  // Доступ до заголовків відповіді (X-Total-Count у пагінації клієнтів).
+  onResponse?: (res: Response) => void;
 }
 
 export async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
-  const { method = 'GET', body, accessToken, withCredentials = false } = options;
+  const { method = 'GET', body, accessToken, withCredentials = false, onResponse } = options;
   const headers: Record<string, string> = {};
   if (body !== undefined) headers['Content-Type'] = 'application/json';
   if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
@@ -56,6 +58,8 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     body: body !== undefined ? JSON.stringify(body) : undefined,
     credentials: withCredentials ? 'include' : 'same-origin',
   });
+
+  onResponse?.(res);
 
   if (!res.ok) {
     throw new ApiError(

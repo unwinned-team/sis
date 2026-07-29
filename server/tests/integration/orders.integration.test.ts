@@ -540,6 +540,99 @@ test("receiving a BONUS order does not award 1%", async () => {
   await expectBalance(fixture.customer.id, "100.00");
 });
 
+// Часткова оплата бонусами: списані бонуси — це знижка, тому totalAmount
+// лишається повним, а грошима платиться різниця.
+function postOrderWithBonus(
+  fixture: Fixture,
+  paymentMethod: PaymentMethod,
+  bonusToSpend: number,
+) {
+  return api(
+    "POST",
+    "/orders",
+    {
+      isAgeConfirmed: true,
+      paymentMethod,
+      bonusToSpend,
+      items: orderItems(fixture),
+      ...delivery,
+    },
+    fixture.customerToken,
+  );
+}
+
+test("partial bonus payment discounts a CARD order and debits only what was spent", async () => {
+  const fixture = await addFixture({ bonusBalance: "40.00", prices: ["100.00"] });
+
+  const created = await postOrderWithBonus(fixture, "CARD", 30);
+
+  assert.equal(created.status, 201);
+  assert.equal(created.body.totalAmount, "100");
+  assert.equal(created.body.bonusApplied, "30");
+  assert.equal(created.body.paymentStatus, "PENDING");
+  // Сума до сплати рахується від решти, а не від повної вартості.
+  assert.ok(Number(created.body.paymentAmount) >= 70);
+  assert.ok(Number(created.body.paymentAmount) < 71);
+  await expectBalance(fixture.customer.id, "10.00");
+});
+
+test("bonus request larger than the order total is clipped and leaves the rest on the balance", async () => {
+  const fixture = await addFixture({ bonusBalance: "50.00", prices: ["10.00"] });
+
+  const created = await postOrderWithBonus(fixture, "CASH", 30);
+
+  assert.equal(created.status, 201);
+  assert.equal(created.body.bonusApplied, "10");
+  // Бонуси покрили все — платити нічого, тому замовлення одразу оплачене.
+  assert.equal(created.body.paymentStatus, "PAID");
+  assert.equal(created.body.paymentAmount, null);
+  await expectBalance(fixture.customer.id, "40.00");
+});
+
+test("partial bonus payment returns 409 without changes when the balance is short", async () => {
+  const fixture = await addFixture({ bonusBalance: "5.00", prices: ["100.00"] });
+
+  const created = await postOrderWithBonus(fixture, "CARD", 10);
+
+  assert.equal(created.status, 409);
+  assert.equal(await prisma.order.count({ where: { customerId: fixture.customer.id } }), 0);
+  await expectBalance(fixture.customer.id, "5.00");
+});
+
+test("receiving a partially bonus paid order awards 1% of the money part only", async () => {
+  const fixture = await addFixture({ bonusBalance: "40.00", prices: ["100.00"] });
+  const created = await postOrderWithBonus(fixture, "CASH", 40);
+  await api("PUT", `/orders/${created.body.id}`, { status: "COMPLETED" }, admin.token);
+
+  const received = await api(
+    "PUT",
+    `/orders/${created.body.id}`,
+    { status: "RECEIVED" },
+    admin.token,
+  );
+
+  assert.equal(received.status, 200);
+  // 1% від 60 грн, сплачених грошима; за бонусну частину бонуси не капають.
+  await expectBalance(fixture.customer.id, "0.60");
+});
+
+test("cancelling a partially bonus paid order refunds only the spent bonuses", async () => {
+  const fixture = await addFixture({ bonusBalance: "40.00", prices: ["100.00"] });
+  const created = await postOrderWithBonus(fixture, "CASH", 25);
+
+  const deleted = await api(
+    "DELETE",
+    `/orders/${created.body.id}`,
+    undefined,
+    fixture.customerToken,
+  );
+
+  assert.equal(deleted.status, 204);
+  await expectBalance(fixture.customer.id, "40.00");
+  const saved = await prisma.order.findUnique({ where: { id: created.body.id } });
+  assert.equal(saved?.status, "CANCELLED");
+});
+
 test("cancelling a paid NEW BONUS order refunds it and preserves age verification", async () => {
   const fixture = await addFixture({
     bonusBalance: "100.00",

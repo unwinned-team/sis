@@ -10,6 +10,14 @@ export function formatPrice(price: string): string {
   return `${formatAmount(value)} ₴`;
 }
 
+// Бонуси нараховуються з копійками (1% від суми замовлення), тому округлення
+// до гривні показувало б неправдивий баланс.
+export function formatBonus(value: string | number): string {
+  const amount = Number(value);
+  if (Number.isNaN(amount)) return String(value);
+  return `${amount.toLocaleString('uk-UA', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} ₴`;
+}
+
 export function formatProductPrice(product: Product): string {
   const variantPrices = (product.variants ?? [])
     .map((variant) => Number(variant.price))

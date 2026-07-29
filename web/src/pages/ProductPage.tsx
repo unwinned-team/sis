@@ -52,15 +52,11 @@ function ProductDetails({ product }: ProductDetailsProps) {
     [variants],
   );
   const tastes = useMemo(() => distinct(availableVariants.map((v) => v.taste)), [availableVariants]);
-  const sizes = useMemo(() => distinct(availableVariants.map((v) => v.size)), [availableVariants]);
 
   const [selectedTaste, setSelectedTaste] = useState<string | null>(tastes[0] ?? null);
-  const [selectedSize, setSelectedSize] = useState<string | null>(sizes[0] ?? null);
 
   const selectedVariant: ProductVariant | undefined = variants.find(
-    (variant) =>
-      (tastes.length === 0 || variant.taste === selectedTaste) &&
-      (sizes.length === 0 || variant.size === selectedSize),
+    (variant) => tastes.length === 0 || variant.taste === selectedTaste,
   );
 
   const isUnavailable = product.isAvailable === false || selectedVariant?.isAvailable === false;
@@ -112,12 +108,10 @@ function ProductDetails({ product }: ProductDetailsProps) {
           <p className="leading-relaxed text-slate-600">{description}</p>
 
           <VariantChooser
-            tastes={tastes}
-            sizes={sizes}
-            selectedTaste={selectedTaste}
-            selectedSize={selectedSize}
-            onTasteChange={setSelectedTaste}
-            onSizeChange={setSelectedSize}
+            options={tastes}
+            selected={selectedTaste}
+            onSelect={setSelectedTaste}
+            label={product.category?.tasteLabel}
           />
 
           <p className="text-3xl font-bold text-slate-900">{formatPrice(price)}</p>

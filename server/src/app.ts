@@ -24,6 +24,9 @@ app.use(
   cors({
     origin: process.env.CORS_ORIGIN ?? "http://localhost:5173",
     credentials: true,
+    // Пагинация клиентов отдаёт размер выборки заголовком: тело остаётся
+    // массивом, как ждут существующие потребители и тесты.
+    exposedHeaders: ["X-Total-Count"],
   }),
 );
 app.use(cookieParser());

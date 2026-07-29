@@ -8,7 +8,7 @@ import { useCart } from '../hooks/useCart';
 import { cartLineId } from '../context/cart-context';
 import { createOrder, getOrder } from '../api/orders';
 import { ApiError, apiErrorText } from '../api/client';
-import { formatPrice } from '../utils/format';
+import { formatBonus, formatPrice } from '../utils/format';
 import type { CartItem, Order, PaymentMethod } from '../types';
 
 const CARD_CLASS = 'rounded-3xl border border-white/60 bg-white/40 shadow-lg backdrop-blur-md';
@@ -268,6 +268,11 @@ function OrderSuccess({ order }: { order: Order }) {
         Сума: <span className="font-semibold text-slate-800">{formatPrice(order.totalAmount)}</span>
         . Статус можна відстежити в особистому кабінеті.
       </p>
+      {Number(order.bonusApplied ?? 0) > 0 && (
+        <p className="mt-1 text-sm text-teal-700">
+          Списано бонусів: {formatBonus(order.bonusApplied ?? 0)}
+        </p>
+      )}
       {order.paymentMethod === 'CARD' && order.paymentStatus === 'PAID' && (
         <p className="mt-1 text-sm font-semibold text-emerald-600">Оплату підтверджено.</p>
       )}
@@ -304,6 +309,7 @@ export function CartPage() {
   const navigate = useNavigate();
 
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CARD');
+  const [bonusInput, setBonusInput] = useState('');
   const [isAgeConfirmed, setIsAgeConfirmed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -336,10 +342,18 @@ export function CartPage() {
 
   const bonusBalance = user ? Number(user.bonusBalance) : 0;
   const bonusShortfall = paymentMethod === 'BONUS' && user !== null && bonusBalance < totalAmount;
+  // Скільки бонусів можна списати цим замовленням: не більше балансу і не
+  // більше суми кошика (решта бонусів лишається на балансі).
+  const maxBonus = Math.floor(Math.min(bonusBalance, totalAmount) * 100) / 100;
+  const requestedBonus = Math.min(Math.max(Number(bonusInput) || 0, 0), maxBonus);
+  // BONUS = «плачу лише бонусами», інші методи списують стільки, скільки ввели.
+  const bonusApplied = paymentMethod === 'BONUS' ? maxBonus : requestedBonus;
+  const payable = Math.max(totalAmount - bonusApplied, 0);
   const addressComplete =
     shippingAddress.city.trim() !== '' &&
     shippingAddress.oblast.trim() !== '' &&
     shippingAddress.branch.trim() !== '' &&
+    shippingAddress.recipientName.trim() !== '' &&
     shippingAddress.phone.trim() !== '' &&
     shippingAddress.telegram.trim() !== '';
 
@@ -369,6 +383,10 @@ export function CartPage() {
           variantId: item.variantId ?? undefined,
         })),
         shippingAddress,
+        // BONUS списує все сам, тому окреме поле шлемо лише для CARD/CASH.
+        ...(paymentMethod !== 'BONUS' && requestedBonus > 0
+          ? { bonusToSpend: requestedBonus }
+          : {}),
       });
       clear();
       setCreatedOrder(order);
@@ -458,7 +476,7 @@ export function CartPage() {
                         <span>{option.label}</span>
                         {isBonus && user && (
                           <span className="ml-auto text-xs text-slate-500">
-                            {formatPrice(user.bonusBalance)}
+                            {formatBonus(user.bonusBalance)}
                           </span>
                         )}
                       </label>
@@ -500,6 +518,16 @@ export function CartPage() {
                 <legend className="mb-2 text-sm font-semibold text-slate-600">Контакти</legend>
                 <div className="flex flex-col gap-2">
                   <FloatingInput
+                    id="recipientName"
+                    label="Ім'я та прізвище"
+                    type="text"
+                    value={shippingAddress.recipientName}
+                    onChange={(e) => updateAddressField('recipientName', e.target.value)}
+                    required
+                    maxLength={200}
+                    autoComplete="name"
+                  />
+                  <FloatingInput
                     id="phone"
                     label="Телефон (+380...)"
                     type="tel"
@@ -521,11 +549,67 @@ export function CartPage() {
                 </div>
               </fieldset>
 
-              <div className="mt-4 flex items-center justify-between border-t border-white/50 pt-4">
-                <span className="text-sm font-semibold text-slate-600">Разом</span>
-                <span className="text-xl font-bold text-slate-900">
-                  {formatTotal(totalAmount)}
-                </span>
+              {user && maxBonus > 0 && paymentMethod !== 'BONUS' && (
+                <fieldset className="mt-4">
+                  <legend className="mb-2 text-sm font-semibold text-slate-600">
+                    Оплата бонусами
+                  </legend>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max={maxBonus}
+                      value={bonusInput}
+                      onChange={(e) => setBonusInput(e.target.value)}
+                      placeholder="0"
+                      aria-label="Скільки бонусів списати"
+                      className="w-full rounded-xl border border-white/70 bg-white/60 px-3 py-2 text-sm text-slate-800 shadow-sm outline-none backdrop-blur-sm transition focus:border-teal-400 focus:ring-2 focus:ring-teal-300/60"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setBonusInput(String(maxBonus))}
+                      className="shrink-0 rounded-full border border-white/70 bg-white/60 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-white/80"
+                    >
+                      Усі
+                    </button>
+                  </div>
+                  <p className="mt-1.5 text-xs text-slate-500">
+                    Доступно {formatBonus(user.bonusBalance)}, можна списати до{' '}
+                    {formatTotal(maxBonus)} на це замовлення.
+                  </p>
+                </fieldset>
+              )}
+
+              <div className="mt-4 flex flex-col gap-1.5 border-t border-white/50 pt-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-slate-600">Разом</span>
+                  <span
+                    className={
+                      bonusApplied > 0
+                        ? 'text-sm font-semibold text-slate-500 line-through'
+                        : 'text-xl font-bold text-slate-900'
+                    }
+                  >
+                    {formatTotal(totalAmount)}
+                  </span>
+                </div>
+                {bonusApplied > 0 && (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-teal-700">Бонусами</span>
+                      <span className="text-sm font-semibold text-teal-700">
+                        −{formatTotal(bonusApplied)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-semibold text-slate-600">До сплати</span>
+                      <span className="text-xl font-bold text-slate-900">
+                        {formatTotal(payable)}
+                      </span>
+                    </div>
+                  </>
+                )}
               </div>
 
               <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-white/70 bg-white/40 px-3 py-3 text-sm text-slate-700">
@@ -541,7 +625,7 @@ export function CartPage() {
 
               {bonusShortfall && (
                 <p className="mt-2 text-xs text-red-600">
-                  Недостатньо бонусів: доступно {formatPrice(user.bonusBalance)}.
+                  Недостатньо бонусів: доступно {formatBonus(user.bonusBalance)}.
                 </p>
               )}
 

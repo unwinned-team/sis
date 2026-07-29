@@ -26,7 +26,16 @@ export const createOrderSchema = z.object({
   deliveryCity: z.string().trim().min(1, "City is required").max(100),
   deliveryRegion: z.string().trim().min(1, "Region is required").max(100),
   deliveryBranch: z.string().trim().min(1, "Branch is required").max(20),
+  // Скільки бонусів списати як знижку. Сервер сам обріже до балансу і до суми
+  // замовлення, тому клієнту не треба вгадувати межу.
+  bonusToSpend: z
+    .number()
+    .min(0, "Bonus amount cannot be negative")
+    .max(99_999_999.99)
+    .multipleOf(0.01, "Bonus amount must have at most 2 decimal places")
+    .optional(),
   // Опциональны ради обратной совместимости (POS/mobile); веб-чекаут требует оба.
+  recipientName: z.string().trim().min(1).max(200).optional(),
   contactPhone: z.string().trim().min(1).max(20).optional(),
   telegramUsername: z.string().trim().min(1).max(40).optional(),
   items: z

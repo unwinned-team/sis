@@ -5,7 +5,9 @@ import path from "node:path";
 const storage = multer.diskStorage({
   destination: "uploads/",
   filename(_req, file, cb) {
-    const ext = path.extname(file.originalname);
+    // Регістр до нижнього: nginx-маска /uploads/ регістрозалежна,
+    // фото.PNG з Windows дав би 404 у проде.
+    const ext = path.extname(file.originalname).toLowerCase();
     cb(null, `${crypto.randomUUID()}${ext}`);
   },
 });

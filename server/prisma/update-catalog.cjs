@@ -54,6 +54,17 @@ async function main() {
 
   for (const category of categories) {
     const { id, ...data } = category;
+    // Фото категорії, поставлене адміном, не затираємо — той самий guard,
+    // що для варіантів нижче; --overwrite-text повертає каталог джерелом правди.
+    if (!overwriteText) {
+      const existing = await prisma.category.findUnique({
+        where: { id },
+        select: { imageUrl: true },
+      });
+      if (existing?.imageUrl && data.imageUrl !== existing.imageUrl) {
+        delete data.imageUrl;
+      }
+    }
     const updated = await prisma.category.updateMany({ where: { id }, data });
     stats.categories += updated.count;
   }

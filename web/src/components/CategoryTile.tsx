@@ -8,9 +8,9 @@ interface CategoryTileProps {
 
 export function CategoryTile({ category }: CategoryTileProps) {
   const { data: popular } = usePopularByCategory();
-  // Плитка живе за продажами: фото хіта категорії. Category.imageUrl —
-  // запасний варіант для категорій, у яких замовлень ще не було.
-  const imageUrl = popular?.[category.slug]?.imageUrl || category.imageUrl;
+  // Фото ставить адмін у панелі. Хіт продажів підставляється лише категоріям
+  // без власного фото — інакше правка в адмінці не доїжджала б до меню.
+  const imageUrl = category.imageUrl || popular?.[category.slug]?.imageUrl;
 
   return (
     <Link

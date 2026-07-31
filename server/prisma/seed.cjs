@@ -105,28 +105,12 @@ async function main() {
   // Заказы, клиенты и подтверждения возраста не трогаем: сид наполняет только
   // каталог. Если товар уже попал в чей-то заказ, product.deleteMany упадёт на
   // внешнем ключе — это осознанно: лучше громкая ошибка, чем тихая потеря данных.
-  // Фото категорий ставит админ в панели — сид не должен их затирать.
-  // Снимаем текущие значения до deleteMany и возвращаем их при пересоздании;
-  // каталожное фото идёт только категориям, которых раньше не было.
-  const savedImages = new Map(
-    (
-      await prisma.category.findMany({ select: { slug: true, imageUrl: true } })
-    ).map((category) => [category.slug, category.imageUrl]),
-  );
-
   await prisma.productVariant.deleteMany();
   await prisma.product.deleteMany();
   await prisma.category.deleteMany();
 
   for (const category of categories) {
-    await prisma.category.create({
-      data: {
-        ...category,
-        imageUrl: savedImages.has(category.slug)
-          ? savedImages.get(category.slug)
-          : (category.imageUrl ?? null),
-      },
-    });
+    await prisma.category.create({ data: category });
   }
 
   for (const product of products) {

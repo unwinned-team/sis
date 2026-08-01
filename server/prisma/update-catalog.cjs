@@ -20,8 +20,6 @@ const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString }),
 });
 
-const money = (cents) => (cents / 100).toFixed(2);
-
 // За замовчуванням тексти і фото варіантів лише доповнюються, щоб не затерти
 // правки з адмінки. З --overwrite-text каталог стає джерелом правди: так
 // правлений catalog.cjs доїжджає до бази.
@@ -97,7 +95,7 @@ async function main() {
       const description =
         asObject?.description ?? spec.descriptions?.[tasteName] ?? spec.description ?? null;
 
-      for (const { size, priceCents } of spec.sizes) {
+      for (const { size } of spec.sizes) {
         const match = existing.find(
           (variant) => variant.taste === tasteName && variant.size === (size ?? null),
         );
@@ -108,7 +106,6 @@ async function main() {
               productId: spec.productId,
               taste: tasteName,
               size: size ?? null,
-              price: money(priceCents),
               isAvailable: asObject?.isAvailable ?? true,
               imageUrl: asObject?.imageUrl ?? null,
               description,

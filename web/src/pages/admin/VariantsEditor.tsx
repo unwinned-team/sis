@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import {
   createVariant,
   deleteVariant,
@@ -8,7 +8,34 @@ import {
 } from '../../api/admin';
 import { isMissingEndpoint, saveErrorMessage } from './support';
 import { DANGER_BUTTON_CLASS, GHOST_BUTTON_CLASS, INPUT_CLASS, Notice } from './ui';
+import { formatPrice } from '../../utils/format';
 import type { Product, ProductVariant } from '../../types';
+
+// ponytail: фіксований розмір спінера — кнопка не стрибає по ширині під час завантаження.
+function Spinner() {
+  return <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />;
+}
+
+// Текст під час busy лишається в розмітці (invisible), а спінер центрується
+// поверх — ширина кнопки не змінюється взагалі.
+function BusyLabel({ busy, children }: { busy: boolean; children: React.ReactNode }) {
+  return (
+    <span className="relative inline-flex items-center">
+      <span className={busy ? 'invisible' : ''}>{children}</span>
+      {busy && (
+        <span className="absolute inset-0 flex items-center justify-center">
+          <Spinner />
+        </span>
+      )}
+    </span>
+  );
+}
+
+// ponytail: під час збереження одного рядка інші рядки не повинні мигати —
+// кнопки лишаються disabled (не можна запустити паралельну операцію), але
+// disabled:opacity-100! перебиває opacity-60 зі спільних класів, тож вигляд не змінюється.
+const ROW_BUTTON_CLASS = `${GHOST_BUTTON_CLASS} disabled:opacity-100!`;
+const ROW_DANGER_CLASS = `${DANGER_BUTTON_CLASS} disabled:opacity-100!`;
 
 // Фото смаку редагується прямо в рядку: клік по мініатюрі відкриває вибір файлу,
 // завантаження одразу зберігається — окрема форма заради одного поля зайва.
@@ -43,7 +70,7 @@ function VariantImage({
         onClick={() => inputRef.current?.click()}
         disabled={disabled}
         title={imageUrl ? 'Змінити фото смаку' : 'Додати фото смаку'}
-        className="h-11 w-11 overflow-hidden rounded-xl border border-white/70 bg-white/50 text-lg text-slate-400 transition hover:border-teal-300 hover:text-teal-600 disabled:opacity-50"
+        className="h-11 w-11 overflow-hidden rounded-xl border border-white/70 bg-white/50 text-lg text-slate-400 transition hover:border-teal-300 hover:text-teal-600"
       >
         {imageUrl ? (
           <img src={imageUrl} alt="" className="h-full w-full object-cover" />
@@ -51,10 +78,11 @@ function VariantImage({
           '＋'
         )}
       </button>
-      {imageUrl && !disabled && (
+      {imageUrl && (
         <button
           type="button"
           onClick={onClear}
+          disabled={disabled}
           title="Прибрати фото смаку"
           className="absolute -right-1.5 -top-1.5 h-5 w-5 rounded-full border border-white bg-slate-700 text-xs leading-none text-white"
         >
@@ -75,13 +103,27 @@ interface Draft {
 const EMPTY_DRAFT: Draft = { taste: '', description: '', price: '', imageUrl: '' };
 
 function toInput(draft: Draft) {
-  const price = Number(draft.price);
+  const price = draft.price === '' ? undefined : Number(draft.price);
   return {
     taste: draft.taste.trim() === '' ? null : draft.taste.trim(),
     description: draft.description.trim() === '' ? null : draft.description.trim(),
-    price: Number.isNaN(price) ? undefined : price,
+    price: price === undefined || Number.isNaN(price) ? undefined : price,
     imageUrl: draft.imageUrl === '' ? null : draft.imageUrl,
   };
+}
+
+function isVariantDirty(
+  v: ProductVariant,
+  drafts: Record<string, string>,
+  descDrafts: Record<string, string>,
+) {
+  const d = drafts[v.id];
+  const dd = descDrafts[v.id];
+  // Порожнє поле ціни = «без змін» (скидання йде окремою кнопкою ↺), ане помилку.
+  return (
+    (d !== undefined && d !== '' && d !== v.price) ||
+    (dd !== undefined && dd !== (v.description ?? ''))
+  );
 }
 
 // Назва варіанта з імені файлу: «Vaporesso Xros 5 Black (Чорний).webp» стає
@@ -90,15 +132,20 @@ function variantNameFromFile(fileName: string): string {
   return fileName.replace(/\.[^.]+$/, '').trim();
 }
 
-export function VariantsEditor({
-  accessToken,
-  product,
-  onChanged,
-}: {
+export interface VariantsEditorHandle {
+  saveAll: () => Promise<void>;
+  hasDirty: boolean;
+  busy: boolean;
+  unsupported: boolean;
+  hasVariants: boolean;
+}
+
+export const VariantsEditor = forwardRef<VariantsEditorHandle, {
   accessToken: string;
   product: Product;
   onChanged: (variants: ProductVariant[]) => void;
-}) {
+  onBusyChange: (busy: boolean) => void;
+}>(function VariantsEditor({ accessToken, product, onChanged, onBusyChange }, ref) {
   const variants = product.variants ?? [];
   // Підпис задається в категорії, тому в редакторі показуємо те саме слово,
   // що побачить покупець: «Колір» для pod-систем, «Опір» для картриджів.
@@ -114,6 +161,10 @@ export function VariantsEditor({
   const [bulkPrice, setBulkPrice] = useState('');
   const bulkInputRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    onBusyChange(busyId !== null);
+  }, [busyId, onBusyChange]);
+
   function handleError(err: unknown) {
     if (isMissingEndpoint(err)) {
       setUnsupported(true);
@@ -127,7 +178,8 @@ export function VariantsEditor({
     const priceRaw = drafts[variant.id];
     const descRaw = descDrafts[variant.id];
     const input: VariantInput = {};
-    if (priceRaw !== undefined) {
+    // Порожнє поле ціни = «без змін» — не помилка і не скиндання (скидання = ↺).
+    if (priceRaw !== undefined && priceRaw !== '') {
       const price = Number(priceRaw);
       if (Number.isNaN(price) || price <= 0) {
         setError('Ціна має бути додатним числом.');
@@ -207,7 +259,7 @@ export function VariantsEditor({
 
   async function handleCreate() {
     const input = toInput(newDraft);
-    // price тепер опціональна: порожнє поле = «наслідує ціну товару».
+    // Ціна опціональна: порожнє поле = наслідує product.price (variant.price = NULL).
     if (input.price !== undefined && input.price <= 0) {
       setError('Ціна має бути додатним числом.');
       return;
@@ -248,10 +300,15 @@ export function VariantsEditor({
   // Пачка фото за раз: кожен файл стає окремим варіантом, назва береться з
   // імені файлу. Так 13 кольорів заводяться одним вибором, а не по одному.
   async function handleBulkUpload(files: File[]) {
-    const price = Number(newDraft.price === '' ? product.price : newDraft.price);
-    if (!Number.isFinite(price) || price <= 0) {
-      setError('Вкажіть ціну для нових варіантів.');
-      return;
+    // Порожня ціна = inherit (variant.price = NULL); число = override на всіх.
+    let price: number | undefined;
+    if (newDraft.price !== '') {
+      const n = Number(newDraft.price);
+      if (!Number.isFinite(n) || n <= 0) {
+        setError('Вкажіть ціну для нових варіантів.');
+        return;
+      }
+      price = n;
     }
 
     setError(null);
@@ -295,11 +352,50 @@ export function VariantsEditor({
         updated.push(await updateVariant(accessToken, product.id, v.id, { price }));
       }
       onChanged(updated);
+      setDrafts({});
       setBulkPrice('');
     } catch (err) {
       handleError(err);
       // Частковий фейл: відтворити те, що встигли, решту лишити як було.
       onChanged(variants.map((v) => updated.find((u) => u.id === v.id) ?? v));
+      // Очистити draft ціни для тих, кого встигли оновити — опис не чіпаємо.
+      if (updated.length > 0) {
+        setDrafts((prev) => {
+          const next = { ...prev };
+          for (const u of updated) delete next[u.id];
+          return next;
+        });
+      }
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  // Скинути всі варіанти на inherit: price = NULL → наслідують product.price.
+  // Адмін один раз проганяє це для старих даних (після міграції в NULL не
+  // обов'язково, але корисно для вручну заданих override-копій), надалі зміна
+  // ціни товару одразу змінює ціну всієї линейки.
+  async function handleResetAllPrices() {
+    if (variants.length === 0) return;
+    setError(null);
+    setBusyId('bulk-reset');
+    const updated: ProductVariant[] = [];
+    try {
+      for (const v of variants) {
+        updated.push(await updateVariant(accessToken, product.id, v.id, { price: null }));
+      }
+      onChanged(updated);
+      setDrafts({});
+    } catch (err) {
+      handleError(err);
+      onChanged(variants.map((v) => updated.find((u) => u.id === v.id) ?? v));
+      if (updated.length > 0) {
+        setDrafts((prev) => {
+          const next = { ...prev };
+          for (const u of updated) delete next[u.id];
+          return next;
+        });
+      }
     } finally {
       setBusyId(null);
     }
@@ -308,19 +404,12 @@ export function VariantsEditor({
   // Зберегти всі незбережені правки (ціна + опис) одним кліком — замість
   // ручного «Зберегти» в кожному рядку. Логіка валідації та dirty як у handleSave.
   async function handleSaveAll() {
-    const dirty = variants.filter((v) => {
-      const d = drafts[v.id];
-      const dd = descDrafts[v.id];
-      return (
-        (d !== undefined && d !== v.price) ||
-        (dd !== undefined && dd !== (v.description ?? ''))
-      );
-    });
+    const dirty = variants.filter((v) => isVariantDirty(v, drafts, descDrafts));
     if (dirty.length === 0) return;
 
     for (const v of dirty) {
       const d = drafts[v.id];
-      if (d !== undefined) {
+      if (d !== undefined && d !== '') {
         const price = Number(d);
         if (Number.isNaN(price) || price <= 0) {
           setError(`Ціна для «${[v.taste, v.size].filter(Boolean).join(' · ') || 'Базовий'}» має бути додатним числом.`);
@@ -338,7 +427,7 @@ export function VariantsEditor({
         const input: VariantInput = {};
         const d = drafts[v.id];
         const dd = descDrafts[v.id];
-        if (d !== undefined) input.price = Number(d);
+        if (d !== undefined && d !== '') input.price = Number(d);
         if (dd !== undefined) input.description = dd.trim() === '' ? null : dd.trim();
         const updated = await updateVariant(accessToken, product.id, v.id, input);
         result[v.id] = updated;
@@ -369,14 +458,15 @@ export function VariantsEditor({
     }
   }
 
-  const hasDirty = variants.some((v) => {
-    const d = drafts[v.id];
-    const dd = descDrafts[v.id];
-    return (
-      (d !== undefined && d !== v.price) ||
-      (dd !== undefined && dd !== (v.description ?? ''))
-    );
-  });
+  const hasDirty = variants.some((v) => isVariantDirty(v, drafts, descDrafts));
+
+  useImperativeHandle(ref, () => ({
+    saveAll: () => handleSaveAll(),
+    hasDirty,
+    busy: busyId !== null,
+    unsupported,
+    hasVariants: variants.length > 0,
+  }));
 
   return (
     <div className="mt-4 border-t border-white/50 pt-4">
@@ -402,9 +492,7 @@ export function VariantsEditor({
         {variants.map((variant) => {
           const draft = drafts[variant.id];
           const descDraft = descDrafts[variant.id];
-          const isDirty =
-            (draft !== undefined && draft !== variant.price) ||
-            (descDraft !== undefined && descDraft !== (variant.description ?? ''));
+          const isDirty = isVariantDirty(variant, drafts, descDrafts);
           return (
             <li key={variant.id} className="flex flex-wrap items-center gap-2">
               <VariantImage
@@ -429,10 +517,10 @@ export function VariantsEditor({
                 className={`!px-3 !py-1.5 !text-xs ${
                   variant.isAvailable
                     ? 'rounded-full border border-emerald-300 bg-emerald-50 font-semibold text-emerald-700'
-                    : GHOST_BUTTON_CLASS
+                    : ROW_BUTTON_CLASS
                 }`}
               >
-                {busyId === variant.id ? '...' : variant.isAvailable ? '✓ Доступний' : 'Недоступний'}
+                {variant.isAvailable ? '✓ Доступний' : 'Недоступний'}
               </button>
               <input
                 type="text"
@@ -441,33 +529,46 @@ export function VariantsEditor({
                   setDescDrafts((prev) => ({ ...prev, [variant.id]: e.target.value }))
                 }
                 placeholder="Опис"
-                disabled={unsupported}
+                disabled={busyId !== null || unsupported}
                 className={`${INPUT_CLASS} !w-48`}
               />
               <input
                 type="number"
                 step="0.01"
                 min="0"
-                value={draft ?? variant.price}
+                value={draft ?? variant.price ?? ''}
+                // Порожнє поле = inherit (variant.price === null): показуємо цену товару.
+                placeholder={variant.price === null ? `наслідує ${formatPrice(product.price)}` : ''}
                 onChange={(e) =>
                   setDrafts((prev) => ({ ...prev, [variant.id]: e.target.value }))
                 }
-                disabled={unsupported}
+                disabled={busyId !== null || unsupported}
                 className={`${INPUT_CLASS} !w-28`}
               />
+              {/* Скинути override → variant.price = NULL → наслідує product.price. */}
+              <button
+                type="button"
+                onClick={() => void patchVariant(variant, { price: null })}
+                disabled={variant.price === null || busyId !== null || unsupported}
+                title="Скинути ціну: наслідувати товару"
+                aria-label="Скинути ціну: наслідувати товару"
+                className={`${ROW_BUTTON_CLASS} !px-2 !py-1.5 !text-xs`}
+              >
+                ↺
+              </button>
               <button
                 type="button"
                 onClick={() => void handleSave(variant)}
                 disabled={!isDirty || busyId !== null || unsupported}
-                className={`${GHOST_BUTTON_CLASS} !px-4 !py-1.5 !text-xs`}
+                className={`${ROW_BUTTON_CLASS} !px-4 !py-1.5 !text-xs`}
               >
-                {busyId === variant.id ? '...' : 'Зберегти'}
+                <BusyLabel busy={busyId === variant.id}>Зберегти</BusyLabel>
               </button>
               <button
                 type="button"
                 onClick={() => void handleDelete(variant)}
                 disabled={busyId !== null || unsupported}
-                className={DANGER_BUTTON_CLASS}
+                className={ROW_DANGER_CLASS}
               >
                 Видалити
               </button>
@@ -505,7 +606,7 @@ export function VariantsEditor({
           min="0"
           value={newDraft.price}
           onChange={(e) => setNewDraft((prev) => ({ ...prev, price: e.target.value }))}
-          placeholder="Ціна"
+          placeholder={`наслідує ${formatPrice(product.price)}`}
           disabled={unsupported}
           className={`${INPUT_CLASS} !w-28`}
         />
@@ -515,7 +616,7 @@ export function VariantsEditor({
           disabled={busyId !== null || unsupported}
           className={`${GHOST_BUTTON_CLASS} !px-4 !py-1.5 !text-xs`}
         >
-          {busyId === 'new' ? '...' : 'Додати варіант'}
+          <BusyLabel busy={busyId === 'new'}>Додати варіант</BusyLabel>
         </button>
       </div>
 
@@ -541,8 +642,8 @@ export function VariantsEditor({
           {busyId === 'bulk' ? 'Завантаження...' : 'Завантажити кілька фото'}
         </button>
         <span className="text-xs text-slate-500">
-          Кожне фото стане окремим варіантом, назву візьмемо з імені файлу. Ціна з поля вище, або
-          ціна товару.
+          Кожне фото стане окремим варіантом, назву візьмемо з імені файлу. Ціну візьмуть з
+          поля вище, без неї — наслідують товару.
         </span>
       </div>
 
@@ -559,7 +660,15 @@ export function VariantsEditor({
         />
         <button
           type="button"
-          onClick={() => void handleApplyPriceToAll()}
+          onClick={() => {
+            if (
+              window.confirm(
+                `Перезаписати ціну всіх ${variants.length} варіантів поточним значенням?`,
+              )
+            ) {
+              void handleApplyPriceToAll();
+            }
+          }}
           disabled={busyId !== null || unsupported || variants.length === 0}
           className={`${GHOST_BUTTON_CLASS} !px-4 !py-1.5 !text-xs`}
         >
@@ -573,16 +682,26 @@ export function VariantsEditor({
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <button
           type="button"
-          onClick={() => void handleSaveAll()}
-          disabled={!hasDirty || busyId !== null || unsupported || variants.length === 0}
+          onClick={() => {
+            if (
+              window.confirm(
+                `Скинути ціну всіх ${variants.length} варіантів — наслідувати ціну товару (${formatPrice(product.price)})?`,
+              )
+            ) {
+              void handleResetAllPrices();
+            }
+          }}
+          disabled={busyId !== null || unsupported || variants.length === 0}
           className={`${GHOST_BUTTON_CLASS} !px-4 !py-1.5 !text-xs`}
         >
-          {busyId === 'save-all' ? 'Зберігаємо…' : 'Зберегти всі зміни смаків'}
+          {busyId === 'bulk-reset' ? 'Скидаємо…' : 'Скинути ціни → наслідувати товару'}
         </button>
         <span className="text-xs text-slate-500">
-          Зберігає незбережені ціни та описи всіх рядків одним кліком.
+          variant.price = NULL; всі смаки братимуть ціну товару й оновлюватимуться разом з нею.
         </span>
       </div>
+
+
     </div>
   );
-}
+})

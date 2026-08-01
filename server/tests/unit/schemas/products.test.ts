@@ -99,21 +99,23 @@ test("variant params require both ids", () => {
   assert.equal(variantParamsSchema.safeParse({ productId: "p1" }).success, false);
 });
 
-test("createVariantSchema accepts optional price (variant inherits product.price)", () => {
+test("createVariantSchema accepts optional/nullable price (NULL = inherit product.price)", () => {
   assert.equal(createVariantSchema.safeParse({ price: 10.99 }).success, true);
   assert.equal(createVariantSchema.safeParse({ price: 10.99, taste: "Mint" }).success, true);
   assert.equal(createVariantSchema.safeParse({ price: 10.99, size: "100ml" }).success, true);
-  // price теперь опциональна — пустое тело и только taste допустимы.
+  // price nullish (undefined або null) — inherit; пустое тело и только taste допустимы.
   assert.equal(createVariantSchema.safeParse({}).success, true);
   assert.equal(createVariantSchema.safeParse({ taste: "Mint" }).success, true);
+  assert.equal(createVariantSchema.safeParse({ price: null, taste: "Mint" }).success, true);
   // но явный невалидный price всё ещё режектится.
   assert.equal(createVariantSchema.safeParse({ price: 0 }).success, false);
   assert.equal(createVariantSchema.safeParse({ price: -1 }).success, false);
 });
 
-test("updateVariantSchema allows partial", () => {
+test("updateVariantSchema allows partial; null price = clear to inherit", () => {
   assert.equal(updateVariantSchema.safeParse({}).success, true);
   assert.equal(updateVariantSchema.safeParse({ price: 12.34 }).success, true);
+  assert.equal(updateVariantSchema.safeParse({ price: null }).success, true);
   assert.equal(updateVariantSchema.safeParse({ taste: "Mint" }).success, true);
 });
 

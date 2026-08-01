@@ -51,7 +51,8 @@ model ProductVariant {
   taste       String?
   size        String?
   description String?
-  price       Decimal    @db.Decimal(10, 2)
+  // null = наслідує product.price (єдина ціна на линейку смаків).
+  price       Decimal?   @db.Decimal(10, 2)
   isAvailable Boolean    @default(true)
   // Фото конкретного смаку; null — показуємо загальне фото товару.
   imageUrl    String?

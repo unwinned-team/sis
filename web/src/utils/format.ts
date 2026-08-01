@@ -19,8 +19,10 @@ export function formatBonus(value: string | number): string {
 }
 
 export function formatProductPrice(product: Product): string {
+  // null price наслідує product.price — на линейці одна ціна.
   const variantPrices = (product.variants ?? [])
-    .map((variant) => Number(variant.price))
+    .map((variant) => variant.price ?? product.price)
+    .map(Number)
     .filter((value) => !Number.isNaN(value));
 
   if (variantPrices.length === 0) return formatPrice(product.price);
@@ -31,15 +33,19 @@ export function formatProductPrice(product: Product): string {
   return formatPrice(String(Math.min(...variantPrices)));
 }
 
-// ponytail: dev-only self-check — хтось поверне «від», впаде в консолі розробника.
+// ponytail: dev-only self-check — хтось поверне «від» або зламає null-resolve,
+// впаде в консолі розробника.
 if (import.meta.env?.DEV) {
-  const sample: Product = {
+  const base: Product = {
     id: '', name: '', description: '', price: '100',
     categoryId: '', imageUrl: '', createdAt: '',
-    variants: [{ id: '1', productId: '', taste: 'A', size: null, price: '150', description: null, isAvailable: true }],
+    variants: [
+      { id: '1', productId: '', taste: 'A', size: null, price: '150', description: null, isAvailable: true },
+      { id: '2', productId: '', taste: 'B', size: null, price: null, description: null, isAvailable: true },
+    ],
   };
-  const out = formatProductPrice(sample);
-  if (out.startsWith('від ') || out !== '150 ₴') {
+  const out = formatProductPrice(base);
+  if (out.startsWith('від ') || out !== '100 ₴') {
     console.error('formatProductPrice self-check failed:', out);
   }
 }

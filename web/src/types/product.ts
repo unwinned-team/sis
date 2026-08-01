@@ -5,7 +5,8 @@ export interface ProductVariant {
   productId: string;
   taste: string | null;
   size: string | null;
-  price: string;
+  // null = наслідує product.price.
+  price: string | null;
   description?: string | null;
   isAvailable: boolean;
   imageUrl?: string | null;

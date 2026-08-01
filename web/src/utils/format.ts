@@ -25,8 +25,21 @@ export function formatProductPrice(product: Product): string {
 
   if (variantPrices.length === 0) return formatPrice(product.price);
 
-  const distinct = [...new Set(variantPrices)].sort((a, b) => a - b);
-  const formattedMin = distinct[0].toLocaleString('uk-UA', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-  
-  return `від ${formattedMin} ₴`;
+  // ponytail: показуємо мінімальну ціну без «від». Линейка варіантів у більшості
+  // товарів має одну ціну; різні ціни поки не відрізняємо — повернутось, коли
+  // з'являться товари з різними цінами за смак/розмір.
+  return formatPrice(String(Math.min(...variantPrices)));
+}
+
+// ponytail: dev-only self-check — хтось поверне «від», впаде в консолі розробника.
+if (import.meta.env?.DEV) {
+  const sample: Product = {
+    id: '', name: '', description: '', price: '100',
+    categoryId: '', imageUrl: '', createdAt: '',
+    variants: [{ id: '1', productId: '', taste: 'A', size: null, price: '150', description: null, isAvailable: true }],
+  };
+  const out = formatProductPrice(sample);
+  if (out.startsWith('від ') || out !== '150 ₴') {
+    console.error('formatProductPrice self-check failed:', out);
+  }
 }

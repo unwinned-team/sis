@@ -224,6 +224,26 @@ test("variant create requires an admin and a real product", async () => {
   );
 });
 
+// Вариант без цены наследует product.price — единая цена на линейку вкусов.
+test("variant create without price inherits product.price", async () => {
+  const token = await addAdmin();
+  const category = await addCategory("variant-inherit-price");
+  const product = await addProduct("variant-inherit-price", category.id);
+
+  const created = await api("POST", `/products/${product.id}/variants`, {
+    token,
+    body: { taste: "Berry", imageUrl: "/uploads/probe.png" },
+  });
+  assert.equal(created.status, 201, JSON.stringify(created.body));
+  assert.equal(created.body.taste, "Berry");
+  // addProduct создаёт с price "10.00" — вариант должен унаследовать её.
+  assert.equal(Number(created.body.price), 10);
+  // и приезжать на витрину уже с этой ценой.
+  const found = await api("GET", `/products/${product.id}`);
+  assert.equal(found.body.variants.length, 1);
+  assert.equal(Number(found.body.variants[0].price), 10);
+});
+
 test("product mutations require an admin", async () => {
   const category = await addCategory("guard");
   const product = await addProduct("guard", category.id);

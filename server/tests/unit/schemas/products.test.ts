@@ -99,12 +99,16 @@ test("variant params require both ids", () => {
   assert.equal(variantParamsSchema.safeParse({ productId: "p1" }).success, false);
 });
 
-test("createVariantSchema requires price", () => {
+test("createVariantSchema accepts optional price (variant inherits product.price)", () => {
   assert.equal(createVariantSchema.safeParse({ price: 10.99 }).success, true);
   assert.equal(createVariantSchema.safeParse({ price: 10.99, taste: "Mint" }).success, true);
   assert.equal(createVariantSchema.safeParse({ price: 10.99, size: "100ml" }).success, true);
-  assert.equal(createVariantSchema.safeParse({}).success, false);
-  assert.equal(createVariantSchema.safeParse({ taste: "Mint" }).success, false);
+  // price теперь опциональна — пустое тело и только taste допустимы.
+  assert.equal(createVariantSchema.safeParse({}).success, true);
+  assert.equal(createVariantSchema.safeParse({ taste: "Mint" }).success, true);
+  // но явный невалидный price всё ещё режектится.
+  assert.equal(createVariantSchema.safeParse({ price: 0 }).success, false);
+  assert.equal(createVariantSchema.safeParse({ price: -1 }).success, false);
 });
 
 test("updateVariantSchema allows partial", () => {

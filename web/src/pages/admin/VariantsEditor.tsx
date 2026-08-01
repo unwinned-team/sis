@@ -109,6 +109,9 @@ export function VariantsEditor({
   const [error, setError] = useState<string | null>(null);
   const [unsupported, setUnsupported] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  // ponytail: єдина ціна на всю линейку — цикл по існуючих PUT-ах варіантів.
+  // Bulk-ендпоінт не заводимо: N=5-13, при >50 — замінити на один PATCH.
+  const [bulkPrice, setBulkPrice] = useState('');
   const bulkInputRef = useRef<HTMLInputElement>(null);
 
   function handleError(err: unknown) {
@@ -204,7 +207,8 @@ export function VariantsEditor({
 
   async function handleCreate() {
     const input = toInput(newDraft);
-    if (input.price === undefined || input.price <= 0) {
+    // price тепер опціональна: порожнє поле = «наслідує ціну товару».
+    if (input.price !== undefined && input.price <= 0) {
       setError('Ціна має бути додатним числом.');
       return;
     }
@@ -269,6 +273,34 @@ export function VariantsEditor({
     } finally {
       // Показуємо те, що встигло створитись, навіть якщо частина впала.
       if (created.length > 0) onChanged([...variants, ...created]);
+      setBusyId(null);
+    }
+  }
+
+  // Одна ціна на всю линейку смаків: адмін вводить число раз, ми пробиваємо
+  // по всіх варіантах послідовно. Чергу PUT не паралелім — бекенд простий, а
+  // частковий фейл легше відтворити станом.
+  async function handleApplyPriceToAll() {
+    const price = Number(bulkPrice);
+    if (Number.isNaN(price) || price <= 0) {
+      setError('Ціна має бути додатним числом.');
+      return;
+    }
+    if (variants.length === 0) return;
+    setError(null);
+    setBusyId('bulk-price');
+    const updated: ProductVariant[] = [];
+    try {
+      for (const v of variants) {
+        updated.push(await updateVariant(accessToken, product.id, v.id, { price }));
+      }
+      onChanged(updated);
+      setBulkPrice('');
+    } catch (err) {
+      handleError(err);
+      // Частковий фейл: відтворити те, що встигли, решту лишити як було.
+      onChanged(variants.map((v) => updated.find((u) => u.id === v.id) ?? v));
+    } finally {
       setBusyId(null);
     }
   }
@@ -438,6 +470,30 @@ export function VariantsEditor({
         <span className="text-xs text-slate-500">
           Кожне фото стане окремим варіантом, назву візьмемо з імені файлу. Ціна з поля вище, або
           ціна товару.
+        </span>
+      </div>
+
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <input
+          type="number"
+          step="0.01"
+          min="0"
+          value={bulkPrice}
+          onChange={(e) => setBulkPrice(e.target.value)}
+          placeholder="Єдина ціна для всіх смаків"
+          disabled={busyId !== null || unsupported || variants.length === 0}
+          className={`${INPUT_CLASS} !w-56`}
+        />
+        <button
+          type="button"
+          onClick={() => void handleApplyPriceToAll()}
+          disabled={busyId !== null || unsupported || variants.length === 0}
+          className={`${GHOST_BUTTON_CLASS} !px-4 !py-1.5 !text-xs`}
+        >
+          {busyId === 'bulk-price' ? 'Застосовуємо…' : 'Застосувати ціну до всіх смаків'}
+        </button>
+        <span className="text-xs text-slate-500">
+          Перезапише ціну всіх варіантів одним значенням.
         </span>
       </div>
     </div>

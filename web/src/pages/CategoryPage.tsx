@@ -4,7 +4,6 @@ import { BackgroundOrbs } from '../components/BackgroundOrbs';
 import { BackButton } from '../components/BackButton';
 import { ProductCard } from '../components/ProductCard';
 import { useCategoryDetails } from '../hooks/useCategoryDetails';
-import { formatProductPrice } from '../utils/format';
 
 function CategorySkeleton() {
   return (
@@ -42,7 +41,7 @@ function CategorySkeleton() {
 
 export function CategoryPage() {
   const { slug } = useParams<{ slug: string }>();
-  const { category, otherCategories, popularProduct, products, isLoading, notFound, error } =
+  const { category, otherCategories, products, isLoading, notFound, error } =
     useCategoryDetails(slug);
 
   return (
@@ -79,42 +78,6 @@ export function CategoryPage() {
             <h1 className="heading-glow text-center text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
               {category.name}
             </h1>
-
-            {popularProduct && (
-              <section className="mt-8">
-                <div className="overflow-hidden rounded-3xl border border-white/60 bg-white/40 shadow-lg backdrop-blur-md">
-                  <div className="grid sm:grid-cols-[minmax(0,20rem)_1fr]">
-                    <div className="aspect-square overflow-hidden bg-gradient-to-br from-teal-100/40 to-sky-100/40">
-                      <img
-                        src={popularProduct.imageUrl}
-                        alt={popularProduct.name}
-                        className="h-full w-full object-cover"
-                      />
-                    </div>
-                    <div className="flex flex-col justify-center gap-3 p-6 sm:p-10">
-                      <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-teal-200/70 bg-teal-50/70 px-3 py-1 text-xs font-semibold text-teal-700">
-                        🔥 Хіт продажів категорії
-                      </span>
-                      <h2 className="text-xl font-bold text-slate-900 sm:text-2xl">
-                        {popularProduct.name}
-                      </h2>
-                      <p className="line-clamp-3 text-sm leading-relaxed text-slate-600">
-                        {popularProduct.description}
-                      </p>
-                      <p className="text-2xl font-bold text-slate-900">
-                        {formatProductPrice(popularProduct)}
-                      </p>
-                      <Link
-                        to={`/product/${popularProduct.id}`}
-                        className="mt-1 inline-block w-fit rounded-full bg-slate-900 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-700"
-                      >
-                        Переглянути товар
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              </section>
-            )}
 
             <section className="mt-10 sm:mt-14">
               <h2 className="heading-glow mb-5 text-center text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">

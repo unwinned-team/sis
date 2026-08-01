@@ -1,5 +1,4 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getCategoryPopularProduct } from '../api/categories';
 import { getProductsByCategory } from '../api/products';
 import { CATEGORIES_QUERY } from './useCategories';
 import type { Category, Product } from '../types';
@@ -7,7 +6,6 @@ import type { Category, Product } from '../types';
 interface UseCategoryDetailsResult {
   category: Category | null;
   otherCategories: Category[];
-  popularProduct: Product | null;
   products: Product[];
   isLoading: boolean;
   notFound: boolean;
@@ -29,21 +27,16 @@ export function useCategoryDetails(slug: string | undefined): UseCategoryDetails
           notFound: true,
           category: null,
           otherCategories: [] as Category[],
-          popularProduct: null,
           products: [] as Product[],
         };
       }
 
-      const [popularProduct, products] = await Promise.all([
-        getCategoryPopularProduct(slug!).catch(() => null),
-        getProductsByCategory(current.id),
-      ]);
+      const products = await getProductsByCategory(current.id);
 
       return {
         notFound: false,
         category: current as Category | null,
         otherCategories: categories.filter((item) => item.slug !== slug),
-        popularProduct,
         products,
       };
     },
@@ -52,7 +45,6 @@ export function useCategoryDetails(slug: string | undefined): UseCategoryDetails
   return {
     category: data?.category ?? null,
     otherCategories: data?.otherCategories ?? [],
-    popularProduct: data?.popularProduct ?? null,
     products: data?.products ?? [],
     isLoading: slug !== undefined && isPending,
     notFound: !slug || (data?.notFound ?? false),

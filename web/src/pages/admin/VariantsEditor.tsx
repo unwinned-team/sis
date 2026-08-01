@@ -305,6 +305,79 @@ export function VariantsEditor({
     }
   }
 
+  // Зберегти всі незбережені правки (ціна + опис) одним кліком — замість
+  // ручного «Зберегти» в кожному рядку. Логіка валідації та dirty як у handleSave.
+  async function handleSaveAll() {
+    const dirty = variants.filter((v) => {
+      const d = drafts[v.id];
+      const dd = descDrafts[v.id];
+      return (
+        (d !== undefined && d !== v.price) ||
+        (dd !== undefined && dd !== (v.description ?? ''))
+      );
+    });
+    if (dirty.length === 0) return;
+
+    for (const v of dirty) {
+      const d = drafts[v.id];
+      if (d !== undefined) {
+        const price = Number(d);
+        if (Number.isNaN(price) || price <= 0) {
+          setError(`Ціна для «${[v.taste, v.size].filter(Boolean).join(' · ') || 'Базовий'}» має бути додатним числом.`);
+          return;
+        }
+      }
+    }
+
+    setError(null);
+    setBusyId('save-all');
+    const result: Record<string, ProductVariant> = {};
+    const done: string[] = [];
+    try {
+      for (const v of dirty) {
+        const input: VariantInput = {};
+        const d = drafts[v.id];
+        const dd = descDrafts[v.id];
+        if (d !== undefined) input.price = Number(d);
+        if (dd !== undefined) input.description = dd.trim() === '' ? null : dd.trim();
+        const updated = await updateVariant(accessToken, product.id, v.id, input);
+        result[v.id] = updated;
+        done.push(v.id);
+      }
+      onChanged(variants.map((v) => result[v.id] ?? v));
+      setDrafts({});
+      setDescDrafts({});
+    } catch (err) {
+      handleError(err);
+      // Зберігаємо те, що встигли; решта drafts лишаємо, щоб адмін доробив.
+      const savedResult = variants.map((v) => result[v.id] ?? v);
+      onChanged(savedResult);
+      const remainingDrafts: Record<string, string> = {};
+      const remainingDesc: Record<string, string> = {};
+      for (const v of dirty) {
+        if (!done.includes(v.id)) {
+          const d = drafts[v.id];
+          const dd = descDrafts[v.id];
+          if (d !== undefined) remainingDrafts[v.id] = d;
+          if (dd !== undefined) remainingDesc[v.id] = dd;
+        }
+      }
+      setDrafts(remainingDrafts);
+      setDescDrafts(remainingDesc);
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  const hasDirty = variants.some((v) => {
+    const d = drafts[v.id];
+    const dd = descDrafts[v.id];
+    return (
+      (d !== undefined && d !== v.price) ||
+      (dd !== undefined && dd !== (v.description ?? ''))
+    );
+  });
+
   return (
     <div className="mt-4 border-t border-white/50 pt-4">
       <p className="mb-3 text-sm font-semibold text-slate-700">Варіанти</p>
@@ -494,6 +567,20 @@ export function VariantsEditor({
         </button>
         <span className="text-xs text-slate-500">
           Перезапише ціну всіх варіантів одним значенням.
+        </span>
+      </div>
+
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => void handleSaveAll()}
+          disabled={!hasDirty || busyId !== null || unsupported || variants.length === 0}
+          className={`${GHOST_BUTTON_CLASS} !px-4 !py-1.5 !text-xs`}
+        >
+          {busyId === 'save-all' ? 'Зберігаємо…' : 'Зберегти всі зміни смаків'}
+        </button>
+        <span className="text-xs text-slate-500">
+          Зберігає незбережені ціни та описи всіх рядків одним кліком.
         </span>
       </div>
     </div>

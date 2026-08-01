@@ -151,13 +151,12 @@ async function main() {
         asObject?.description ??
         (taste ? spec.descriptions?.[tasteName] : null) ??
         null;
-      for (const { size, priceCents } of spec.sizes) {
+      for (const { size } of spec.sizes) {
         await prisma.productVariant.create({
           data: {
             productId: spec.productId,
             taste: tasteName,
             size,
-            price: money(priceCents),
             description: tasteDesc ?? spec.description ?? null,
             isAvailable: asObject?.isAvailable ?? true,
             // Фото смака; null — на витрине покажется общее фото товара.

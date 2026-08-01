@@ -175,7 +175,8 @@ export interface VariantInput {
   taste?: string | null;
   size?: string | null;
   description?: string | null;
-  price?: number;
+  // null = скинути, наслідувати product.price.
+  price?: number | null;
   isAvailable?: boolean;
   imageUrl?: string | null;
 }

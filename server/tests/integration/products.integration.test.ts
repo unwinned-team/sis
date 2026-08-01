@@ -224,8 +224,9 @@ test("variant create requires an admin and a real product", async () => {
   );
 });
 
-// Вариант без цены наследует product.price — единая цена на линейку вкусов.
-test("variant create without price inherits product.price", async () => {
+// Вариант без цены = inherit: variant.price = NULL → ридеры берут product.price.
+// Єдина ціна на линейку смаків: зміна product.price одразу змінює всі inherit-варіанти.
+test("variant create without price stores NULL (inherits product.price)", async () => {
   const token = await addAdmin();
   const category = await addCategory("variant-inherit-price");
   const product = await addProduct("variant-inherit-price", category.id);
@@ -236,12 +237,28 @@ test("variant create without price inherits product.price", async () => {
   });
   assert.equal(created.status, 201, JSON.stringify(created.body));
   assert.equal(created.body.taste, "Berry");
-  // addProduct создаёт с price "10.00" — вариант должен унаследовать её.
-  assert.equal(Number(created.body.price), 10);
-  // и приезжать на витрину уже с этой ценой.
+  // Колонка nullable тепер: price зберігається як null, а не копія product.price.
+  assert.equal(created.body.price, null);
+
+  // GET /products/:id віддає варіант з price = null (inherit), не резолвить.
   const found = await api("GET", `/products/${product.id}`);
   assert.equal(found.body.variants.length, 1);
-  assert.equal(Number(found.body.variants[0].price), 10);
+  assert.equal(found.body.variants[0].price, null);
+
+  // Скидання override: PUT { price: null } має записати NULL навіть після override.
+  const overridden = await api("PUT", `/products/${product.id}/variants/${created.body.id}`, {
+    token,
+    body: { price: 42 },
+  });
+  assert.equal(overridden.status, 200, JSON.stringify(overridden.body));
+  assert.equal(Number(overridden.body.price), 42);
+
+  const reset = await api("PUT", `/products/${product.id}/variants/${created.body.id}`, {
+    token,
+    body: { price: null },
+  });
+  assert.equal(reset.status, 200, JSON.stringify(reset.body));
+  assert.equal(reset.body.price, null);
 });
 
 test("product mutations require an admin", async () => {

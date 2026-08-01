@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import {
   createProduct,
@@ -10,7 +10,7 @@ import {
 } from '../../api/admin';
 import { formatPrice } from '../../utils/format';
 import { ImageField } from './ImageField';
-import { VariantsEditor } from './VariantsEditor';
+import { VariantsEditor, type VariantsEditorHandle } from './VariantsEditor';
 import { saveErrorMessage, supportsAvailability } from './support';
 import {
   CARD_CLASS,
@@ -180,6 +180,8 @@ function ProductCard({
   const [busy, setBusy] = useState<'availability' | 'delete' | 'archive' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  const [variantsBusy, setVariantsBusy] = useState(false);
+  const variantsRef = useRef<VariantsEditorHandle>(null);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -338,6 +340,14 @@ function ProductCard({
                 {busy === 'delete' ? '...' : 'Видалити'}
               </button>
             )}
+            <button
+              type="button"
+              onClick={() => void variantsRef.current?.saveAll()}
+              disabled={busy !== null || variantsBusy}
+              className={`${GHOST_BUTTON_CLASS} !px-4 !py-1.5 !text-xs`}
+            >
+              Зберегти всі зміни смаків
+            </button>
           </div>
         </>
       )}
@@ -371,9 +381,11 @@ function ProductCard({
       )}
 
       <VariantsEditor
+        ref={variantsRef}
         accessToken={accessToken}
         product={product}
         onChanged={(variants: ProductVariant[]) => onUpdated({ ...product, variants })}
+        onBusyChange={setVariantsBusy}
       />
     </article>
   );

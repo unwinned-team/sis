@@ -35,7 +35,7 @@ export function ProductCard({ product, showCategory = true, selectedVariant = nu
     addedTimer.current = setTimeout(() => setJustAdded(false), 1500);
   };
 
-  const displayPrice = selectedVariant ? formatPrice(selectedVariant.price) : formatProductPrice(product);
+  const displayPrice = selectedVariant ? formatPrice(selectedVariant.price ?? product.price) : formatProductPrice(product);
 
   return (
     <div className="group relative flex h-full flex-col overflow-hidden rounded-2xl bg-white/30 shadow-sm ring-1 ring-slate-200 backdrop-blur-sm transition duration-200 md:hover:-translate-y-1 md:hover:shadow-md">

@@ -45,11 +45,13 @@ export const createVariantParamsSchema = variantParamsSchema.pick({
 });
 
 // nullable: фронт шлёт null для пустых полей (JSON.stringify не отбрасывает null)
+// price опционален: вариант без цены наследует product.price — одна цена на всю
+// линейку вкусов. Колонка NOT NULL, дефолт подставляется в роуте createVariant.
 export const createVariantSchema = z.object({
   taste: z.string().nullable().optional(),
   size: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
-  price: priceSchema,
+  price: priceSchema.optional(),
   isAvailable: z.boolean().optional(),
   imageUrl: z.string().nullable().optional(),
 });

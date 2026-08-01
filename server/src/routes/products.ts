@@ -400,7 +400,9 @@ async function createVariant(req: Request, res: Response, next: NextFunction) {
     const variant = await prisma.productVariant.create({
       data: {
         productId: parsedParams.data.productId,
-        price: parsedBody.data.price,
+        // Инвариант: variant.price хранит актуальную цену, undefined невозможен —
+        // schema опциональна, но колонка NOT NULL, дефолт подставляется здесь.
+        price: parsedBody.data.price ?? product.price,
         taste: parsedBody.data.taste ?? null,
         size: parsedBody.data.size ?? null,
         description: parsedBody.data.description ?? null,

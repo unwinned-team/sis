@@ -233,14 +233,29 @@ html {
   }
 }
 
-/* Lighter blur on small screens: big blur radii are GPU-expensive on phones */
-@media (max-width: 640px) {
-  .orb {
-    filter: blur(48px);
+/* Mobile / touch: feTurbulence in the SVG smoke is software-rendered on phone
+   GPUs and janks the whole page. Drop the smoke, freeze + shrink the orbs, and
+   lighten the glass blur so backdrop-filter stops re-running every frame.
+   Desktop is untouched. */
+@media (max-width: 640px), (hover: none) and (pointer: coarse) {
+  body {
+    background-attachment: scroll;
   }
 
   .smoke {
-    filter: blur(2px);
+    display: none;
+  }
+
+  .orb {
+    filter: blur(24px);
+    animation: none;
+    will-change: auto;
+  }
+
+  .liquid-glass,
+  .liquid-glass-panel {
+    -webkit-backdrop-filter: blur(10px) saturate(140%);
+    backdrop-filter: blur(10px) saturate(140%);
   }
 }
 

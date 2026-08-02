@@ -32,13 +32,14 @@ const overwriteText = process.argv.includes("--overwrite-text");
 //   npm run server:db:update-catalog
 //
 // Що робить:
-//   1. підпис характеристики і фото категорій (Колір / Опір);
+//   1. заповнює порожні поля категорій (підпис характеристики, фото);
 //   2. відсутні варіанти (кольори pod-систем), фото і описи для тих, у кого їх немає;
 //   3. видаляє варіанти зі списку removedVariants (знято з продажу).
 //
 // Чого свідомо не робить: не чіпає ціни, не видаляє варіанти лише тому, що їх
-// немає в каталозі, і не перезаписує фото чи опис, які адмін поставив руками —
-// опис товару теж, він оновлюється лише з --overwrite-text.
+// немає в каталозі, і не перезаписує НІЧОГО, що вже заповнене — ні фото, ні
+// опис варіанта, ні опис товару, ні назву категорії. Каталог тільки доповнює
+// порожнє; щоб він став джерелом правди, потрібен явний --overwrite-text.
 async function main() {
   const stats = {
     categories: 0,
@@ -52,17 +53,22 @@ async function main() {
 
   for (const category of categories) {
     const { id, ...data } = category;
-    // Фото категорії, поставлене адміном, не затираємо — той самий guard,
-    // що для варіантів нижче; --overwrite-text повертає каталог джерелом правди.
+    // Раніше guard стосувався лише imageUrl, а name/slug/tasteLabel каталог
+    // переписував беззастережно — перейменована в панелі категорія відкочувалась
+    // на кожному прогоні. Тепер правило те саме, що для варіантів і опису
+    // товару: заповнюємо тільки порожнє, все інше лишаємо адмінові.
+    // --overwrite-text повертає каталог джерелом правди.
     if (!overwriteText) {
-      const existing = await prisma.category.findUnique({
-        where: { id },
-        select: { imageUrl: true },
-      });
-      if (existing?.imageUrl && data.imageUrl !== existing.imageUrl) {
-        delete data.imageUrl;
+      const existing = await prisma.category.findUnique({ where: { id } });
+      if (existing) {
+        for (const key of Object.keys(data)) {
+          if (existing[key]) delete data[key];
+        }
       }
     }
+    // Порожній data означає, що змінювати нічого: updateMany без полів усе одно
+    // порахував би рядок, і статистика брехала б про 9 оновлень щопрогону.
+    if (Object.keys(data).length === 0) continue;
     const updated = await prisma.category.updateMany({ where: { id }, data });
     stats.categories += updated.count;
   }

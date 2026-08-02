@@ -1919,6 +1919,27 @@ const productVariants = [
     ],
     sizes: [{ size: null, priceCents: 150000 }],
   },
+  {
+    productId: "prod-v2-elf-bar-raya-d3-25000tiah",
+    tastes: [
+      "Strawberry Raspberry Cherry",
+      "Grape Cherry",
+      "Blue Razz Ice",
+      "Watermelon Lemon",
+    ],
+    sizes: [{ size: null, priceCents: 55000 }],
+  },
+  {
+    productId: "prod-v2-elfbar-2000-tiah",
+    tastes: [
+      "Apple Peach",
+      "Blue Razz Ice",
+      "Kiwi Berry",
+      "Strawberry Grape",
+      "Sour Apple",
+    ],
+    sizes: [{ size: null, priceCents: 55000 }],
+  },
 ];
 
 // Описи смаків лежать окремим файлом, щоб каталог не розпухав: тут вони

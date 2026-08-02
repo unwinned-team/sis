@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { uploadImage } from '../../api/admin';
 import { saveErrorMessage } from './support';
-import { dirtyInputClass, GHOST_BUTTON_CLASS, INPUT_CLASS, LABEL_CLASS } from './ui';
+import { dirtyInputClass, GHOST_BUTTON_CLASS, INPUT_CLASS, LABEL_CLASS } from './classes';
 
 export function ImageField({
   accessToken,

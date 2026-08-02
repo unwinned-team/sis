@@ -2,15 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getAdminOrders, setOrderStatus } from '../../api/admin';
 import { formatPrice } from '../../utils/format';
 import { saveErrorMessage } from './support';
-import {
-  CARD_CLASS,
-  DANGER_BUTTON_CLASS,
-  GHOST_BUTTON_CLASS,
-  INPUT_CLASS,
-  LABEL_CLASS,
-  Notice,
-  Skeleton,
-} from './ui';
+import { Notice, Skeleton } from './ui';
+import { CARD_CLASS, DANGER_BUTTON_CLASS, GHOST_BUTTON_CLASS, INPUT_CLASS, LABEL_CLASS } from './classes';
 import type { Order, OrderStatus } from '../../types';
 
 const STATUS_LABELS: Record<OrderStatus, string> = {

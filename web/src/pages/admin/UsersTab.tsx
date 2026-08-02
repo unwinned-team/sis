@@ -7,14 +7,8 @@ import {
 import { apiErrorText } from '../../api/client';
 import { formatBonus } from '../../utils/format';
 import { saveErrorMessage } from './support';
-import {
-  CARD_CLASS,
-  GHOST_BUTTON_CLASS,
-  INPUT_CLASS,
-  Notice,
-  PRIMARY_BUTTON_CLASS,
-  Skeleton,
-} from './ui';
+import { Notice, Skeleton } from './ui';
+import { CARD_CLASS, GHOST_BUTTON_CLASS, INPUT_CLASS, PRIMARY_BUTTON_CLASS } from './classes';
 import type { Customer } from '../../types';
 
 function bonusErrorMessage(err: unknown): string {

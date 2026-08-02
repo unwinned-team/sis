@@ -7,7 +7,8 @@ import {
   type VariantInput,
 } from '../../api/admin';
 import { isMissingEndpoint, saveErrorMessage } from './support';
-import { DANGER_BUTTON_CLASS, dirtyInputClass, GHOST_BUTTON_CLASS, INPUT_CLASS, Notice } from './ui';
+import { Notice } from './ui';
+import { DANGER_BUTTON_CLASS, dirtyInputClass, GHOST_BUTTON_CLASS, INPUT_CLASS } from './classes';
 import { formatPrice } from '../../utils/format';
 import type { Product, ProductVariant } from '../../types';
 

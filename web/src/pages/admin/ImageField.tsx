@@ -1,18 +1,20 @@
 import { useRef, useState } from 'react';
 import { uploadImage } from '../../api/admin';
 import { saveErrorMessage } from './support';
-import { GHOST_BUTTON_CLASS, INPUT_CLASS, LABEL_CLASS } from './ui';
+import { dirtyInputClass, GHOST_BUTTON_CLASS, INPUT_CLASS, LABEL_CLASS } from './ui';
 
 export function ImageField({
   accessToken,
   value,
   onChange,
   id,
+  dirty,
 }: {
   accessToken: string;
   value: string;
   onChange: (url: string) => void;
   id: string;
+  dirty?: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -52,7 +54,7 @@ export function ImageField({
             value={value}
             onChange={(e) => onChange(e.target.value)}
             placeholder="https://... або /uploads/..."
-            className={INPUT_CLASS}
+            className={`${INPUT_CLASS} ${dirtyInputClass(dirty ?? false)}`}
           />
           <div className="mt-2">
             <input

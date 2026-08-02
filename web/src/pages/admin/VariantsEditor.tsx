@@ -7,7 +7,7 @@ import {
   type VariantInput,
 } from '../../api/admin';
 import { isMissingEndpoint, saveErrorMessage } from './support';
-import { DANGER_BUTTON_CLASS, GHOST_BUTTON_CLASS, INPUT_CLASS, Notice } from './ui';
+import { DANGER_BUTTON_CLASS, dirtyInputClass, GHOST_BUTTON_CLASS, INPUT_CLASS, Notice } from './ui';
 import { formatPrice } from '../../utils/format';
 import type { Product, ProductVariant } from '../../types';
 
@@ -112,18 +112,23 @@ function toInput(draft: Draft) {
   };
 }
 
+function isPriceDirty(v: ProductVariant, drafts: Record<string, string>) {
+  const d = drafts[v.id];
+  // Порожнє поле ціни = «без змін» (скидання йде окремою кнопкою ↺), а не помилку.
+  return d !== undefined && d !== '' && d !== v.price;
+}
+
+function isDescDirty(v: ProductVariant, descDrafts: Record<string, string>) {
+  const dd = descDrafts[v.id];
+  return dd !== undefined && dd !== (v.description ?? '');
+}
+
 function isVariantDirty(
   v: ProductVariant,
   drafts: Record<string, string>,
   descDrafts: Record<string, string>,
 ) {
-  const d = drafts[v.id];
-  const dd = descDrafts[v.id];
-  // Порожнє поле ціни = «без змін» (скидання йде окремою кнопкою ↺), ане помилку.
-  return (
-    (d !== undefined && d !== '' && d !== v.price) ||
-    (dd !== undefined && dd !== (v.description ?? ''))
-  );
+  return isPriceDirty(v, drafts) || isDescDirty(v, descDrafts);
 }
 
 // Назва варіанта з імені файлу: «Vaporesso Xros 5 Black (Чорний).webp» стає
@@ -492,7 +497,9 @@ export const VariantsEditor = forwardRef<VariantsEditorHandle, {
         {variants.map((variant) => {
           const draft = drafts[variant.id];
           const descDraft = descDrafts[variant.id];
-          const isDirty = isVariantDirty(variant, drafts, descDrafts);
+          const priceDirty = isPriceDirty(variant, drafts);
+          const descDirty = isDescDirty(variant, descDrafts);
+          const isDirty = priceDirty || descDirty;
           return (
             <li key={variant.id} className="flex flex-wrap items-center gap-2">
               <VariantImage
@@ -530,7 +537,7 @@ export const VariantsEditor = forwardRef<VariantsEditorHandle, {
                 }
                 placeholder="Опис"
                 disabled={busyId !== null || unsupported}
-                className={`${INPUT_CLASS} !w-48`}
+                className={`${INPUT_CLASS} ${dirtyInputClass(descDirty)} !w-48`}
               />
               <input
                 type="number"
@@ -543,7 +550,7 @@ export const VariantsEditor = forwardRef<VariantsEditorHandle, {
                   setDrafts((prev) => ({ ...prev, [variant.id]: e.target.value }))
                 }
                 disabled={busyId !== null || unsupported}
-                className={`${INPUT_CLASS} !w-28`}
+                className={`${INPUT_CLASS} ${dirtyInputClass(priceDirty)} !w-28`}
               />
               {/* Скинути override → variant.price = NULL → наслідує product.price. */}
               <button
@@ -697,7 +704,7 @@ export const VariantsEditor = forwardRef<VariantsEditorHandle, {
           {busyId === 'bulk-reset' ? 'Скидаємо…' : 'Скинути ціни → наслідувати товару'}
         </button>
         <span className="text-xs text-slate-500">
-          variant.price = NULL; всі смаки братимуть ціну товару й оновлюватимуться разом з нею.
+          Усі смаки будуть наслідувати ціну товару й змінюватися разом з нею.
         </span>
       </div>
 

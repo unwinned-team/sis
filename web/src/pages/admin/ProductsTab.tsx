@@ -15,6 +15,7 @@ import { saveErrorMessage, supportsAvailability } from './support';
 import {
   CARD_CLASS,
   DANGER_BUTTON_CLASS,
+  dirtyInputClass,
   GHOST_BUTTON_CLASS,
   INPUT_CLASS,
   LABEL_CLASS,
@@ -60,6 +61,7 @@ function ProductForm({
   isSaving,
   submitLabel,
   formId,
+  dirty,
 }: {
   accessToken: string;
   categories: Category[];
@@ -70,7 +72,9 @@ function ProductForm({
   isSaving: boolean;
   submitLabel: string;
   formId: string;
+  dirty?: Record<keyof ProductDraft, boolean>;
 }) {
+  const d = dirty ?? ({} as Record<keyof ProductDraft, boolean>);
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-4">
       <div>
@@ -83,7 +87,7 @@ function ProductForm({
           value={draft.name}
           onChange={(e) => setDraft({ ...draft, name: e.target.value })}
           required
-          className={INPUT_CLASS}
+          className={`${INPUT_CLASS} ${dirtyInputClass(!!d.name)}`}
         />
       </div>
 
@@ -97,7 +101,7 @@ function ProductForm({
           onChange={(e) => setDraft({ ...draft, description: e.target.value })}
           required
           rows={3}
-          className={INPUT_CLASS}
+          className={`${INPUT_CLASS} ${dirtyInputClass(!!d.description)}`}
         />
       </div>
 
@@ -114,7 +118,7 @@ function ProductForm({
             value={draft.price}
             onChange={(e) => setDraft({ ...draft, price: e.target.value })}
             required
-            className={INPUT_CLASS}
+            className={`${INPUT_CLASS} ${dirtyInputClass(!!d.price)}`}
           />
         </div>
         <div>
@@ -126,7 +130,7 @@ function ProductForm({
             value={draft.categoryId}
             onChange={(e) => setDraft({ ...draft, categoryId: e.target.value })}
             required
-            className={INPUT_CLASS}
+            className={`${INPUT_CLASS} ${dirtyInputClass(!!d.categoryId)}`}
           >
             <option value="">Оберіть категорію</option>
             {categories.map((category) => (
@@ -143,6 +147,7 @@ function ProductForm({
         id={`${formId}-image`}
         value={draft.imageUrl}
         onChange={(url) => setDraft({ ...draft, imageUrl: url })}
+        dirty={!!d.imageUrl}
       />
 
       <div className="flex flex-wrap gap-2">
@@ -183,6 +188,16 @@ function ProductCard({
   const [variantsBusy, setVariantsBusy] = useState(false);
   const variantsRef = useRef<VariantsEditorHandle>(null);
 
+  // Порівнюння з оригіналом — щоб підсвічувати змінені поля до збереження.
+  const original = useMemo(() => toDraft(product), [product]);
+  const dirty: Record<keyof ProductDraft, boolean> = {
+    name: draft.name !== original.name,
+    description: draft.description !== original.description,
+    price: draft.price !== original.price,
+    categoryId: draft.categoryId !== original.categoryId,
+    imageUrl: draft.imageUrl !== original.imageUrl,
+  };
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
@@ -211,12 +226,7 @@ function ProductCard({
     try {
       const next = !(product.isAvailable ?? true);
       const updated = await updateProduct(accessToken, product.id, { isAvailable: next });
-      if (updated.isAvailable === undefined) {
-        setInfo(
-          'Сервер прийняв запит, але поле isAvailable ще не існує (ADMIN.md §1) — наявність не змінилась.',
-        );
-        return;
-      }
+
       onUpdated({ ...product, ...updated });
     } catch (err) {
       setError(saveErrorMessage(err));
@@ -340,14 +350,16 @@ function ProductCard({
                 {busy === 'delete' ? '...' : 'Видалити'}
               </button>
             )}
-            <button
-              type="button"
-              onClick={() => void variantsRef.current?.saveAll()}
-              disabled={busy !== null || variantsBusy}
-              className={`${GHOST_BUTTON_CLASS} !px-4 !py-1.5 !text-xs`}
-            >
-              Зберегти всі зміни смаків
-            </button>
+            {(product.variants?.length ?? 0) >= 2 && (
+              <button
+                type="button"
+                onClick={() => void variantsRef.current?.saveAll()}
+                disabled={busy !== null || variantsBusy}
+                className={`${GHOST_BUTTON_CLASS} !px-4 !py-1.5 !text-xs ml-auto`}
+              >
+                Зберегти всі зміни смаків
+              </button>
+            )}
           </div>
         </>
       )}
@@ -366,6 +378,7 @@ function ProductCard({
           isSaving={isSaving}
           submitLabel="Зберегти"
           formId={`product-${product.id}`}
+          dirty={dirty}
         />
       )}
 
@@ -470,12 +483,7 @@ export function ProductsTab({ accessToken }: { accessToken: string }) {
 
   return (
     <div className="flex flex-col gap-5">
-      {!isLoading && !availabilitySupported && (
-        <Notice kind="info">
-          Поля <code>isAvailable</code>/<code>isArchived</code> ще не додані в схему (ADMIN.md §1) —
-          кнопка наявності та архівування спрацюють після міграції.
-        </Notice>
-      )}
+
 
       <section className={`${CARD_CLASS} flex flex-col gap-4 p-5`}>
         <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto]">

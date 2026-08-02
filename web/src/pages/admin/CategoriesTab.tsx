@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import {
   createCategory,
@@ -12,6 +12,7 @@ import { saveErrorMessage } from './support';
 import {
   CARD_CLASS,
   DANGER_BUTTON_CLASS,
+  dirtyInputClass,
   GHOST_BUTTON_CLASS,
   INPUT_CLASS,
   LABEL_CLASS,
@@ -54,6 +55,7 @@ function CategoryForm({
   submitLabel,
   formId,
   autoSlug,
+  dirty,
 }: {
   accessToken: string;
   draft: CategoryDraft;
@@ -64,7 +66,9 @@ function CategoryForm({
   submitLabel: string;
   formId: string;
   autoSlug: boolean;
+  dirty?: Record<keyof CategoryDraft, boolean>;
 }) {
+  const d = dirty ?? ({} as Record<keyof CategoryDraft, boolean>);
   const slugInvalid = draft.slug !== '' && !SLUG_PATTERN.test(draft.slug);
 
   return (
@@ -83,7 +87,7 @@ function CategoryForm({
               setDraft(autoSlug ? { ...draft, name, slug: slugify(name) } : { ...draft, name });
             }}
             required
-            className={INPUT_CLASS}
+            className={`${INPUT_CLASS} ${dirtyInputClass(!!d.name)}`}
           />
         </div>
         <div>
@@ -96,7 +100,7 @@ function CategoryForm({
             value={draft.slug}
             onChange={(e) => setDraft({ ...draft, slug: e.target.value })}
             required
-            className={INPUT_CLASS}
+            className={`${INPUT_CLASS} ${dirtyInputClass(!!d.slug)}`}
           />
           {slugInvalid && (
             <p className="mt-1 text-xs text-red-500">Лише латиниця, цифри та дефіс.</p>
@@ -115,7 +119,7 @@ function CategoryForm({
           onChange={(e) => setDraft({ ...draft, tasteLabel: e.target.value })}
           maxLength={40}
           placeholder="Смак"
-          className={INPUT_CLASS}
+          className={`${INPUT_CLASS} ${dirtyInputClass(!!d.tasteLabel)}`}
         />
         <p className="mt-1 text-xs text-slate-500">
           Що обирає покупець на картці товару: Смак, Опір, Колір. Порожньо — «Смак».
@@ -127,6 +131,7 @@ function CategoryForm({
         id={`${formId}-image`}
         value={draft.imageUrl}
         onChange={(url) => setDraft({ ...draft, imageUrl: url })}
+        dirty={!!d.imageUrl}
       />
 
       <div className="flex flex-wrap gap-2">
@@ -169,6 +174,23 @@ function CategoryCard({
   const [busy, setBusy] = useState<'delete' | 'archive' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+
+  // Порівнюння з оригіналом — щоб підсвічувати змінені поля до збереження.
+  const original = useMemo(
+    () => ({
+      name: category.name,
+      slug: category.slug,
+      imageUrl: category.imageUrl ?? '',
+      tasteLabel: category.tasteLabel ?? '',
+    }),
+    [category],
+  );
+  const dirty: Record<keyof CategoryDraft, boolean> = {
+    name: draft.name !== original.name,
+    slug: draft.slug !== original.slug,
+    imageUrl: draft.imageUrl !== original.imageUrl,
+    tasteLabel: draft.tasteLabel !== original.tasteLabel,
+  };
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -295,6 +317,7 @@ function CategoryCard({
           submitLabel="Зберегти"
           formId={`category-${category.id}`}
           autoSlug={false}
+          dirty={dirty}
         />
       )}
 

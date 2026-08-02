@@ -6,6 +6,11 @@ export const CARD_CLASS =
 export const INPUT_CLASS =
   'w-full rounded-xl border border-white/70 bg-white/70 px-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 shadow-sm outline-none backdrop-blur-sm transition focus:border-teal-400 focus:ring-2 focus:ring-teal-300/60';
 
+// Indication of unsaved fields: amber tint overrides INPUT_CLASS colors via !important,
+// transition is already on the input — color shifts smoothly without a separate keyframe.
+export const DIRTY_INPUT_CLASS = '!border-amber-400 !bg-amber-50/60';
+export const dirtyInputClass = (dirty: boolean) => (dirty ? DIRTY_INPUT_CLASS : '');
+
 export const LABEL_CLASS = 'mb-1.5 block text-sm font-semibold text-slate-600';
 
 export const PRIMARY_BUTTON_CLASS =

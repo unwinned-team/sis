@@ -259,6 +259,10 @@ html {
   .orb {
     display: none;
   }
+
+  .flavor-sheet .flavor-option {
+    height: 44px;
+  }
 }
 
 /* Hide native number-input spinners — UI already controls the value via +/- buttons. */

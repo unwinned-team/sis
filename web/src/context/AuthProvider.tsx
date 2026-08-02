@@ -78,7 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const logout = useCallback(async () => {
-    await logoutAfterRefresh(logoutUser).catch(() => undefined);
+    await logoutAfterRefresh(logoutUser);
   }, []);
 
   const value = useMemo(

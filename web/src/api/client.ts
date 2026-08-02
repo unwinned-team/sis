@@ -1,5 +1,6 @@
 const API_BASE_URL = import.meta.env?.VITE_API_URL ?? 'http://localhost:4000/api/v1';
 const REFRESH_PATH = '/auth/web/refresh';
+const REFRESH_TIMEOUT_MS = 10_000;
 
 export class ApiError extends Error {
   status: number;
@@ -84,6 +85,7 @@ async function refreshAccessToken(): Promise<string> {
         const res = await fetch(`${API_BASE_URL}${REFRESH_PATH}`, {
           method: 'POST',
           credentials: 'include',
+          signal: AbortSignal.timeout(REFRESH_TIMEOUT_MS),
         });
         if (!res.ok) {
           if (res.status === 401) setAccessToken(null);
@@ -93,9 +95,18 @@ async function refreshAccessToken(): Promise<string> {
             await readErrorBody(res),
           );
         }
-        const data = (await res.json()) as { accessToken: string };
+        const data: unknown = await res.json().catch(() => undefined);
         if (generation !== tokenGeneration) {
           throw new ApiError(401, 'session changed during refresh');
+        }
+        if (
+          !data ||
+          typeof data !== 'object' ||
+          !('accessToken' in data) ||
+          typeof data.accessToken !== 'string' ||
+          data.accessToken.trim() === ''
+        ) {
+          throw new ApiError(502, 'refresh returned malformed response', data);
         }
         return data.accessToken;
       } finally {
@@ -210,14 +221,17 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
 export async function apiUpload<T>(
   path: string,
   form: FormData,
-  accessToken: string,
+  accessToken?: string | null,
 ): Promise<T> {
   const initialToken = accessToken ?? currentAccessToken;
 
   async function attempt(token: string | null, isRetry: boolean): Promise<T> {
+    const headers: Record<string, string> = {};
+    if (token) headers.Authorization = `Bearer ${token}`;
+
     const res = await fetch(`${API_BASE_URL}${path}`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
+      headers,
       body: form,
     });
 

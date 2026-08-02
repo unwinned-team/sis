@@ -33,12 +33,12 @@ const overwriteText = process.argv.includes("--overwrite-text");
 //
 // Що робить:
 //   1. підпис характеристики і фото категорій (Колір / Опір);
-//   2. описи товарів;
-//   3. відсутні варіанти (кольори pod-систем), фото і описи для тих, у кого їх немає;
-//   4. видаляє варіанти зі списку removedVariants (знято з продажу).
+//   2. відсутні варіанти (кольори pod-систем), фото і описи для тих, у кого їх немає;
+//   3. видаляє варіанти зі списку removedVariants (знято з продажу).
 //
 // Чого свідомо не робить: не чіпає ціни, не видаляє варіанти лише тому, що їх
-// немає в каталозі, і не перезаписує фото чи опис, які адмін поставив руками.
+// немає в каталозі, і не перезаписує фото чи опис, які адмін поставив руками —
+// опис товару теж, він оновлюється лише з --overwrite-text.
 async function main() {
   const stats = {
     categories: 0,
@@ -67,12 +67,18 @@ async function main() {
     stats.categories += updated.count;
   }
 
-  for (const product of products) {
-    const updated = await prisma.product.updateMany({
-      where: { id: product.id, description: { not: product.description } },
-      data: { description: product.description },
-    });
-    stats.descriptions += updated.count;
+  // Опис товару, на відміну від опису варіанта, обов'язковий — «порожній»
+  // ніколи не буває, тому guard «пишемо лише в пусте» тут не працює: будь-який
+  // прогін затирав би текст, написаний адміном у панелі. Тому оновлення опису
+  // товару живе за --overwrite-text, як і решта перезаписів.
+  if (overwriteText) {
+    for (const product of products) {
+      const updated = await prisma.product.updateMany({
+        where: { id: product.id, description: { not: product.description } },
+        data: { description: product.description },
+      });
+      stats.descriptions += updated.count;
+    }
   }
 
   for (const spec of productVariants) {

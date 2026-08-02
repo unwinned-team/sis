@@ -22,7 +22,7 @@ app.set("trust proxy", trustProxySetting());
 // явном origin (wildcard с credentials запрещён спекой CORS).
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN ?? "http://localhost:5173",
+    origin: (process.env.CORS_ORIGIN ?? "http://localhost:5173").split(","),
     credentials: true,
     // Пагинация клиентов отдаёт размер выборки заголовком: тело остаётся
     // массивом, как ждут существующие потребители и тесты.

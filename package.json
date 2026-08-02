@@ -7,6 +7,7 @@
     "web:dev": "cd web && vite",
     "web:build": "cd web && tsc -b && vite build",
     "web:lint": "cd web && eslint .",
+    "web:test": "cd web && node --import tsx --test \"src/**/*.test.ts\"",
     "web:preview": "cd web && vite preview",
     "server:dev": "cd server && tsx watch src/index.ts",
     "server:build": "cd server && prisma generate && tsc -p tsconfig.build.json",

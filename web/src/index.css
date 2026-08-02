@@ -219,20 +219,6 @@ html {
   }
 }
 
-/* Вибір смаку підміняє фото товару — коротке проявлення, щоб підміна не різала око. */
-.variant-image {
-  animation: variant-image-fade 0.2s ease-out;
-}
-
-@keyframes variant-image-fade {
-  from {
-    opacity: 0.35;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
 /* Mobile / touch: feTurbulence in the SVG smoke is software-rendered on phone
    GPUs and janks the whole page. Drop the smoke, freeze + shrink the orbs, and
    lighten the glass blur so backdrop-filter stops re-running every frame.
@@ -273,8 +259,7 @@ input[type='number'] {
 
 @media (prefers-reduced-motion: reduce) {
   .orb,
-  .smoke,
-  .variant-image {
+  .smoke {
     animation: none;
   }
 }

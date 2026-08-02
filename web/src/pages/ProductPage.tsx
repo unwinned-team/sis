@@ -51,6 +51,13 @@ function ProductDetails({ product }: ProductDetailsProps) {
     () => variants.filter((v) => v.isAvailable !== false),
     [variants],
   );
+
+  // Прелоад фото всіх варіантів — смен вкуса достаєтся из кэша, без вспышки.
+  useEffect(() => {
+    for (const v of availableVariants) {
+      if (v.imageUrl) new Image().src = v.imageUrl;
+    }
+  }, [availableVariants]);
   const tastes = useMemo(() => distinct(availableVariants.map((v) => v.taste)), [availableVariants]);
 
   const [selectedTaste, setSelectedTaste] = useState<string | null>(tastes[0] ?? null);
@@ -84,10 +91,9 @@ function ProductDetails({ product }: ProductDetailsProps) {
       <div className="grid sm:grid-cols-[minmax(0,26rem)_1fr]">
         <div className="aspect-square overflow-hidden bg-gradient-to-br from-teal-100/40 to-sky-100/40 sm:aspect-auto">
           <img
-            key={imageUrl}
             src={imageUrl}
             alt={[product.name, selectedVariant?.taste].filter(Boolean).join(' — ')}
-            className="variant-image h-full w-full object-cover"
+            className="h-full w-full object-cover"
           />
         </div>
 

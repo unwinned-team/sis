@@ -23,7 +23,7 @@ export function VariantChooser({ options, selected, onSelect, label }: VariantCh
               aria-pressed={isSelected}
               className={
                 isSelected
-                  ? 'rounded-full border border-teal-500 bg-teal-500/90 px-4 py-2 text-sm font-semibold text-white shadow-sm'
+                  ? 'rounded-full border border-teal-500 bg-teal-500/90 px-4 py-2 text-sm font-medium text-white shadow-sm'
                   : 'rounded-full border border-white/60 bg-white/40 px-4 py-2 text-sm font-medium text-slate-700 shadow-sm backdrop-blur-md transition hover:bg-white/65'
               }
             >

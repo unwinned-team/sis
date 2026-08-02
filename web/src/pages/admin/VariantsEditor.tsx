@@ -161,9 +161,7 @@ export const VariantsEditor = forwardRef<VariantsEditorHandle, {
   const [error, setError] = useState<string | null>(null);
   const [unsupported, setUnsupported] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
-  // ponytail: єдина ціна на всю линейку — цикл по існуючих PUT-ах варіантів.
-  // Bulk-ендпоінт не заводимо: N=5-13, при >50 — замінити на один PATCH.
-  const [bulkPrice, setBulkPrice] = useState('');
+
   const bulkInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -339,42 +337,7 @@ export const VariantsEditor = forwardRef<VariantsEditorHandle, {
     }
   }
 
-  // Одна ціна на всю линейку смаків: адмін вводить число раз, ми пробиваємо
-  // по всіх варіантах послідовно. Чергу PUT не паралелім — бекенд простий, а
-  // частковий фейл легше відтворити станом.
-  async function handleApplyPriceToAll() {
-    const price = Number(bulkPrice);
-    if (Number.isNaN(price) || price <= 0) {
-      setError('Ціна має бути додатним числом.');
-      return;
-    }
-    if (variants.length === 0) return;
-    setError(null);
-    setBusyId('bulk-price');
-    const updated: ProductVariant[] = [];
-    try {
-      for (const v of variants) {
-        updated.push(await updateVariant(accessToken, product.id, v.id, { price }));
-      }
-      onChanged(updated);
-      setDrafts({});
-      setBulkPrice('');
-    } catch (err) {
-      handleError(err);
-      // Частковий фейл: відтворити те, що встигли, решту лишити як було.
-      onChanged(variants.map((v) => updated.find((u) => u.id === v.id) ?? v));
-      // Очистити draft ціни для тих, кого встигли оновити — опис не чіпаємо.
-      if (updated.length > 0) {
-        setDrafts((prev) => {
-          const next = { ...prev };
-          for (const u of updated) delete next[u.id];
-          return next;
-        });
-      }
-    } finally {
-      setBusyId(null);
-    }
-  }
+
 
   // Скинути всі варіанти на inherit: price = NULL → наслідують product.price.
   // Адмін один раз проганяє це для старих даних (після міграції в NULL не
@@ -545,7 +508,7 @@ export const VariantsEditor = forwardRef<VariantsEditorHandle, {
                 min="0"
                 value={draft ?? variant.price ?? ''}
                 // Порожнє поле = inherit (variant.price === null): показуємо цену товару.
-                placeholder={variant.price === null ? `наслідує ${formatPrice(product.price)}` : ''}
+                placeholder={variant.price === null ? 'ціна товару' : ''}
                 onChange={(e) =>
                   setDrafts((prev) => ({ ...prev, [variant.id]: e.target.value }))
                 }
@@ -557,8 +520,8 @@ export const VariantsEditor = forwardRef<VariantsEditorHandle, {
                 type="button"
                 onClick={() => void patchVariant(variant, { price: null })}
                 disabled={variant.price === null || busyId !== null || unsupported}
-                title="Скинути ціну: наслідувати товару"
-                aria-label="Скинути ціну: наслідувати товару"
+                title="Скинути ціну: прив'язати до товару"
+                aria-label="Скинути ціну: прив'язати до товару"
                 className={`${ROW_BUTTON_CLASS} !px-2 !py-1.5 !text-xs`}
               >
                 ↺
@@ -613,7 +576,7 @@ export const VariantsEditor = forwardRef<VariantsEditorHandle, {
           min="0"
           value={newDraft.price}
           onChange={(e) => setNewDraft((prev) => ({ ...prev, price: e.target.value }))}
-          placeholder={`наслідує ${formatPrice(product.price)}`}
+          placeholder="ціна товару"
           disabled={unsupported}
           className={`${INPUT_CLASS} !w-28`}
         />
@@ -654,37 +617,7 @@ export const VariantsEditor = forwardRef<VariantsEditorHandle, {
         </span>
       </div>
 
-      <div className="mt-2 flex flex-wrap items-center gap-2">
-        <input
-          type="number"
-          step="0.01"
-          min="0"
-          value={bulkPrice}
-          onChange={(e) => setBulkPrice(e.target.value)}
-          placeholder="Єдина ціна для всіх смаків"
-          disabled={busyId !== null || unsupported || variants.length === 0}
-          className={`${INPUT_CLASS} !w-56`}
-        />
-        <button
-          type="button"
-          onClick={() => {
-            if (
-              window.confirm(
-                `Перезаписати ціну всіх ${variants.length} варіантів поточним значенням?`,
-              )
-            ) {
-              void handleApplyPriceToAll();
-            }
-          }}
-          disabled={busyId !== null || unsupported || variants.length === 0}
-          className={`${GHOST_BUTTON_CLASS} !px-4 !py-1.5 !text-xs`}
-        >
-          {busyId === 'bulk-price' ? 'Застосовуємо…' : 'Застосувати ціну до всіх смаків'}
-        </button>
-        <span className="text-xs text-slate-500">
-          Перезапише ціну всіх варіантів одним значенням.
-        </span>
-      </div>
+
 
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <button
@@ -692,7 +625,7 @@ export const VariantsEditor = forwardRef<VariantsEditorHandle, {
           onClick={() => {
             if (
               window.confirm(
-                `Скинути ціну всіх ${variants.length} варіантів — наслідувати ціну товару (${formatPrice(product.price)})?`,
+                `Скинути ціну всіх ${variants.length} варіантів — копіювати ціну товару (${formatPrice(product.price)})?`,
               )
             ) {
               void handleResetAllPrices();
@@ -701,10 +634,10 @@ export const VariantsEditor = forwardRef<VariantsEditorHandle, {
           disabled={busyId !== null || unsupported || variants.length === 0}
           className={`${GHOST_BUTTON_CLASS} !px-4 !py-1.5 !text-xs`}
         >
-          {busyId === 'bulk-reset' ? 'Скидаємо…' : 'Скинути ціни → наслідувати товару'}
+          {busyId === 'bulk-reset' ? 'Скидаємо…' : 'Скинути ціни → прив\'язати до товару'}
         </button>
         <span className="text-xs text-slate-500">
-          Усі смаки будуть наслідувати ціну товару й змінюватися разом з нею.
+          Усі смаки копіюватимуть ціну товару й автоматично змінюватимуться разом із нею.
         </span>
       </div>
 

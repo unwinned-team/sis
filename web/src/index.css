@@ -669,11 +669,8 @@ input[type='number'] {
   transition: opacity 0.3s ease;
 }
 
-/* Open state */
-.desc-accordion-body--open {
-  max-height: 80vh;
-}
-
+/* Open state: no max-height cap — height driven inline from JS (el.scrollHeight) so
+   long descriptions are fully accessible; transition still animates via the inline px value */
 .desc-accordion-body--open::after {
   opacity: 0;
 }

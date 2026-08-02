@@ -295,11 +295,6 @@ function MobileSheet({ label, options, selected, onSelect, onClose }: MobileShee
     };
   }, []);
 
-  // Autofocus search
-  useEffect(() => {
-    requestAnimationFrame(() => searchRef.current?.focus());
-  }, []);
-
   // Close on Escape
   useEffect(() => {
     function handler(e: KeyboardEvent) {

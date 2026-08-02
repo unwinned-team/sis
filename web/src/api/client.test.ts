@@ -42,8 +42,10 @@ function auth(init?: RequestInit): string | undefined {
   return (init?.headers as Record<string, string> | undefined)?.Authorization;
 }
 
+let tokenNonce = 0;
+
 function accessToken(sub: string): string {
-  const payload = Buffer.from(JSON.stringify({ sub })).toString('base64url');
+  const payload = Buffer.from(JSON.stringify({ sub, nonce: tokenNonce++ })).toString('base64url');
   return `header.${payload}.signature`;
 }
 
@@ -65,6 +67,7 @@ test('api client: 401 -> refresh -> retry, dedupe, fail, upload', async () => {
   // 1. Успешный retry после 401.
   const expired = accessToken('account-x');
   const fresh = accessToken('account-x');
+  assert.notEqual(expired, fresh, 'expired and fresh tokens must be distinguishable');
   setAccessToken(null);
   setAccessToken(expired);
   await withFetch(
@@ -78,6 +81,7 @@ test('api client: 401 -> refresh -> retry, dedupe, fail, upload', async () => {
       assert.equal(product.id, 'p1');
       assert.equal(calls.length, 3, 'original + refresh + retry');
       assert.equal(auth(calls[0].init), `Bearer ${expired}`);
+      assert.ok(calls[1].init?.signal instanceof AbortSignal, 'refresh has a timeout signal');
       assert.equal(auth(calls[2].init), `Bearer ${fresh}`);
     },
   );
@@ -178,7 +182,25 @@ test('api client: 401 -> refresh -> retry, dedupe, fail, upload', async () => {
     async (calls) => {
       const result = await apiUpload<{ url: string }>('/images/upload', new FormData(), expired);
       assert.equal(result.url, '/uploads/x.png');
+      assert.equal(auth(calls[0].init), `Bearer ${expired}`);
       assert.equal(auth(calls[2].init), `Bearer ${fresh}`);
+    },
+  );
+
+  // 7. apiUpload берёт токен из холдера, а без него не отправляет Bearer null.
+  setAccessToken(expired);
+  await withFetch(
+    { '/images/upload': () => ({ status: 200, body: { url: '/uploads/x.png' } }) },
+    async (calls) => {
+      await apiUpload('/images/upload', new FormData());
+      await apiUpload('/images/upload', new FormData(), null);
+      setAccessToken(null);
+      await apiUpload('/images/upload', new FormData());
+      await apiUpload('/images/upload', new FormData(), null);
+      assert.equal(auth(calls[0].init), `Bearer ${expired}`);
+      assert.equal(auth(calls[1].init), `Bearer ${expired}`);
+      assert.equal(auth(calls[2].init), undefined);
+      assert.equal(auth(calls[3].init), undefined);
     },
   );
 });

@@ -9,6 +9,7 @@ import {
 } from '../../api/admin';
 import { ImageField } from './ImageField';
 import { saveErrorMessage } from './support';
+import { Notice, Skeleton } from './ui';
 import {
   CARD_CLASS,
   DANGER_BUTTON_CLASS,
@@ -16,10 +17,8 @@ import {
   GHOST_BUTTON_CLASS,
   INPUT_CLASS,
   LABEL_CLASS,
-  Notice,
   PRIMARY_BUTTON_CLASS,
-  Skeleton,
-} from './ui';
+} from './classes';
 import type { Category } from '../../types';
 
 interface CategoryDraft {

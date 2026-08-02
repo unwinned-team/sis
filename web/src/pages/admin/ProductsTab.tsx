@@ -12,6 +12,7 @@ import { formatPrice } from '../../utils/format';
 import { ImageField } from './ImageField';
 import { VariantsEditor, type VariantsEditorHandle } from './VariantsEditor';
 import { saveErrorMessage, supportsAvailability } from './support';
+import { Notice, Skeleton } from './ui';
 import {
   CARD_CLASS,
   DANGER_BUTTON_CLASS,
@@ -19,10 +20,8 @@ import {
   GHOST_BUTTON_CLASS,
   INPUT_CLASS,
   LABEL_CLASS,
-  Notice,
   PRIMARY_BUTTON_CLASS,
-  Skeleton,
-} from './ui';
+} from './classes';
 import type { Category, Product, ProductVariant } from '../../types';
 
 interface ProductDraft {

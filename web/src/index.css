@@ -246,16 +246,32 @@ html {
     display: none;
   }
 
-  .orb {
-    filter: blur(24px);
-    animation: none;
-    will-change: auto;
-  }
-
   .liquid-glass,
   .liquid-glass-panel {
-    -webkit-backdrop-filter: blur(10px) saturate(140%);
-    backdrop-filter: blur(10px) saturate(140%);
+    background: #ffffff;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  /* backdrop-filter пересчитывается каждый кадр при скролле на Android и
+     роняет FPS до 4-5. На мобиле эффект стекла не виден — убираем везде,
+     полупрозрачные панели делаем глухими белыми. */
+  .backdrop-blur-sm,
+  .backdrop-blur-md,
+  .backdrop-blur-lg {
+    background-color: #ffffff !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+
+  .age-gate::backdrop,
+  .flavor-sheet-backdrop {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+
+  .orb {
+    display: none;
   }
 }
 

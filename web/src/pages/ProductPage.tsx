@@ -86,67 +86,121 @@ function ProductDetails({ product }: ProductDetailsProps) {
     addedTimer.current = setTimeout(() => setJustAdded(false), 1500);
   }
 
+  const [descOpen, setDescOpen] = useState(false);
+  const [descOverflows, setDescOverflows] = useState<boolean | null>(null);
+  const descRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = descRef.current;
+    if (!el) return;
+    // Body is collapsed (no --open class) during this first measure,
+    // so scrollHeight > clientHeight reliably detects overflow.
+    setDescOverflows(el.scrollHeight > el.clientHeight + 2);
+  }, [description]);
+
   return (
-    <section className="overflow-hidden rounded-3xl border border-white/60 bg-white/40 shadow-lg backdrop-blur-md">
-      <div className="grid sm:grid-cols-[minmax(0,26rem)_1fr]">
-        <div className="aspect-square overflow-hidden bg-gradient-to-br from-teal-100/40 to-sky-100/40 sm:aspect-auto">
-          <img
-            src={imageUrl}
-            alt={[product.name, selectedVariant?.taste].filter(Boolean).join(' — ')}
-            className="h-full w-full object-cover"
-          />
-        </div>
-
-        <div className="flex flex-col justify-center gap-4 p-6 sm:p-10">
-          {product.category && (
-            <Link
-              to={`/category/${product.category.slug}`}
-              className="inline-flex w-fit items-center rounded-full border border-teal-200/70 bg-teal-50/70 px-3 py-1 text-xs font-semibold text-teal-700 transition hover:bg-teal-100/80"
-            >
-              {product.category.name}
-            </Link>
-          )}
-
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-            {product.name}
-          </h1>
-
-          <p className="leading-relaxed text-slate-600">{description}</p>
-
-          <VariantChooser
-            options={tastes}
-            selected={selectedTaste}
-            onSelect={setSelectedTaste}
-            label={product.category?.tasteLabel}
-          />
-
-          <p className="text-3xl font-bold text-slate-900">{formatPrice(price)}</p>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={handleAddToCart}
-              disabled={isUnavailable}
-              className={`rounded-full px-7 py-3 text-sm font-semibold text-white shadow-sm transition ${
-                isUnavailable
-                  ? 'cursor-not-allowed bg-slate-900/40'
-                  : justAdded
-                    ? 'bg-teal-500'
-                    : 'bg-slate-900 hover:bg-slate-700'
-              }`}
-            >
-              {isUnavailable ? 'Немає в наявності' : justAdded ? '✓ Додано' : '🛒 Додати в кошик'}
-            </button>
-            {inCartQuantity > 0 && (
-              <Link to="/cart" className="text-sm font-medium text-teal-700 hover:text-teal-900">
-                У кошику: {inCartQuantity} шт →
-              </Link>
-            )}
+    <>
+      <section className="overflow-hidden rounded-3xl border border-white/60 bg-white/40 shadow-lg backdrop-blur-md">
+        <div className="grid sm:grid-cols-[minmax(0,26rem)_1fr]">
+          <div className="aspect-square overflow-hidden bg-gradient-to-br from-teal-100/40 to-sky-100/40 sm:aspect-auto">
+            <img
+              src={imageUrl}
+              alt={[product.name, selectedVariant?.taste].filter(Boolean).join(' — ')}
+              className="h-full w-full object-cover"
+            />
           </div>
 
+          <div className="flex flex-col justify-center gap-4 p-6 sm:p-10">
+            {product.category && (
+              <Link
+                to={`/category/${product.category.slug}`}
+                className="inline-flex w-fit items-center rounded-full border border-teal-200/70 bg-teal-50/70 px-3 py-1 text-xs font-semibold text-teal-700 transition hover:bg-teal-100/80"
+              >
+                {product.category.name}
+              </Link>
+            )}
+
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+              {product.name}
+            </h1>
+
+            <VariantChooser
+              options={tastes}
+              selected={selectedTaste}
+              onSelect={setSelectedTaste}
+              label={product.category?.tasteLabel}
+            />
+
+            <p className="text-3xl font-bold text-slate-900">{formatPrice(price)}</p>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={handleAddToCart}
+                disabled={isUnavailable}
+                className={`rounded-full px-7 py-3 text-sm font-semibold text-white shadow-sm transition ${
+                  isUnavailable
+                    ? 'cursor-not-allowed bg-slate-900/40'
+                    : justAdded
+                      ? 'bg-teal-500'
+                      : 'bg-slate-900 hover:bg-slate-700'
+                }`}
+              >
+                {isUnavailable ? 'Немає в наявності' : justAdded ? '✓ Додано' : '🛒 Додати в кошик'}
+              </button>
+              {inCartQuantity > 0 && (
+                <Link to="/cart" className="text-sm font-medium text-teal-700 hover:text-teal-900">
+                  У кошику: {inCartQuantity} шт →
+                </Link>
+              )}
+            </div>
+
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
+
+      {description && (
+        <section className="desc-accordion mt-5 overflow-hidden rounded-3xl border border-white/60 bg-white/40 shadow-lg backdrop-blur-md">
+          <div
+            className={`desc-accordion-trigger${descOverflows ? '' : ' desc-accordion-trigger--static'}`}
+            role={descOverflows ? 'button' : undefined}
+            tabIndex={descOverflows ? 0 : undefined}
+            aria-expanded={descOverflows ? descOpen : undefined}
+            onClick={descOverflows ? () => setDescOpen((prev) => !prev) : undefined}
+            onKeyDown={descOverflows ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDescOpen((prev) => !prev); } } : undefined}
+          >
+            <h2 className="text-xl sm:text-2xl font-semibold tracking-tight text-current transition-colors">
+              Опис
+            </h2>
+            {descOverflows && (
+              <div className="desc-accordion-chevron-wrap">
+                <svg
+                  className={`desc-accordion-chevron ${descOpen ? 'desc-accordion-chevron--open' : ''}`}
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </div>
+            )}
+          </div>
+          <div
+            ref={descRef}
+            className={`desc-accordion-body ${descOpen || descOverflows === false ? 'desc-accordion-body--open' : ''}`}
+          >
+            <div className="desc-accordion-inner">
+              <p className="text-base leading-relaxed text-[#262626]">{description}</p>
+            </div>
+          </div>
+        </section>
+      )}
+    </>
   );
 }
 

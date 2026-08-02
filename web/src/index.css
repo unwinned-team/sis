@@ -219,20 +219,6 @@ html {
   }
 }
 
-/* Вибір смаку підміняє фото товару — коротке проявлення, щоб підміна не різала око. */
-.variant-image {
-  animation: variant-image-fade 0.2s ease-out;
-}
-
-@keyframes variant-image-fade {
-  from {
-    opacity: 0.35;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
 /* Mobile / touch: feTurbulence in the SVG smoke is software-rendered on phone
    GPUs and janks the whole page. Drop the smoke, freeze + shrink the orbs, and
    lighten the glass blur so backdrop-filter stops re-running every frame.
@@ -289,8 +275,314 @@ input[type='number'] {
 
 @media (prefers-reduced-motion: reduce) {
   .orb,
-  .smoke,
-  .variant-image {
+  .smoke {
     animation: none;
   }
+}
+
+/* ───────────────────────────────────────────────────
+   Flavor Dropdown – trigger, menu, bottom sheet
+   ─────────────────────────────────────────────────── */
+
+/* Label above the field */
+.flavor-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: #64748b;
+  text-transform: uppercase;
+}
+
+/* Trigger (closed state) */
+.flavor-trigger {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 16px;
+  background: #ffffff;
+  border: 1.5px solid rgba(0, 0, 0, 0.08);
+  border-radius: 14px;
+  cursor: pointer;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.flavor-trigger:hover {
+  border-color: rgba(0, 0, 0, 0.15);
+}
+
+.flavor-trigger[aria-expanded='true'] {
+  border-color: #0d9488;
+  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12);
+}
+
+.flavor-trigger-text {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.flavor-trigger-placeholder {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: #94a3b8;
+}
+
+.flavor-trigger-chevron {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  color: #64748b;
+  transition: transform 0.25s ease;
+}
+
+.flavor-trigger[aria-expanded='true'] .flavor-trigger-chevron {
+  transform: rotate(180deg);
+}
+
+/* Desktop floating menu */
+.flavor-menu-wrapper {
+  position: relative;
+}
+
+.flavor-menu {
+  position: fixed;
+  z-index: 1000;
+  background: #ffffff;
+  border: 1px solid #e0e0e0;
+  border-radius: 14px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+  animation: flavor-fade-in 0.18s ease-out;
+}
+
+@keyframes flavor-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Search input inside the menu */
+.flavor-search-wrap {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 8px 10px;
+  background: #ffffff;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.flavor-search-inner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  height: 34px;
+  border-radius: 10px;
+  background: #f1f5f9;
+  border: 1.5px solid transparent;
+  transition: border-color 0.2s;
+}
+
+.flavor-search-inner:focus-within {
+  border-color: #0d9488;
+  background: #f8fffe;
+}
+
+.flavor-search-icon {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  color: #94a3b8;
+}
+
+.flavor-search-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 0.875rem;
+  color: #1a1a1a;
+  font-family: inherit;
+}
+
+.flavor-search-input::placeholder {
+  color: #94a3b8;
+}
+
+/* Scrollable options list */
+.flavor-options {
+  max-height: 280px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 4px 0 6px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.12) transparent;
+}
+
+/* Single option row */
+.flavor-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  flex-shrink: 0;
+  padding: 0 14px;
+  font-size: 0.8125rem;
+  color: #334155;
+  cursor: pointer;
+  transition: background-color 0.12s;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.flavor-option:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.flavor-option[aria-selected='true'] {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.flavor-option[aria-disabled='true'] {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.flavor-option-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.flavor-option-badge {
+  flex-shrink: 0;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #94a3b8;
+  letter-spacing: 0.01em;
+}
+
+.flavor-option-check {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  color: #0d9488;
+}
+
+.flavor-no-results {
+  padding: 20px 16px;
+  text-align: center;
+  font-size: 0.8125rem;
+  color: #94a3b8;
+}
+
+/* ───────────────────────────────────────────────────
+   Bottom Sheet (mobile)
+   ─────────────────────────────────────────────────── */
+.flavor-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  background: rgba(15, 23, 42, 0.45);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  animation: flavor-backdrop-in 0.2s ease-out;
+}
+
+@keyframes flavor-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.flavor-sheet {
+  position: fixed;
+  z-index: 1000;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.12);
+  animation: flavor-sheet-up 0.3s ease-out;
+}
+
+@keyframes flavor-sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.flavor-sheet-handle {
+  display: flex;
+  justify-content: center;
+  padding: 10px 0 4px;
+  flex-shrink: 0;
+}
+
+.flavor-sheet-handle::after {
+  content: '';
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: #cbd5e1;
+}
+
+.flavor-sheet-header {
+  padding: 4px 16px 0;
+  flex-shrink: 0;
+}
+
+.flavor-sheet-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 10px;
+}
+
+.flavor-sheet .flavor-search-wrap {
+  padding: 0 16px 10px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  background: #ffffff;
+}
+
+.flavor-sheet .flavor-options {
+  flex: 1;
+  max-height: none;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: env(safe-area-inset-bottom, 16px);
+}
+
+/* Keyboard-focused option (arrow navigation) */
+.flavor-option[data-focused='true'] {
+  background: rgba(0, 0, 0, 0.04);
 }

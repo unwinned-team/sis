@@ -8,6 +8,7 @@ import {
   updateProfile as updateProfileRequest,
 } from '../api/auth';
 import type { UpdateProfileInput } from '../api/auth';
+import { logoutAfterRefresh, onAccessTokenChange, setAccessToken } from '../api/client';
 import type { AuthUser } from '../types';
 import { AuthContext } from './auth-context';
 
@@ -23,9 +24,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>(INITIAL_STATE);
 
   useEffect(() => {
+    return onAccessTokenChange((token) => {
+      setState((prev) =>
+        token === null
+          ? { user: null, accessToken: null, isReady: true }
+          : prev.accessToken === token
+            ? prev
+            : { ...prev, accessToken: token },
+      );
+    });
+  }, []);
+
+  useEffect(() => {
     let cancelled = false;
     restoreSession().then((session) => {
       if (cancelled) return;
+      setAccessToken(session?.accessToken ?? null);
       setState({
         user: session?.user ?? null,
         accessToken: session?.accessToken ?? null,
@@ -39,12 +53,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (email: string, password: string) => {
     const session = await loginUser({ email, password });
+    setAccessToken(session.accessToken);
     setState({ user: session.user, accessToken: session.accessToken, isReady: true });
     return session.user;
   }, []);
 
   const register = useCallback(async (name: string, email: string, password: string) => {
     const session = await registerUser({ name, email, password });
+    setAccessToken(session.accessToken);
     setState({ user: session.user, accessToken: session.accessToken, isReady: true });
     return session.user;
   }, []);
@@ -62,8 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const logout = useCallback(async () => {
-    await logoutUser().catch(() => undefined);
-    setState({ user: null, accessToken: null, isReady: true });
+    await logoutAfterRefresh(logoutUser).catch(() => undefined);
   }, []);
 
   const value = useMemo(

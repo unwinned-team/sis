@@ -235,10 +235,10 @@ function DesktopDropdown({ options, selected, onSelect, onClose, triggerRef }: D
     [filtered, focusedIndex, onSelect, onClose],
   );
 
-  // Reset focused index when query changes
-  useEffect(() => {
+  const handleQueryChange = useCallback((value: string) => {
+    setQuery(value);
     setFocusedIndex(-1);
-  }, [query]);
+  }, []);
 
   function handleSelect(value: string) {
     onSelect(value);
@@ -253,7 +253,7 @@ function DesktopDropdown({ options, selected, onSelect, onClose, triggerRef }: D
       ref={menuRef}
       style={{ top: pos.top, left: pos.left, width: pos.width }}
     >
-      <SearchBar query={query} onChange={setQuery} inputRef={searchRef} onKeyDown={handleKeyDown} />
+      <SearchBar query={query} onChange={handleQueryChange} inputRef={searchRef} onKeyDown={handleKeyDown} />
       <OptionsList
         options={options}
         selected={selected}
@@ -333,9 +333,10 @@ function MobileSheet({ label, options, selected, onSelect, onClose }: MobileShee
     [filtered, focusedIndex, onSelect, onClose],
   );
 
-  useEffect(() => {
+  const handleQueryChange = useCallback((value: string) => {
+    setQuery(value);
     setFocusedIndex(-1);
-  }, [query]);
+  }, []);
 
   function handleSelect(value: string) {
     onSelect(value);
@@ -350,7 +351,7 @@ function MobileSheet({ label, options, selected, onSelect, onClose }: MobileShee
         <div className="flavor-sheet-header">
           <div className="flavor-sheet-title">{label}</div>
         </div>
-        <SearchBar query={query} onChange={setQuery} inputRef={searchRef} onKeyDown={handleKeyDown} />
+        <SearchBar query={query} onChange={handleQueryChange} inputRef={searchRef} onKeyDown={handleKeyDown} />
         <OptionsList
           options={options}
           selected={selected}

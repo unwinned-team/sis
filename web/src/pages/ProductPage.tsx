@@ -90,11 +90,27 @@ function ProductDetails({ product }: ProductDetailsProps) {
   const [descOverflows, setDescOverflows] = useState<boolean | null>(null);
   const descRef = useRef<HTMLDivElement>(null);
 
+  // ponytail: inline px cap equals content height at open time; resizing while open can
+  // clip re-wrapped text — upgrade: transitionend -> clear inline style
+  function toggleDesc() {
+    const el = descRef.current;
+    if (!el) return;
+    el.style.maxHeight = descOpen ? '' : `${el.scrollHeight}px`;
+    setDescOpen((prev) => !prev);
+  }
+
+  function handleTasteSelect(taste: string) {
+    setSelectedTaste(taste);
+    setDescOpen(false);
+    if (descRef.current) descRef.current.style.maxHeight = '';
+  }
+
   useEffect(() => {
     const el = descRef.current;
     if (!el) return;
-    // Body is collapsed (no --open class) during this first measure,
-    // so scrollHeight > clientHeight reliably detects overflow.
+    // Measure only on description change: handleTasteSelect resets descOpen before the
+    // commit, so the body is collapsed here. Re-measuring on toggle would hit the
+    // closing max-height transition and report a false "no overflow".
     setDescOverflows(el.scrollHeight > el.clientHeight + 2);
   }, [description]);
 
@@ -127,7 +143,7 @@ function ProductDetails({ product }: ProductDetailsProps) {
             <VariantChooser
               options={tastes}
               selected={selectedTaste}
-              onSelect={setSelectedTaste}
+              onSelect={handleTasteSelect}
               label={product.category?.tasteLabel}
             />
 
@@ -166,8 +182,8 @@ function ProductDetails({ product }: ProductDetailsProps) {
             role={descOverflows ? 'button' : undefined}
             tabIndex={descOverflows ? 0 : undefined}
             aria-expanded={descOverflows ? descOpen : undefined}
-            onClick={descOverflows ? () => setDescOpen((prev) => !prev) : undefined}
-            onKeyDown={descOverflows ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDescOpen((prev) => !prev); } } : undefined}
+            onClick={descOverflows ? toggleDesc : undefined}
+            onKeyDown={descOverflows ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleDesc(); } } : undefined}
           >
             <h2 className="text-xl sm:text-2xl font-semibold tracking-tight text-current transition-colors">
               Опис

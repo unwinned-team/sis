@@ -23,7 +23,7 @@ export function createOrder(accessToken: string, input: CreateOrderInput): Promi
         deliveryBranch: shippingAddress.branch,
         recipientName: shippingAddress.recipientName,
         contactPhone: shippingAddress.phone,
-        telegramUsername: shippingAddress.telegram,
+        telegramUsername: shippingAddress.telegram.trim() || undefined,
       }),
     },
     accessToken,

@@ -354,8 +354,7 @@ export function CartPage() {
     shippingAddress.oblast.trim() !== '' &&
     shippingAddress.branch.trim() !== '' &&
     shippingAddress.recipientName.trim() !== '' &&
-    shippingAddress.phone.trim() !== '' &&
-    shippingAddress.telegram.trim() !== '';
+    shippingAddress.phone.trim() !== '';
 
   function updateAddressField(field: keyof typeof shippingAddress, value: string) {
     setShippingAddress({ ...shippingAddress, [field]: value });
@@ -543,7 +542,6 @@ export function CartPage() {
                     type="text"
                     value={shippingAddress.telegram}
                     onChange={(e) => updateAddressField('telegram', e.target.value)}
-                    required
                     maxLength={40}
                   />
                 </div>

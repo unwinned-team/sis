@@ -44,7 +44,7 @@ export function ProductCard({ product, showCategory = true, selectedVariant = nu
       </Link>
       
       {/* Top part: Image on light background */}
-      <div className="pointer-events-none relative flex aspect-[4/5] w-full shrink-0 overflow-hidden bg-slate-50/50 p-4">
+      <div className="pointer-events-none relative flex aspect-square w-full shrink-0 overflow-hidden bg-slate-50/50">
         {(customBadge || (showCategory && product.category)) && (
           <div className="absolute left-3 top-3 z-10">
             <span className="rounded-md bg-slate-900/60 px-2 py-1 text-[11px] font-medium text-white shadow-sm backdrop-blur-md">
@@ -56,7 +56,7 @@ export function ProductCard({ product, showCategory = true, selectedVariant = nu
           src={product.imageUrl}
           alt={product.name}
           loading="lazy"
-          className="h-full w-full object-contain transition-transform duration-300 md:group-hover:scale-105"
+          className="h-full w-full object-cover transition-transform duration-300 md:group-hover:scale-105"
         />
       </div>
       

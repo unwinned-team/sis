@@ -242,10 +242,16 @@ html {
   /* backdrop-filter пересчитывается каждый кадр при скролле на Android и
      роняет FPS до 4-5. На мобиле эффект стекла не виден — убираем везде,
      полупрозрачные панели делаем глухими белыми. */
-  .backdrop-blur-sm,
-  .backdrop-blur-md,
-  .backdrop-blur-lg {
+  .backdrop-blur-sm:not(.product-badge),
+  .backdrop-blur-md:not(.product-badge),
+  .backdrop-blur-lg:not(.product-badge) {
     background-color: #ffffff !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+
+  .product-badge {
+    background-color: rgba(30, 41, 59, 0.75) !important;
     -webkit-backdrop-filter: none !important;
     backdrop-filter: none !important;
   }

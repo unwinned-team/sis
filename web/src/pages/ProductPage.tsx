@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Header } from '../components/Header';
 import { BackgroundOrbs } from '../components/BackgroundOrbs';
@@ -89,29 +89,47 @@ function ProductDetails({ product }: ProductDetailsProps) {
   const [descOpen, setDescOpen] = useState(false);
   const [descOverflows, setDescOverflows] = useState<boolean | null>(null);
   const descRef = useRef<HTMLDivElement>(null);
+  const descOpenRef = useRef(false);
 
-  // ponytail: inline px cap equals content height at open time; resizing while open can
-  // clip re-wrapped text — upgrade: transitionend -> clear inline style
   function toggleDesc() {
     const el = descRef.current;
     if (!el) return;
     el.style.maxHeight = descOpen ? '' : `${el.scrollHeight}px`;
+    descOpenRef.current = !descOpenRef.current;
     setDescOpen((prev) => !prev);
   }
 
   function handleTasteSelect(taste: string) {
     setSelectedTaste(taste);
     setDescOpen(false);
+    descOpenRef.current = false;
     if (descRef.current) descRef.current.style.maxHeight = '';
   }
 
-  useEffect(() => {
-    const el = descRef.current;
-    if (!el) return;
-    // Measure only on description change: handleTasteSelect resets descOpen before the
-    // commit, so the body is collapsed here. Re-measuring on toggle would hit the
-    // closing max-height transition and report a false "no overflow".
-    setDescOverflows(el.scrollHeight > el.clientHeight + 2);
+  // useLayoutEffect меряет до первой отрисовки — триггер кликабелен с первого
+  // кадра, мёртвого окна нет. scrollHeight не зависит от транзишена, а сравнение
+  // идёт с collapsed max-height из computed style, не с живым clientHeight —
+  // тот стоит на полпути при закрытии после смены вкуса. Пересчёт на resize:
+  // рерап текста иначе оставит ложный static и длинное описание не откроется.
+  // Открытое тело пересчитывается на resize — инлайн cap обновляется вместо
+  // клиппинга. ponytail: pinch-zoom window resize не шлёт — потолок остаётся,
+  // апгрейд: visualViewport.resize.
+  useLayoutEffect(() => {
+    const measure = () => {
+      const el = descRef.current;
+      if (!el) return;
+      if (descOpenRef.current) {
+        el.style.maxHeight = `${el.scrollHeight}px`;
+        return;
+      }
+      const collapsed = parseFloat(getComputedStyle(el).maxHeight);
+      setDescOverflows(
+        Number.isFinite(collapsed) && el.scrollHeight > collapsed + 2,
+      );
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
   }, [description]);
 
   return (

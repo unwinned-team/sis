@@ -143,7 +143,11 @@ export function logoutAfterRefresh(logout: () => Promise<void>): Promise<void> {
 }
 
 export async function apiGet<T>(path: string): Promise<T> {
-  const res = await fetch(`${API_BASE_URL}${path}`);
+  // Таймаут: на мобильной сети зависшее соединение (без RST) иначе вешает
+  // страницу на скелетоне навсегда — ретраи не спасают, ошибки нет.
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    signal: AbortSignal.timeout(15_000),
+  });
   if (!res.ok) {
     throw new ApiError(res.status, `GET ${path} failed with status ${res.status}`);
   }

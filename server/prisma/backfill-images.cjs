@@ -72,7 +72,8 @@ async function main() {
     }
     try {
       // Бэкап ДО конвертации: если sharp упадёт на середине, исходник
-      // останется и в .backup-*, и на месте (unlink ниже не выполнится).
+      // останется и в .backup-*, и на месте (unlink идёт только после
+      // успешного коммита транзакции в БД, см. ниже).
       await fs.mkdir(backupDir, { recursive: true });
       await fs.copyFile(oldPath, path.join(backupDir, name));
       await sharp(oldPath, { failOn: "none" })
@@ -80,8 +81,7 @@ async function main() {
         .resize({ width: MAX_DIM, height: MAX_DIM, fit: "inside", withoutEnlargement: true })
         .webp({ quality: WEBP_QUALITY })
         .toFile(newPath);
-      await fs.unlink(oldPath);
-      converted.push({ oldName: name, newName });
+      converted.push({ oldName: name, newName, oldPath });
       console.log(`converted ${name} -> ${newName}`);
     } catch (error) {
       console.error(`FAILED ${name}: ${error.message}`);
@@ -95,23 +95,30 @@ async function main() {
 
   if (prisma) {
     const urlOf = (name) => `${prefix}/${name}`;
-    let total = 0;
-    for (const c of converted) {
-      const urlBefore = urlOf(c.oldName);
-      const urlAfter = urlOf(c.newName);
-      for (const model of ["product", "productVariant", "category"]) {
-        const { count } = await prisma[model].updateMany({
-          where: { imageUrl: urlBefore },
-          data: { imageUrl: urlAfter },
-        });
-        if (count > 0) console.log(`db: ${model} ${count}x ${urlBefore} -> ${urlAfter}`);
-        total += count;
+    // Все апдейты в одной транзакции: если один updateMany упадёт, БД
+    // откатится целиком, исходники ещё не удалены — ссылки битыми не станут.
+    await prisma.$transaction(async (tx) => {
+      for (const c of converted) {
+        const urlBefore = urlOf(c.oldName);
+        const urlAfter = urlOf(c.newName);
+        for (const model of ["product", "productVariant", "category"]) {
+          const { count } = await tx[model].updateMany({
+            where: { imageUrl: urlBefore },
+            data: { imageUrl: urlAfter },
+          });
+          if (count > 0) console.log(`db: ${model} ${count}x ${urlBefore} -> ${urlAfter}`);
+        }
       }
-    }
-    console.log(`db: ${total} rows updated`);
+    });
   }
 
-  if (prefix === "/images/products/") {
+  // Исходники удаляем только после коммита транзакции: если апдейт БД упал,
+  // файлы целы, а не просто лежат в бэкапе.
+  for (const c of converted) {
+    await fs.unlink(c.oldPath).catch(() => {});
+  }
+
+  if (prefix === "/images/products") {
     const seedPath = path.join(__dirname, "catalog.cjs");
     let content = await fs.readFile(seedPath, "utf8");
     const before = content;

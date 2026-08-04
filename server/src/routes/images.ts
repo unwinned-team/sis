@@ -5,6 +5,8 @@ import path from "node:path";
 import { upload } from "../middleware/upload.js";
 import { requireAuth, requireAdmin } from "../middleware/auth.js";
 import { imageUrlSchema, replaceImageSchema } from "../schemas/images.js";
+import { processUpload } from "../lib/processImage.js";
+import log from "../logger.js";
 
 const router = Router();
 
@@ -17,23 +19,26 @@ function toDiskPath(url: string): string | null {
   return resolved;
 }
 
-// POST /api/v1/images/upload — multer single "image", save to uploads/, return { url }
-async function uploadImage(req: Request, res: Response, next: NextFunction) {
+// POST /api/v1/images/upload — multer single "image", конвертация в WebP, return { url }
+async function uploadImage(req: Request, res: Response) {
   try {
     if (!req.file) {
       return res.status(400).json({ error: "No image provided" });
     }
 
-    const url = `/uploads/${req.file.filename}`;
+    const url = await processUpload(req.file);
     res.status(201).json({ url });
   } catch (error) {
-    next(error);
+    // Битый файл с валидным mime — клиентская ошибка, не 500. Оригинал
+    // уже удалён processUpload, мусор на диске не оседает.
+    log.warn({ err: error }, "image processing failed");
+    res.status(400).json({ error: "Не вдалося обробити зображення" });
   }
 }
 
 // POST /api/v1/images/replace — multer single "image" + body.oldUrl
-// Delete old file, save new, return { url }
-async function replaceImage(req: Request, res: Response, next: NextFunction) {
+// Delete old file, convert new to WebP, return { url }
+async function replaceImage(req: Request, res: Response) {
   try {
     if (!req.file) {
       return res.status(400).json({ error: "No image provided" });
@@ -49,10 +54,11 @@ async function replaceImage(req: Request, res: Response, next: NextFunction) {
       await fs.unlink(oldPath).catch(() => {});
     }
 
-    const url = `/uploads/${req.file.filename}`;
+    const url = await processUpload(req.file);
     res.status(201).json({ url });
   } catch (error) {
-    next(error);
+    log.warn({ err: error }, "image processing failed");
+    res.status(400).json({ error: "Не вдалося обробити зображення" });
   }
 }
 

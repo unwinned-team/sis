@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import test, { after, afterEach, before, beforeEach } from "node:test";
+import sharp from "sharp";
 import app from "../../src/app.js";
 import prisma from "../../src/prisma.js";
 import { signAccessToken } from "../../src/lib/jwt.js";
@@ -67,12 +68,26 @@ async function addAdmin() {
   return signAccessToken({ sub: customer.id, role: "ADMIN" });
 }
 
-function imageForm(options: { name?: string; type?: string; bytes?: number; fields?: Record<string, string> } = {}) {
+// Раньше тут были случайные байты — sharp их не декодирует, поэтому теперь
+// настоящий мини-PNG, сгенерированный самим sharp (он же под рукой).
+let tinyPng: Buffer | null = null;
+async function pngFixture(): Promise<Buffer> {
+  if (!tinyPng) {
+    tinyPng = await sharp({
+      create: { width: 4, height: 4, channels: 3, background: { r: 220, g: 40, b: 40 } },
+    })
+      .png()
+      .toBuffer();
+  }
+  return tinyPng;
+}
+
+async function imageForm(options: { name?: string; type?: string; bytes?: number; fields?: Record<string, string> } = {}) {
   const form = new FormData();
   for (const [key, value] of Object.entries(options.fields ?? {})) {
     form.append(key, value);
   }
-  const content = new Uint8Array(options.bytes ?? 128).fill(1);
+  const content = options.bytes ?? (await pngFixture());
   form.append("image", new File([content], options.name ?? "photo.png", { type: options.type ?? "image/png" }));
   return form;
 }
@@ -106,38 +121,44 @@ test("image endpoints are admin-only", async () => {
     ["POST", "/images/replace"],
     ["DELETE", "/images"],
   ] as const) {
-    const anonymous = await send(path, { method, form: imageForm() });
+    const anonymous = await send(path, { method, form: await imageForm() });
     assert.equal(anonymous.status, 401, `${method} ${path} without a token`);
 
-    const asCustomer = await send(path, { method, token: customerToken, form: imageForm() });
+    const asCustomer = await send(path, { method, token: customerToken, form: await imageForm() });
     assert.equal(asCustomer.status, 403, `${method} ${path} as a customer`);
   }
 });
 
-test("upload stores a png on disk and serves it back over /uploads", async () => {
+test("upload converts an image to webp and serves it back over /uploads", async () => {
   const token = await addAdmin();
 
-  const uploaded = await send("/images/upload", { token, form: imageForm() });
+  const uploaded = await send("/images/upload", { token, form: await imageForm() });
   assert.equal(uploaded.status, 201);
-  assert.match(uploaded.body.url, /^\/uploads\/[0-9a-f-]{36}\.png$/);
+  assert.match(uploaded.body.url, /^\/uploads\/[0-9a-f-]{36}\.webp$/);
   await fs.access(diskPathOf(uploaded.body.url));
 
   // Загруженная картинка должна быть доступна фронтенду по своему url.
   const served = await fetch(`${rootUrl}${uploaded.body.url}`);
   assert.equal(served.status, 200);
-  assert.equal(served.headers.get("content-type"), "image/png");
+  assert.equal(served.headers.get("content-type"), "image/webp");
 });
 
-test("upload accepts jpeg and keeps the original extension", async () => {
+test("upload accepts jpeg/png/webp and always stores webp", async () => {
   const token = await addAdmin();
 
-  const uploaded = await send("/images/upload", {
-    token,
-    form: imageForm({ name: "photo.jpg", type: "image/jpeg" }),
-  });
-  assert.equal(uploaded.status, 201);
-  assert.match(uploaded.body.url, /\.jpg$/);
-  await fs.access(diskPathOf(uploaded.body.url));
+  for (const [name, type] of [
+    ["photo.jpg", "image/jpeg"],
+    ["photo.png", "image/png"],
+    ["photo.webp", "image/webp"],
+  ] as const) {
+    const uploaded = await send("/images/upload", {
+      token,
+      form: await imageForm({ name, type }),
+    });
+    assert.equal(uploaded.status, 201, type);
+    assert.match(uploaded.body.url, /\.webp$/, `${type} must be converted to webp`);
+    await fs.access(diskPathOf(uploaded.body.url));
+  }
 });
 
 test("upload rejects a missing file and non-image content with 400", async () => {
@@ -153,7 +174,7 @@ test("upload rejects a missing file and non-image content with 400", async () =>
     ["note.txt", "text/plain"],
   ] as const) {
     const before = new Set(await fs.readdir(uploadsDir));
-    const rejected = await send("/images/upload", { token, form: imageForm({ name, type }) });
+    const rejected = await send("/images/upload", { token, form: await imageForm({ name, type }) });
     assert.equal(rejected.status, 400, `${type} must be rejected`);
     // Отклонённый файл не должен осесть на диске.
     assert.deepEqual(await fs.readdir(uploadsDir), [...before]);
@@ -165,7 +186,7 @@ test("upload larger than 10 MB is rejected as a client error, not a 500", async 
 
   const oversized = await send("/images/upload", {
     token,
-    form: imageForm({ bytes: 10 * 1024 * 1024 + 1 }),
+    form: await imageForm({ bytes: 10 * 1024 * 1024 + 1 }),
   });
   // 413 Payload Too Large (допустим и 400) — но никак не внутренняя ошибка.
   assert.ok(
@@ -176,12 +197,12 @@ test("upload larger than 10 MB is rejected as a client error, not a 500", async 
 
 test("replace deletes the old file and stores the new one", async () => {
   const token = await addAdmin();
-  const first = await send("/images/upload", { token, form: imageForm() });
+  const first = await send("/images/upload", { token, form: await imageForm() });
   assert.equal(first.status, 201);
 
   const replaced = await send("/images/replace", {
     token,
-    form: imageForm({ fields: { oldUrl: first.body.url } }),
+    form: await imageForm({ fields: { oldUrl: first.body.url } }),
   });
   assert.equal(replaced.status, 201);
   assert.notEqual(replaced.body.url, first.body.url);
@@ -201,7 +222,7 @@ test("replace and delete cannot escape the uploads directory", async () => {
 
     const replaced = await send("/images/replace", {
       token,
-      form: imageForm({ fields: { oldUrl: traversalUrl } }),
+      form: await imageForm({ fields: { oldUrl: traversalUrl } }),
     });
     assert.ok(replaced.status < 500, `replace must not blow up, got ${replaced.status}`);
     await fs.access(sentinel);
@@ -216,7 +237,7 @@ test("replace and delete cannot escape the uploads directory", async () => {
 
 test("delete removes the file, validates the url and stays idempotent", async () => {
   const token = await addAdmin();
-  const uploaded = await send("/images/upload", { token, form: imageForm() });
+  const uploaded = await send("/images/upload", { token, form: await imageForm() });
   assert.equal(uploaded.status, 201);
 
   const deleted = await send("/images", { method: "DELETE", token, json: { url: uploaded.body.url } });

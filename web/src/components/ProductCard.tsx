@@ -47,7 +47,7 @@ export function ProductCard({ product, showCategory = true, selectedVariant = nu
       <div className="pointer-events-none relative flex aspect-square w-full shrink-0 overflow-hidden bg-slate-50/50">
         {(customBadge || (showCategory && product.category)) && (
           <div className="absolute left-3 top-3 z-10">
-            <span className="rounded-md bg-slate-900/60 px-2 py-1 text-[11px] font-medium text-white shadow-sm backdrop-blur-md">
+            <span className="product-badge rounded-md bg-slate-900/60 px-2 py-1 text-[11px] font-medium text-white shadow-sm backdrop-blur-md">
               {customBadge || product.category?.name}
             </span>
           </div>

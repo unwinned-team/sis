@@ -35,7 +35,9 @@ export async function processUpload(file: Express.Multer.File): Promise<string> 
     throw error;
   }
   if (outPath !== file.path) {
-    await fs.unlink(file.path);
+    // WebP уже готов и валиден: если unlink оригинала упадёт, бросать нельзя —
+    // маршрут вернёт 400, а готовый файл останется нигде не записанным.
+    await fs.unlink(file.path).catch(() => {});
   }
   return `/uploads/${base}.webp`;
 }

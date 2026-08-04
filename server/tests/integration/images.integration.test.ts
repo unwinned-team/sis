@@ -87,7 +87,7 @@ async function imageForm(options: { name?: string; type?: string; bytes?: number
   for (const [key, value] of Object.entries(options.fields ?? {})) {
     form.append(key, value);
   }
-  const content = options.bytes ?? (await pngFixture());
+  const content = new Uint8Array(options.bytes !== undefined ? Buffer.alloc(options.bytes) : await pngFixture());
   form.append("image", new File([content], options.name ?? "photo.png", { type: options.type ?? "image/png" }));
   return form;
 }

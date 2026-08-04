@@ -50,11 +50,13 @@ async function replaceImage(req: Request, res: Response) {
     }
 
     const oldPath = toDiskPath(parsed.data.oldUrl);
+
+    // Новый файл конвертируем ДО удаления старого: если sharp упадёт (битый
+    // аплоад), старый файл цел, и БД продолжает на него ссылаться.
+    const url = await processUpload(req.file);
     if (oldPath) {
       await fs.unlink(oldPath).catch(() => {});
     }
-
-    const url = await processUpload(req.file);
     res.status(201).json({ url });
   } catch (error) {
     log.warn({ err: error }, "image processing failed");

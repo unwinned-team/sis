@@ -60,7 +60,7 @@ export function ImageField({
             <input
               ref={inputRef}
               type="file"
-              accept="image/jpeg,image/png"
+              accept="image/jpeg,image/png,image/webp"
               onChange={(e) => {
                 const file = e.target.files?.[0];
                 if (file) void handleFile(file);

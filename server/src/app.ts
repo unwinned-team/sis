@@ -31,7 +31,9 @@ app.use(
 );
 app.use(cookieParser());
 app.use(express.json());
-app.use("/uploads", express.static("uploads"));
+// ponytail: dev кэш. В проде /uploads отдаёт nginx напрямую из /srv/ice-shop/server
+// с immutable 30d (deploy/nginx.conf:34), здесь только dev-итерация без re-fetch.
+app.use("/uploads", express.static("uploads", { maxAge: "7d", immutable: true }));
 
 app.use((req: Request, res: Response, next: NextFunction) => {
   const start = Date.now();

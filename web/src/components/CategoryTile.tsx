@@ -22,6 +22,7 @@ export function CategoryTile({ category }: CategoryTileProps) {
           <img
             src={imageUrl}
             alt={category.name}
+            loading="lazy"
             className="h-full w-full object-cover transition-transform duration-300 md:group-hover:scale-105"
           />
         ) : (

@@ -30,6 +30,9 @@ coverage
 server/uploads/*
 !server/uploads/.gitkeep
 
+# Бэкапы конвертации изображений (backfill-images.cjs)
+.backup-*
+
 .github/
 # Added by code-review-graph
 .code-review-graph/

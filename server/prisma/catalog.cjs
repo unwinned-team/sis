@@ -464,7 +464,7 @@ const products = [
     name: "OXVA Xlim V2",
     description: "Картридж Xlim V2 на 2 мл з боковою заправкою. Підходить до Xlim, Xlim Pro і SE.",
     priceCents: 18000,
-    imageUrl: "/images/products/OXVA Xlim V2 - 0.8 Ом.jpg",
+    imageUrl: "/images/products/OXVA Xlim V2 - 0.8 Ом.webp",
   },
   {
     id: "prod-v2-lost-vape-ursa-vbudovanyi-vyparnyk",
@@ -544,7 +544,7 @@ const products = [
     name: "Smok Novo 4 Mini Empty (порожній)",
     description: "Порожній картридж під Novo 4 Mini: спіраль купуєте окремо і міняєте тільки її. Виходить дешевше, ніж брати картридж цілком.",
     priceCents: 18000,
-    imageUrl: "/images/products/Smok Novo 4 Mini Empty (порожній) - під випарник LP1 0.8 0.9 1.2 Ом.jpg",
+    imageUrl: "/images/products/Smok Novo 4 Mini Empty (порожній) - під випарник LP1 0.8 0.9 1.2 Ом.webp",
   },
   {
     id: "prod-v2-zq-xtal-pro-coil",
@@ -616,7 +616,7 @@ const products = [
     name: "Smok Nord 2 RPM Empty (порожній)",
     description: "Порожній картридж Nord 2 під спіралі RPM. Обираєте опір під свою рідину і міняєте тільки спіраль.",
     priceCents: 18000,
-    imageUrl: "/images/products/Smok Nord 2 RPM Empty (порожній) - під випарник RPM 0.3 Ом (MTL Mesh) 0.4 Ом (Mesh) 0.8 Ом (MTL DC).jpg",
+    imageUrl: "/images/products/Smok Nord 2 RPM Empty (порожній) - під випарник RPM 0.3 Ом (MTL Mesh) 0.4 Ом (Mesh) 0.8 Ом (MTL DC).webp",
   },
   {
     id: "prod-v2-upends-upox",
@@ -834,7 +834,7 @@ const products = [
     name: "Рідини Sour Boom 30ml Заміс",
     description: "Sour Boom, 30 мл. Кисла лінійка, смак відчутно щипає язик, як льодяники.",
     priceCents: 19000,
-    imageUrl: "/images/products/Рідини Sour Boom 30ml Заміс - Cherry Boom.jpg",
+    imageUrl: "/images/products/Рідини Sour Boom 30ml Заміс - Cherry Boom.webp",
   },
   {
     id: "prod-v2-ridyny-sour-boom-15ml",
@@ -842,7 +842,7 @@ const products = [
     name: "Рідини Sour Boom 15ml",
     description: "Sour Boom у флаконі на 15 мл. Той самий кислий профіль у меншому об'ємі.",
     priceCents: 14000,
-    imageUrl: "/images/products/Рідини Sour Boom 15ml - Lemon Lime.jpg",
+    imageUrl: "/images/products/Рідини Sour Boom 15ml - Lemon Lime.webp",
   },
   {
     id: "prod-v2-ridyny-fcked-lab-30-ml",
@@ -1124,9 +1124,9 @@ const productVariants = [
   {
     productId: "prod-v2-oxva-xlim-v2",
     tastes: [
-      { name: "0.6 Ом", imageUrl: "/images/products/OXVA Xlim V2 - 0.8 Ом.jpg" },
-      { name: "0.8 Ом", imageUrl: "/images/products/OXVA Xlim V2 - 0.8 Ом.jpg" },
-      { name: "1.2 Ом", imageUrl: "/images/products/OXVA Xlim V2 - 0.8 Ом.jpg" },
+      { name: "0.6 Ом", imageUrl: "/images/products/OXVA Xlim V2 - 0.8 Ом.webp" },
+      { name: "0.8 Ом", imageUrl: "/images/products/OXVA Xlim V2 - 0.8 Ом.webp" },
+      { name: "1.2 Ом", imageUrl: "/images/products/OXVA Xlim V2 - 0.8 Ом.webp" },
     ],
     sizes: [{ size: null, priceCents: 18000 }],
   },
@@ -1152,7 +1152,7 @@ const productVariants = [
   {
     productId: "prod-v2-voopoo-vinci-series",
     tastes: [
-      { name: "0.6 Ом", imageUrl: "/images/products/Voopoo Vinci Series - 0.6 Ом.jpg" },
+      { name: "0.6 Ом", imageUrl: "/images/products/Voopoo Vinci Series - 0.6 Ом.webp" },
       { name: "0.8 Ом", imageUrl: "/images/products/Картридж Voopoo Vinci Pod 0.8 Ом, 2.0 мл.webp" },
       "1.0 Ом",
     ],
@@ -1211,7 +1211,7 @@ const productVariants = [
   {
     productId: "prod-v2-smok-novo-4-mini-empty-porozhnii",
     tastes: [
-      { name: "під випарник LP1: 0.8 / 0.9 / 1.2 Ом", imageUrl: "/images/products/Smok Novo 4 Mini Empty (порожній) - під випарник LP1 0.8 0.9 1.2 Ом.jpg" },
+      { name: "під випарник LP1: 0.8 / 0.9 / 1.2 Ом", imageUrl: "/images/products/Smok Novo 4 Mini Empty (порожній) - під випарник LP1 0.8 0.9 1.2 Ом.webp" },
     ],
     sizes: [{ size: null, priceCents: 18000 }],
   },
@@ -1282,7 +1282,7 @@ const productVariants = [
   {
     productId: "prod-v2-smok-nord-2-rpm-empty-porozhnii",
     tastes: [
-      { name: "під випарник RPM: 0.3 Ом (MTL Mesh) / 0.4 Ом (Mesh) / 0.8 Ом (MTL DC)", imageUrl: "/images/products/Smok Nord 2 RPM Empty (порожній) - під випарник RPM 0.3 Ом (MTL Mesh) 0.4 Ом (Mesh) 0.8 Ом (MTL DC).jpg" },
+      { name: "під випарник RPM: 0.3 Ом (MTL Mesh) / 0.4 Ом (Mesh) / 0.8 Ом (MTL DC)", imageUrl: "/images/products/Smok Nord 2 RPM Empty (порожній) - під випарник RPM 0.3 Ом (MTL Mesh) 0.4 Ом (Mesh) 0.8 Ом (MTL DC).webp" },
     ],
     sizes: [{ size: null, priceCents: 18000 }],
   },
@@ -1410,9 +1410,9 @@ const productVariants = [
     tastes: [
       { name: "Ягоди (лісові)", imageUrl: "/images/products/Рідина Chaser For Pods Ягоди 10 мл.webp" },
       { name: "Гранат", imageUrl: "/images/products/Рідина Chaser For Pods Гранат 10 мл.webp" },
-      { name: "Грейпфрут", imageUrl: "/images/products/Рідини Chaser For Pods 10ml Заміс - Грейпфрут.jpg" },
+      { name: "Грейпфрут", imageUrl: "/images/products/Рідини Chaser For Pods 10ml Заміс - Грейпфрут.webp" },
       "Жовтий Драгонфрут",
-      { name: "Жовта Черешня", imageUrl: "/images/products/Рідини Chaser For Pods 10ml Заміс - Жовта Черешня.jpg" },
+      { name: "Жовта Черешня", imageUrl: "/images/products/Рідини Chaser For Pods 10ml Заміс - Жовта Черешня.webp" },
       { name: "Яблуко", imageUrl: "/images/products/Рідина Chaser For Pods Яблуко 10 мл.webp" },
       { name: "Кавун", imageUrl: "/images/products/Рідина Chaser For Pods Кавун 10 мл.webp" },
       { name: "Вишня", imageUrl: "/images/products/Рідина Chaser For Pods Вишня Ментол 10 мл.webp" },
@@ -1439,13 +1439,13 @@ const productVariants = [
     tastes: [
       { name: "Ягоди (лісові)", imageUrl: "/images/products/Рідина Chaser For Pods Ягоди 30 мл.webp" },
       { name: "Гранат", imageUrl: "/images/products/Рідина Chaser For Pods Гранат 30 мл.webp" },
-      { name: "Грейпфрут", imageUrl: "/images/products/Рідини Chaser For Pods 30ml Заміс - Грейпфрут.jpg" },
-      { name: "Жовтий Драгонфрут", imageUrl: "/images/products/Рідини Chaser For Pods 30ml Заміс - Жовтий Драгонфрут.jpg" },
-      { name: "Жовта Черешня", imageUrl: "/images/products/Рідини Chaser For Pods 30ml Заміс - Жовта Черешня.jpg" },
+      { name: "Грейпфрут", imageUrl: "/images/products/Рідини Chaser For Pods 30ml Заміс - Грейпфрут.webp" },
+      { name: "Жовтий Драгонфрут", imageUrl: "/images/products/Рідини Chaser For Pods 30ml Заміс - Жовтий Драгонфрут.webp" },
+      { name: "Жовта Черешня", imageUrl: "/images/products/Рідини Chaser For Pods 30ml Заміс - Жовта Черешня.webp" },
       { name: "Яблуко", imageUrl: "/images/products/Рідина Chaser For Pods Яблуко 30 мл.webp" },
       { name: "Кавун", imageUrl: "/images/products/Рідина Chaser For Pods Кавун Ментол 30 мл.webp" },
       { name: "Вишня", imageUrl: "/images/products/Рідина Chaser For Pods Вишня 30 мл.webp" },
-      { name: "Манго", imageUrl: "/images/products/Рідини Chaser For Pods 30ml Заміс - Манго.jpg" },
+      { name: "Манго", imageUrl: "/images/products/Рідини Chaser For Pods 30ml Заміс - Манго.webp" },
       "Блакитна малина",
       "Банан",
       "Виноград",
@@ -1497,12 +1497,12 @@ const productVariants = [
     tastes: [
       { name: "Полуниця Квас", imageUrl: "/images/products/Набір Chaser Mix 30 мл 50 мг - Полуниця Квас.webp" },
       { name: "Ром Кола", imageUrl: "/images/products/Набір Chaser Mix 30 мл 65 мг - Ром Кола.webp" },
-      { name: "Базилік М'ята", imageUrl: "/images/products/Рідини Chaser Mix 30ml Заміс - Базилік М'ята.jpg" },
+      { name: "Базилік М'ята", imageUrl: "/images/products/Рідини Chaser Mix 30ml Заміс - Базилік М'ята.webp" },
       { name: "Блакитна Малина Лимонад", imageUrl: "/images/products/Набір Chaser Mix 30 мл 50 мг - Малина Ревінь.webp" },
       { name: "Вишня Кокос", imageUrl: "/images/products/Набір Chaser Mix 30 мл 65 мг - Вишня Кавун.webp" },
       "Гуава Персик",
       { name: "Кавун Яблуко", imageUrl: "/images/products/Набір Chaser Mix 30 мл 65 мг - Вишня Кавун.webp" },
-      { name: "Манго Грейпфрут", imageUrl: "/images/products/Рідини Chaser Mix 30ml Заміс - Манго Грейпфрут.jpg" },
+      { name: "Манго Грейпфрут", imageUrl: "/images/products/Рідини Chaser Mix 30ml Заміс - Манго Грейпфрут.webp" },
       { name: "Orbit", imageUrl: "/images/products/Набір Chaser Mix 30 мл 50 мг - Orbit.webp" },
       "М’ятний Орбіт",
       "Полуниця Виноград",
@@ -1606,7 +1606,7 @@ const productVariants = [
       { name: "Rich Apple", imageUrl: "/images/products/Рідина Alchemist Salt Rich Apple (Річ Епл) 30 мл.webp" },
       { name: "Rasp Basil", imageUrl: "/images/products/Рідина Alchemist Salt Rasp Basil (Расп Бейзл) 30 мл.webp" },
       { name: "Pitaya Peach", imageUrl: "/images/products/Рідина Alchemist Salt Pitaya Peach (Пітая Персик) 30 мл.webp" },
-      { name: "Marshmallow", imageUrl: "/images/products/Рідини Alchemist 30ml Заміс - Marshmallow.jpg" },
+      { name: "Marshmallow", imageUrl: "/images/products/Рідини Alchemist 30ml Заміс - Marshmallow.webp" },
       { name: "Iceberg Mango", imageUrl: "/images/products/Рідина Alchemist Salt Iceberg Mango (Айсберг Манго) 30 мл.webp" },
       { name: "CranApple", imageUrl: "/images/products/Рідина Alchemist Salt Rich Apple (Річ Епл) 30 мл.webp" },
       { name: "Grapefruit", imageUrl: "/images/products/Рідина Alchemist Salt Grapefruit (Грейпфрут) 30 мл.webp" },
@@ -1619,7 +1619,7 @@ const productVariants = [
       { name: "Apple", imageUrl: "/images/products/Lucky Salt 30 мл 50 мг - Apple.webp" },
       { name: "Blueberry", imageUrl: "/images/products/Lucky Salt 30 мл 50 мг - Blueberry.webp" },
       { name: "Peach", imageUrl: "/images/products/Lucky Salt 30 мл 50 мг - Peach.webp" },
-      { name: "Mojito Aloe Cucumber Lemonade", imageUrl: "/images/products/Набір Lucky 30 мл 65 мг - Mojito Aloe Cucumber Lemonade.png" },
+      { name: "Mojito Aloe Cucumber Lemonade", imageUrl: "/images/products/Набір Lucky 30 мл 65 мг - Mojito Aloe Cucumber Lemonade.webp" },
       "Cold Mango",
       "Cola",
       "Strawberry",
@@ -1683,7 +1683,7 @@ const productVariants = [
     tastes: [
       "Pomegranate Cherry",
       { name: "Peach Gooseberry", imageUrl: "/images/products/Lucky Salt 30 мл 50 мг - Peach.webp" },
-      { name: "Gummy Bears", imageUrl: "/images/products/Рідини Lucky Chrome 30 ml - Gummy Bears.jpg" },
+      { name: "Gummy Bears", imageUrl: "/images/products/Рідини Lucky Chrome 30 ml - Gummy Bears.webp" },
       "Green Tea",
       { name: "Green Apple Lychee", imageUrl: "/images/products/Lucky Salt 30 мл 50 мг - Apple.webp" },
       { name: "Forest Berry Mint", imageUrl: "/images/products/Lucky Salt 30 мл 50 мг - Blueberry.webp" },
@@ -1708,7 +1708,7 @@ const productVariants = [
     tastes: [
       { name: "Blue Raspberry (sour)", imageUrl: "/images/products/Набір Dinner Lady Fruit Full 30 мл 30 50 мг - Blue Raspberry.webp" },
       { name: "Blueberry Lemonade", imageUrl: "/images/products/Набір Dinner Lady Fruit Full 30 мл 30 50 мг - Blue Raspberry.webp" },
-      { name: "Bubble Gum", imageUrl: "/images/products/Рідини Dinner Lady Fruit FULL 30ml 50mg Заміс - Bubble Gum.jpg" },
+      { name: "Bubble Gum", imageUrl: "/images/products/Рідини Dinner Lady Fruit FULL 30ml 50mg Заміс - Bubble Gum.webp" },
       { name: "Fresh Mint", imageUrl: "/images/products/Набір Dinner Lady Fruit Full 30 мл 30 50 мг - Fresh Mint.webp" },
       { name: "Grape Kiwi Passionfruit", imageUrl: "/images/products/Набір Dinner Lady Fruit Full 30 мл 30 50 мг - Kiwi Passion Guava.webp" },
       { name: "Lime", imageUrl: "/images/products/Набір Dinner Lady Fruit Full 30 мл 30 50 мг - Lemon Lime.webp" },
@@ -1723,7 +1723,7 @@ const productVariants = [
     productId: "prod-v2-ridyny-flavorlab-lady-zamis",
     tastes: [
       { name: "Blue Lagoon", imageUrl: "/images/products/Набір Flavorlab Lady 30 мл 50 мг - Blue Lagoon.webp" },
-      { name: "Frappuccino", imageUrl: "/images/products/Рідини Flavorlab Lady Заміс - Frappuccino.jpg" },
+      { name: "Frappuccino", imageUrl: "/images/products/Рідини Flavorlab Lady Заміс - Frappuccino.webp" },
       { name: "Pitaya Cherry", imageUrl: "/images/products/Набір Flavorlab Lady Strong 30 мл 50 мг - Pitaya Сherry.webp" },
       { name: "Beer Lemon", imageUrl: "/images/products/Набір Flavorlab Lady Strong 30 мл 50 мг - Beer Lemon.webp" },
       { name: "Cranberry Apple", imageUrl: "/images/products/Набір Flavorlab Lady Strong 30 мл 50 мг - Cranberry Apple.webp" },
@@ -1736,14 +1736,14 @@ const productVariants = [
   {
     productId: "prod-v2-ridyny-sour-boom-30ml-zamis",
     tastes: [
-      { name: "Cherry Boom", imageUrl: "/images/products/Рідини Sour Boom 30ml Заміс - Cherry Boom.jpg" },
-      { name: "Cosmopolitan", imageUrl: "/images/products/Рідини Sour Boom 30ml Заміс - Cosmopolitan.jpg" },
-      { name: "Fresh Melon", imageUrl: "/images/products/Рідини Sour Boom 30ml Заміс - Fresh Melon.jpg" },
-      { name: "Lemon Lime", imageUrl: "/images/products/Рідини Sour Boom 30ml Заміс - Lemon Lime.jpg" },
-      { name: "Mojito", imageUrl: "/images/products/Рідини Sour Boom 30ml Заміс - Mojito.jpg" },
-      { name: "Pineapple Peach", imageUrl: "/images/products/Рідини Sour Boom 30ml Заміс - Pineapple Peach.jpg" },
-      { name: "Pinkman", imageUrl: "/images/products/Рідини Sour Boom 30ml Заміс - Pinkman.jpg" },
-      { name: "Pomegranate Lime", imageUrl: "/images/products/Рідини Sour Boom 30ml Заміс - Pomegranate Lime.jpg" },
+      { name: "Cherry Boom", imageUrl: "/images/products/Рідини Sour Boom 30ml Заміс - Cherry Boom.webp" },
+      { name: "Cosmopolitan", imageUrl: "/images/products/Рідини Sour Boom 30ml Заміс - Cosmopolitan.webp" },
+      { name: "Fresh Melon", imageUrl: "/images/products/Рідини Sour Boom 30ml Заміс - Fresh Melon.webp" },
+      { name: "Lemon Lime", imageUrl: "/images/products/Рідини Sour Boom 30ml Заміс - Lemon Lime.webp" },
+      { name: "Mojito", imageUrl: "/images/products/Рідини Sour Boom 30ml Заміс - Mojito.webp" },
+      { name: "Pineapple Peach", imageUrl: "/images/products/Рідини Sour Boom 30ml Заміс - Pineapple Peach.webp" },
+      { name: "Pinkman", imageUrl: "/images/products/Рідини Sour Boom 30ml Заміс - Pinkman.webp" },
+      { name: "Pomegranate Lime", imageUrl: "/images/products/Рідини Sour Boom 30ml Заміс - Pomegranate Lime.webp" },
       "Red Kiss",
       "Secret",
     ],
@@ -1752,9 +1752,9 @@ const productVariants = [
   {
     productId: "prod-v2-ridyny-sour-boom-15ml",
     tastes: [
-      { name: "Lemon Lime", imageUrl: "/images/products/Рідини Sour Boom 15ml - Lemon Lime.jpg" },
+      { name: "Lemon Lime", imageUrl: "/images/products/Рідини Sour Boom 15ml - Lemon Lime.webp" },
       "Sicilian Orange",
-      { name: "Mojito", imageUrl: "/images/products/Рідини Sour Boom 15ml - Mojito.jpg" },
+      { name: "Mojito", imageUrl: "/images/products/Рідини Sour Boom 15ml - Mojito.webp" },
     ],
     sizes: [{ size: null, priceCents: 14000 }],
   },

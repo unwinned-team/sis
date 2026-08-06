@@ -1,5 +1,6 @@
 import { apiRequest, apiUpload } from './client';
 import type {
+  Banner,
   Category,
   Customer,
   Order,
@@ -262,6 +263,50 @@ export function deleteCategory(accessToken: string, slug: string): Promise<void>
     method: 'DELETE',
     accessToken,
   });
+}
+
+// Тянет и скрытые, в отличие от публичного getBanners: иначе выключенный
+// банер не вернуть.
+export function getAllBanners(accessToken: string): Promise<Banner[]> {
+  return apiRequest<Banner[]>('/banners?includeInactive=true', { accessToken });
+}
+
+export interface BannerInput {
+  imageUrl?: string;
+  link?: string | null;
+  sortOrder?: number;
+  isActive?: boolean;
+}
+
+export function createBanner(
+  accessToken: string,
+  body: BannerInput & { imageUrl: string },
+): Promise<Banner> {
+  return apiRequest<Banner>('/banners', { method: 'POST', body, accessToken });
+}
+
+export function updateBanner(
+  accessToken: string,
+  id: string,
+  body: BannerInput,
+): Promise<Banner> {
+  return apiRequest<Banner>(`/banners/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body,
+    accessToken,
+  });
+}
+
+export function deleteBanner(accessToken: string, id: string): Promise<void> {
+  return apiRequest<void>(`/banners/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    accessToken,
+  });
+}
+
+// ids в новом порядке, бэкенд перепишет sortOrder индексом в массиве.
+export function reorderBanners(accessToken: string, ids: string[]): Promise<void> {
+  return apiRequest<void>('/banners/reorder', { method: 'POST', body: { ids }, accessToken });
 }
 
 export function uploadImage(accessToken: string, file: File): Promise<{ url: string }> {

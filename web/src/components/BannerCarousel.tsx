@@ -5,8 +5,10 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useBanners } from '../hooks/useBanners';
 import type { Banner } from '../types';
 
-// Пропорции слайда. Те же в скелетоне, иначе при загрузке прыгает вёрстка.
-const RATIO_CLASS = 'aspect-[16/9] sm:aspect-[16/5]';
+// Одни пропорции на всех экранах: при разных object-cover режет бока на
+// телефоне, и админ не видит в панели того, что увидит покупатель.
+// Те же в скелетоне, иначе при загрузке прыгает вёрстка.
+const RATIO_CLASS = 'aspect-[16/6]';
 
 function BannerImage({ banner, eager }: { banner: Banner; eager: boolean }) {
   const image = (
@@ -71,7 +73,9 @@ export function BannerCarousel() {
       <div
         ref={trackRef}
         onScroll={handleScroll}
-        className={`flex w-full snap-x snap-mandatory overflow-x-auto rounded-3xl border border-white/60 shadow-lg [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${RATIO_CLASS}`}
+        // overscroll-x-contain: свайп по карусели на iOS иначе уходит в
+        // системный жест «назад» и уносит со страницы.
+        className={`flex w-full snap-x snap-mandatory overflow-x-auto overscroll-x-contain rounded-2xl border border-white/60 shadow-lg sm:rounded-3xl [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${RATIO_CLASS}`}
       >
         {banners.map((banner, index) => (
           <div key={banner.id} className="h-full w-full shrink-0 snap-center">
@@ -99,7 +103,8 @@ export function BannerCarousel() {
             <ChevronRight size={20} />
           </button>
 
-          <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-2">
+          {/* Точки на подложке: на светлом фото белое по белому не видно. */}
+          <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 items-center rounded-full bg-black/25 px-1 backdrop-blur-sm sm:bottom-3">
             {banners.map((banner, index) => (
               <button
                 key={banner.id}
@@ -107,10 +112,15 @@ export function BannerCarousel() {
                 aria-label={`Банер ${index + 1}`}
                 aria-current={index === active}
                 onClick={() => scrollToSlide(index)}
-                className={`h-2 rounded-full transition-all ${
-                  index === active ? 'w-5 bg-white' : 'w-2 bg-white/60 hover:bg-white/80'
-                }`}
-              />
+                // Палец попадает по 32px, а видно только полоску 8px.
+                className="flex h-8 w-4 items-center justify-center"
+              >
+                <span
+                  className={`block h-1.5 rounded-full transition-all ${
+                    index === active ? 'w-4 bg-white' : 'w-1.5 bg-white/70'
+                  }`}
+                />
+              </button>
             ))}
           </div>
         </>

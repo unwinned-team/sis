@@ -30,9 +30,9 @@ test("matches ref inside longer comment, case-insensitive", () => {
   );
 });
 
-test("matches exact amount without comment (перевод из другого банка)", () => {
-  assert.equal(matchPayment([item({ comment: undefined })], "ICE-AB12CD34", paymentAmount, createdAt), true);
-  assert.equal(matchPayment([item({ comment: "просто перевод" })], "ICE-AB12CD34", paymentAmount, createdAt), true);
+test("rejects exact amount without ref in comment (заказ не определить)", () => {
+  assert.equal(matchPayment([item({ comment: undefined })], "ICE-AB12CD34", paymentAmount, createdAt), false);
+  assert.equal(matchPayment([item({ comment: "просто перевод" })], "ICE-AB12CD34", paymentAmount, createdAt), false);
 });
 
 test("rejects foreign ref even with exact amount", () => {
@@ -48,12 +48,9 @@ test("rejects outgoing (negative) transaction with same abs amount", () => {
   assert.equal(matchPayment([item({ amount: -12_345 })], "ICE-AB12CD34", paymentAmount, createdAt), false);
 });
 
-test("rejects transaction older than order creation (переиспользованный хвост)", () => {
+test("rejects transaction older than order creation (повторный заказ с тем же рефом)", () => {
   const orderCreatedAt = new Date((1_770_000_000 + 3600) * 1000);
-  assert.equal(
-    matchPayment([item({ comment: undefined })], "ICE-AB12CD34", paymentAmount, orderCreatedAt),
-    false,
-  );
+  assert.equal(matchPayment([item({})], "ICE-AB12CD34", paymentAmount, orderCreatedAt), false);
   // Небольшое расхождение часов (< 60с) не отвергает свежую транзакцию.
   const slightlyAfter = new Date((1_770_000_000 + 30) * 1000);
   assert.equal(matchPayment([item({})], "ICE-AB12CD34", paymentAmount, slightlyAfter), true);

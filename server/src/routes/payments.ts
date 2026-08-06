@@ -1,6 +1,5 @@
 import type { Request, Response } from "express";
 import { Router } from "express";
-import { Prisma } from "@prisma/client";
 import prisma from "../prisma.js";
 import log from "../logger.js";
 import { extractPaymentRef } from "../lib/monobank.js";
@@ -30,23 +29,13 @@ router.post("/webhook", (req: Request, res: Response) => {
           ? item.amount
           : null;
 
-      // Claim по рефу из комментария; без рефа — по точной сумме прихода
-      // (копеечный хвост уникален среди активных заказов).
+      // Claim только по рефу из комментария: заказ без рефа не определить,
+      // сумма больше не уникальна среди активных заказов.
       const ref = extractPaymentRef(comment);
-      let where: Prisma.OrderWhereInput;
-      if (ref) {
-        where = { paymentRef: ref, paymentStatus: "PENDING" };
-      } else if (amount !== null && amount > 0) {
-        where = {
-          paymentAmountKey: new Prisma.Decimal(amount).div(100).toFixed(2),
-          paymentStatus: "PENDING",
-        };
-      } else {
-        return;
-      }
+      if (!ref) return;
 
       const claimed = await prisma.order.updateMany({
-        where,
+        where: { paymentRef: ref, paymentStatus: "PENDING" },
         data: { paymentStatus: "CLAIMED", nextCheckAt: new Date() },
       });
       if (claimed.count > 0) {

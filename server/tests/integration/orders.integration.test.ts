@@ -418,14 +418,16 @@ test("rejecting a shipped BONUS order refunds the full amount", async () => {
   await expectBalance(fixture.customer.id, "100.00");
 });
 
-test("CARD payment verification is scheduled and cancellation releases its amount", async () => {
+test("CARD payment verification is scheduled and cancellation stops it", async () => {
   const fixture = await addFixture({ suffix: "-payment-cancel" });
   const created = await postOrder(fixture, "CARD");
 
   assert.equal(created.status, 201);
   assert.equal(created.body.paymentStatus, "PENDING");
   assert.ok(created.body.nextCheckAt);
-  assert.ok(created.body.paymentAmountKey);
+  // К оплате ровно сумма заказа: «копеечный хвост» убран, заказ ищется по рефу.
+  assert.equal(created.body.paymentAmount, created.body.totalAmount);
+  assert.equal(created.body.paymentAmountKey, null);
 
   const cancelled = await api(
     "PUT",

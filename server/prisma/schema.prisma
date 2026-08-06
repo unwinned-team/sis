@@ -131,12 +131,12 @@ model Order {
   // комментарии перевода, воркер подтверждает по выписке. BONUS — сразу PAID.
   paymentStatus    PaymentStatus    @default(PENDING)
   paymentRef       String?          @unique // короткий код для комментария перевода
-  // Сумма к оплате = totalAmount + «копеечный хвост»; уникальна среди активных
-  // заказов — по ней матчится перевод без комментария (карта другого банка).
+  // Сумма к оплате = totalAmount - bonusApplied. Перевод матчится по рефу в
+  // комментарии, поэтому сумма ровно та, что клиент видит в корзине.
   paymentAmount    Decimal?         @db.Decimal(10, 2)
-  // = paymentAmount.toFixed(2), пока заказ PENDING/CLAIMED; null после PAID.
-  // Postgres не сравнивает NULL-ы в unique — уникальность держится только для
-  // активных заказов без partial-индекса, который Prisma в схеме не умеет.
+  // Мёртвая колонка: держала «копеечный хвост» для матчинга перевода без
+  // комментария. Матчинг теперь только по рефу, пишется всегда null.
+  // Дропать — отдельной миграцией, когда не жалко истории старых заказов.
   paymentAmountKey String?          @unique
   verifyAttempts   Int              @default(0)
   nextCheckAt      DateTime? // очередь воркера; null = не проверяется

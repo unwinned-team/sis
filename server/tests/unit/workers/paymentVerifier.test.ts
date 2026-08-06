@@ -60,7 +60,7 @@ test("verifies a scheduled PENDING CARD payment without a webhook claim", async 
   t.mock.method(globalThis, "fetch", async () =>
     new Response(
       JSON.stringify([
-        { id: "payment", time: Math.floor(Date.now() / 1000), amount: 1_000, comment: "" },
+        { id: "payment", time: Math.floor(Date.now() / 1000), amount: 1_000, comment: "ICE-AB12CD34" },
       ]),
       { status: 200, headers: { "content-type": "application/json" } },
     ),

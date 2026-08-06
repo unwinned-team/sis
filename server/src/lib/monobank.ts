@@ -87,13 +87,13 @@ export function buildPaymentUrl(
 // Запас на расхождение часов сервера и банка при сравнении item.time с createdAt.
 const CLOCK_SKEW_MS = 60_000;
 
-// Двойной матч: приход (amount > 0) с суммой ровно paymentAmount (копейки,
-// с «хвостом» — уникальна среди активных заказов). Реф: пустой комментарий
-// допустим (перевод из другого банка), но чужой ICE-код отвергается — это
-// платёж другого заказа, случайно совпавший суммой. Транзакции старше
-// createdAt заказа не матчатся: выписка покрывает всю очередь (до 31 дня),
-// и после освобождения paymentAmountKey старый перевод без комментария
-// иначе подтвердил бы новый заказ с той же суммой.
+// Матч только по комментарию: приход (amount > 0) с рефом заказа и суммой
+// ровно paymentAmount (= сумма заказа к оплате). Перевод без рефа не
+// подтверждается вообще — сумма сама по себе не идентифицирует заказ, два
+// заказа на одну сумму неразличимы. Такие платежи админ проводит вручную.
+// Транзакции старше createdAt заказа не матчатся: выписка покрывает всю
+// очередь (до 31 дня), и старый перевод с тем же рефом иначе подтвердил бы
+// повторный заказ.
 export function matchPayment(
   items: StatementItem[],
   paymentRef: string,
@@ -105,7 +105,6 @@ export function matchPayment(
   return items.some((item) => {
     if (item.time * 1000 < notBeforeMs) return false;
     if (item.amount <= 0 || item.amount !== kopecks) return false;
-    const ref = extractPaymentRef(item.comment ?? "");
-    return ref === null || ref === paymentRef;
+    return extractPaymentRef(item.comment ?? "") === paymentRef;
   });
 }

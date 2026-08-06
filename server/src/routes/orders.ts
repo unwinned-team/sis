@@ -14,33 +14,10 @@ import {
 } from "../schemas/orders.js";
 import { generatePaymentRef, buildPaymentUrl } from "../lib/monobank.js";
 
-// «Копеечный хвост»: сумма к оплате = totalAmount + N коп (N = 0..99), первая
-// свободная среди активных (PENDING/CLAIMED) заказов — по ней матчится перевод
-// без комментария. Гонку закрывает unique на paymentAmountKey (P2002 -> 409).
-// ponytail: потолок 100 активных заказов на одну базовую сумму; ширить N при росте.
-async function allocatePaymentAmount(
-  tx: Prisma.TransactionClient,
-  totalAmount: Prisma.Decimal,
-): Promise<Prisma.Decimal> {
-  const candidates: Prisma.Decimal[] = [];
-  for (let n = 0; n < 100; n++) {
-    const candidate = totalAmount.add(new Prisma.Decimal(n).div(100));
-    if (isOrderTotalValid(candidate)) candidates.push(candidate);
-  }
-  const taken = new Set(
-    (
-      await tx.order.findMany({
-        where: { paymentAmountKey: { in: candidates.map((c) => c.toFixed(2)) } },
-        select: { paymentAmountKey: true },
-      })
-    ).map((o) => o.paymentAmountKey),
-  );
-  const free = candidates.find((c) => !taken.has(c.toFixed(2)));
-  if (!free) {
-    throw httpError(409, "Too many unpaid orders with this amount, try again later");
-  }
-  return free;
-}
+// Сумма к оплате = сумма заказа, без «копеечного хвоста»: заказ определяется
+// рефом в комментарии перевода (matchPayment), и плательщик почти всегда
+// вводит круглую сумму из корзины, а не 240.01 из ссылки — хвост давал
+// вечный CLAIMED при реально пришедших деньгах.
 
 const router = Router();
 
@@ -238,10 +215,9 @@ async function createOrder(req: Request, res: Response, next: NextFunction) {
       const payable = totalAmount.sub(bonusApplied);
       const isCardPayment = paymentMethod === "CARD" && payable.greaterThan(0);
 
-      // CARD: реф для комментария к переводу monobank + уникальная сумма к
-      // оплате; полностью оплаченный бонусами заказ — сразу PAID. CASH остаётся
-      // PENDING (оплата при получении).
-      const paymentAmount = isCardPayment ? await allocatePaymentAmount(tx, payable) : null;
+      // CARD: реф для комментария к переводу monobank; полностью оплаченный
+      // бонусами заказ — сразу PAID. CASH остаётся PENDING (оплата при получении).
+      const paymentAmount = isCardPayment ? payable : null;
 
       return tx.order.create({
         data: {
@@ -252,7 +228,9 @@ async function createOrder(req: Request, res: Response, next: NextFunction) {
           paymentRef: isCardPayment ? generatePaymentRef() : null,
           paymentStatus: payable.isZero() ? "PAID" : "PENDING",
           paymentAmount,
-          paymentAmountKey: paymentAmount ? paymentAmount.toFixed(2) : null,
+          // Всегда null: матчинг по сумме убран, а unique на этой колонке
+          // ронял создание второго заказа с той же суммой (P2002 -> 409).
+          paymentAmountKey: null,
           nextCheckAt: isCardPayment ? new Date() : null,
           deliveryCity,
           deliveryRegion,

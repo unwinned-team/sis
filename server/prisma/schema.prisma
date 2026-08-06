@@ -118,6 +118,20 @@ model RefreshToken {
   @@index([expiresAt])
 }
 
+model Banner {
+  id        String   @id @default(cuid())
+  // Посилання на webp-файл в /uploads/. Завантаження — через /api/v1/images/upload,
+  // тут лише URL: той самий пайплайн, що у Category/Product, без дублювання multer.
+  imageUrl  String
+  // null = некликабельный; внутрішній шлях або https://... — валідує zod-схема.
+  link      String?
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@index([isActive, sortOrder])
+}
+
 model Order {
   id               String           @id @default(cuid())
   customerId       String

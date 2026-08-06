@@ -69,61 +69,71 @@ export function BannerCarousel() {
   const hasControls = banners.length > 1;
 
   return (
-    <section className="relative mb-8 sm:mb-10" aria-label="Акції та новини">
-      <div
-        ref={trackRef}
-        onScroll={handleScroll}
-        // overscroll-x-contain: свайп по карусели на iOS иначе уходит в
-        // системный жест «назад» и уносит со страницы.
-        className={`flex w-full snap-x snap-mandatory overflow-x-auto overscroll-x-contain rounded-2xl border border-white/60 shadow-lg sm:rounded-3xl [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${RATIO_CLASS}`}
-      >
-        {banners.map((banner, index) => (
-          <div key={banner.id} className="h-full w-full shrink-0 snap-center">
-            <BannerImage banner={banner} eager={index === 0} />
-          </div>
-        ))}
+    <section className="mb-8 sm:mb-10" aria-label="Акції та новини">
+      <div className="relative">
+        <div
+          ref={trackRef}
+          onScroll={handleScroll}
+          // overscroll-x-contain: свайп по карусели на iOS иначе уходит в
+          // системный жест «назад» и уносит со страницы.
+          className={`flex w-full snap-x snap-mandatory overflow-x-auto overscroll-x-contain rounded-2xl border border-white/60 shadow-lg sm:rounded-3xl [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${RATIO_CLASS}`}
+        >
+          {banners.map((banner, index) => (
+            <div
+              key={banner.id}
+              // snap-stop-always: быстрый свайп иначе пролетает через два-три
+              // слайда, и точки прыгают через одну.
+              className="h-full w-full shrink-0 snap-center [scroll-snap-stop:always]"
+            >
+              <BannerImage banner={banner} eager={index === 0} />
+            </div>
+          ))}
+        </div>
+
+        {hasControls && (
+          <>
+            <button
+              type="button"
+              aria-label="Попередній банер"
+              onClick={() => scrollToSlide(Math.max(active - 1, 0))}
+              className="absolute top-1/2 left-2 hidden -translate-y-1/2 rounded-full border border-white/70 bg-white/70 p-2 text-slate-700 shadow-sm backdrop-blur-sm transition hover:bg-white sm:block"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <button
+              type="button"
+              aria-label="Наступний банер"
+              onClick={() => scrollToSlide(Math.min(active + 1, banners.length - 1))}
+              className="absolute top-1/2 right-2 hidden -translate-y-1/2 rounded-full border border-white/70 bg-white/70 p-2 text-slate-700 shadow-sm backdrop-blur-sm transition hover:bg-white sm:block"
+            >
+              <ChevronRight size={20} />
+            </button>
+          </>
+        )}
       </div>
 
+      {/* Точки под картинкой, а не поверх: на телефоне подложка под ними
+          закрывала четверть баннера, а без подложки они терялись на светлом фото. */}
       {hasControls && (
-        <>
-          <button
-            type="button"
-            aria-label="Попередній банер"
-            onClick={() => scrollToSlide(Math.max(active - 1, 0))}
-            className="absolute top-1/2 left-2 hidden -translate-y-1/2 rounded-full border border-white/70 bg-white/70 p-2 text-slate-700 shadow-sm backdrop-blur-sm transition hover:bg-white sm:block"
-          >
-            <ChevronLeft size={20} />
-          </button>
-          <button
-            type="button"
-            aria-label="Наступний банер"
-            onClick={() => scrollToSlide(Math.min(active + 1, banners.length - 1))}
-            className="absolute top-1/2 right-2 hidden -translate-y-1/2 rounded-full border border-white/70 bg-white/70 p-2 text-slate-700 shadow-sm backdrop-blur-sm transition hover:bg-white sm:block"
-          >
-            <ChevronRight size={20} />
-          </button>
-
-          {/* Точки на подложке: на светлом фото белое по белому не видно. */}
-          <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 items-center rounded-full bg-black/25 px-1 backdrop-blur-sm sm:bottom-3">
-            {banners.map((banner, index) => (
-              <button
-                key={banner.id}
-                type="button"
-                aria-label={`Банер ${index + 1}`}
-                aria-current={index === active}
-                onClick={() => scrollToSlide(index)}
-                // Палец попадает по 32px, а видно только полоску 8px.
-                className="flex h-8 w-4 items-center justify-center"
-              >
-                <span
-                  className={`block h-1.5 rounded-full transition-all ${
-                    index === active ? 'w-4 bg-white' : 'w-1.5 bg-white/70'
-                  }`}
-                />
-              </button>
-            ))}
-          </div>
-        </>
+        <div className="mt-3 flex justify-center">
+          {banners.map((banner, index) => (
+            <button
+              key={banner.id}
+              type="button"
+              aria-label={`Банер ${index + 1}`}
+              aria-current={index === active}
+              onClick={() => scrollToSlide(index)}
+              // Палец попадает по 28px, видно только полоску 6px.
+              className="flex h-7 w-6 items-center justify-center"
+            >
+              <span
+                className={`block h-1.5 rounded-full transition-all ${
+                  index === active ? 'w-5 bg-slate-600' : 'w-1.5 bg-slate-300'
+                }`}
+              />
+            </button>
+          ))}
+        </div>
       )}
     </section>
   );

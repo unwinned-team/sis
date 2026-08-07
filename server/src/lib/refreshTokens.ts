@@ -154,7 +154,10 @@ export async function rotateRefreshToken(
       revokedAt != null &&
       Date.now() - revokedAt.getTime() <= REPLAY_GRACE_MS;
     if (withinGrace) {
-      for (let attempt = 0; ; attempt++) {
+      // ponytail: сон внутри интерактивной транзакции держит соединение пула
+      // (до 5×25мс на гонку); потолок — редкие гонки ротации. Если пул
+      // начнёт исчерпываться — вынести цикл в короткие транзакции вне tx.
+      for (let attempt = 0; attempt < GRACE_FIND_RETRIES; attempt++) {
         const live = await tx.refreshToken.findFirst({
           where: {
             familyId: existing.familyId,
@@ -164,12 +167,16 @@ export async function rotateRefreshToken(
           orderBy: { createdAt: "desc" },
         });
         if (!live) {
-          if (attempt >= GRACE_FIND_RETRIES) break;
-          await new Promise((resolve) => setTimeout(resolve, GRACE_FIND_BACKOFF_MS));
+          if (attempt < GRACE_FIND_RETRIES - 1) {
+            await new Promise((resolve) => setTimeout(resolve, GRACE_FIND_BACKOFF_MS));
+          }
           continue;
         }
         const next = await rotateFrom(tx, live, customer);
         if (next.kind === "rotated") return next;
+        if (attempt < GRACE_FIND_RETRIES - 1) {
+          await new Promise((resolve) => setTimeout(resolve, GRACE_FIND_BACKOFF_MS));
+        }
       }
     }
 

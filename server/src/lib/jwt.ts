@@ -2,7 +2,11 @@ import "dotenv/config";
 import { SignJWT, jwtVerify } from "jose";
 import type { Role } from "@prisma/client";
 
-export const ACCESS_TOKEN_TTL_SECONDS = 15 * 60;
+// Админский access-токен живёт час: stateless-окно некритично — requireAdmin
+// всё равно проверяет БД на каждый запрос, отключённый админ отсекается сразу.
+export function accessTokenTtlSeconds(role: Role): number {
+  return role === "ADMIN" ? 60 * 60 : 15 * 60;
+}
 
 const secret = process.env.JWT_ACCESS_SECRET;
 
@@ -22,7 +26,7 @@ export async function signAccessToken(payload: AccessTokenPayload): Promise<stri
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(payload.sub)
     .setIssuedAt()
-    .setExpirationTime(`${ACCESS_TOKEN_TTL_SECONDS}s`)
+    .setExpirationTime(`${accessTokenTtlSeconds(payload.role)}s`)
     .sign(key);
 }
 

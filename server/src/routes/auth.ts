@@ -89,11 +89,7 @@ function registerHandler(client: TokenClient) {
         sub: customer.id,
         role: customer.role,
       });
-      const refresh = await issueRefreshToken(
-        customer.id,
-        client,
-        customer.role,
-      );
+      const refresh = await issueRefreshToken(customer.id, client);
       sendTokens(res, 201, client, refresh, {
         user: toPublicUser(customer),
         accessToken,
@@ -143,11 +139,7 @@ function loginHandler(client: TokenClient) {
         sub: customer.id,
         role: customer.role,
       });
-      const refresh = await issueRefreshToken(
-        customer.id,
-        client,
-        customer.role,
-      );
+      const refresh = await issueRefreshToken(customer.id, client);
       sendTokens(res, 200, client, refresh, {
         user: toPublicUser(customer),
         accessToken,

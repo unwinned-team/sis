@@ -31,8 +31,9 @@ async function readErrorBody(res: Response): Promise<unknown> {
   }
 }
 
-// Access-токен живёт 15 минут и хранится в памяти; при истечении обмен refresh-cookie
-// даёт новый. Холдер + подписка держат React-состояние синхронным с фоновым refresh.
+// Access-токен живёт 15-60 минут (роль) и хранится в памяти; при истечении
+// обмен refresh-cookie даёт новый. Холдер + подписка держат React-состояние
+// синхронным с фоновым refresh.
 let currentAccessToken: string | null = null;
 const tokenListeners = new Set<(token: string | null) => void>();
 // Поколение токена: выход бампает счётчик, зависший refresh после await видит
@@ -43,6 +44,13 @@ export function setAccessToken(token: string | null): void {
   if (!token) tokenGeneration++;
   currentAccessToken = token;
   for (const cb of tokenListeners) cb(token);
+}
+
+// Единая точка входа для refresh: и apiRequest, и restoreSession идут через
+// один single-flight, иначе два параллельных POST с одним cookie на сервере
+// читались бы как replay и сжигали семью.
+export function requestTokenRefresh(): Promise<string> {
+  return refreshAccessToken();
 }
 
 export function onAccessTokenChange(cb: (token: string | null) => void): () => void {
@@ -182,8 +190,9 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     onResponse?.(res);
 
     if (!res.ok) {
-      // Access-токен протух (15 мин): молча обменять refresh-cookie и повторить один раз.
-      // Второй 401 = refresh-cookie тоже протух (12 ч админ / 30 дн юзер) — тогда честно
+      // Access-токен протух (15 мин клиент / 60 мин админ): молча обменять
+      // refresh-cookie и повторить один раз.
+      // Второй 401 = refresh-cookie тоже протух (30 дн) — тогда честно
       // пробрасываем 401, чтобы страница показала «Сесія закінчилася. Увійдіть ще раз.»
       if (
         res.status === 401 &&

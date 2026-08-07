@@ -1,16 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { refreshTokenTtlMs } from "../../../src/lib/tokenTtl.js";
+import { REFRESH_TTL_MS } from "../../../src/lib/tokenTtl.js";
 
-// refresh админа живёт 7 дней, клиента — 30 дней.
-test("customer refresh session lasts 30 days", () => {
-  assert.equal(refreshTokenTtlMs("CUSTOMER"), 30 * 24 * 60 * 60 * 1000);
-});
-
-test("admin refresh session lasts 7 days", () => {
-  assert.equal(refreshTokenTtlMs("ADMIN"), 7 * 24 * 60 * 60 * 1000);
-});
-
-test("admin session is strictly shorter than customer session", () => {
-  assert.ok(refreshTokenTtlMs("ADMIN") < refreshTokenTtlMs("CUSTOMER"));
+// refresh живёт 30 дней для всех ролей — админам подняли с 12ч до 30д,
+// безопасность держит requireAdmin (БД на каждый запрос) и отзыв при
+// деактивации, а не короткий TTL.
+test("refresh session lasts 30 days", () => {
+  assert.equal(REFRESH_TTL_MS, 30 * 24 * 60 * 60 * 1000);
 });

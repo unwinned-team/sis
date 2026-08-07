@@ -1,4 +1,4 @@
-import { apiRequest } from './client';
+import { apiRequest, requestTokenRefresh } from './client';
 import type { AuthUser } from '../types';
 
 export interface AuthSession {
@@ -33,13 +33,6 @@ export function loginUser(input: LoginInput): Promise<AuthSession> {
   });
 }
 
-export function refreshAccessToken(): Promise<{ accessToken: string }> {
-  return apiRequest<{ accessToken: string }>('/auth/web/refresh', {
-    method: 'POST',
-    withCredentials: true,
-  });
-}
-
 export function fetchCurrentUser(accessToken: string): Promise<AuthUser> {
   return apiRequest<AuthUser>('/auth/me', { accessToken });
 }
@@ -70,7 +63,7 @@ let restorePromise: Promise<AuthSession | null> | null = null;
 export function restoreSession(): Promise<AuthSession | null> {
   restorePromise ??= (async () => {
     try {
-      const { accessToken } = await refreshAccessToken();
+      const accessToken = await requestTokenRefresh();
       const user = await fetchCurrentUser(accessToken);
       return { user, accessToken };
     } catch {

@@ -1,8 +1,4 @@
-import type { Role } from "@prisma/client";
-
-const CUSTOMER_REFRESH_TTL_MS = 30 * 24 * 60 * 60 * 1000;
-const ADMIN_REFRESH_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-
-export function refreshTokenTtlMs(role: Role): number {
-  return role === "ADMIN" ? ADMIN_REFRESH_TTL_MS : CUSTOMER_REFRESH_TTL_MS;
-}
+// Единый TTL для всех ролей: админу подняли до 30 дней — жалобы на вылеты
+// ушли в никуда, безопасность держит requireAdmin (проверка БД на каждый
+// запрос) + отзыв токенов при деактивации (customers.ts).
+export const REFRESH_TTL_MS = 30 * 24 * 60 * 60 * 1000;

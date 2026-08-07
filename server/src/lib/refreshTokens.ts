@@ -1,9 +1,20 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
-import type { Role, TokenClient } from "@prisma/client";
+import type { Prisma, Role, TokenClient } from "@prisma/client";
 import prisma from "../prisma.js";
 import log from "../logger.js";
 import { httpError } from "./httpError.js";
-import { refreshTokenTtlMs } from "./tokenTtl.js";
+import { REFRESH_TTL_MS } from "./tokenTtl.js";
+
+// Реплей свежеотозванного токена с живым преемником — гонка ротации
+// (пара вкладок, ответ потерян после коммита), не кража: окно прощает её
+// и продолжает цепочку. Потолок: вор, реплеящий украденный токен в течение
+// окна, остаётся жив; апгрейд — сверять IP заявителя с IP первой ротации.
+export const REPLAY_GRACE_MS = 30 * 1000;
+// Свежеотозванный преемник может быть ещё в незакоммиченной транзакции
+// конкурента (READ COMMITTED его не видит) — пара повторов с паузой закрывает
+// окно между claim и create, иначе 3+ вкладок всё ещё могли бы угодить в wipe.
+const GRACE_FIND_RETRIES = 5;
+const GRACE_FIND_BACKOFF_MS = 25;
 
 function hashToken(raw: string): string {
   return createHash("sha256").update(raw).digest("hex");
@@ -22,10 +33,9 @@ export interface IssuedRefreshToken {
 export async function issueRefreshToken(
   customerId: string,
   client: TokenClient,
-  role: Role,
 ): Promise<IssuedRefreshToken> {
   const raw = newRawToken();
-  const expiresAt = new Date(Date.now() + refreshTokenTtlMs(role));
+  const expiresAt = new Date(Date.now() + REFRESH_TTL_MS);
   await prisma.refreshToken.create({
     data: {
       tokenHash: hashToken(raw),
@@ -47,6 +57,59 @@ type RotationResult =
   | { kind: "replay"; customerId: string; familyId: string }
   | { kind: "invalid" };
 
+interface TokenRow {
+  id: string;
+  customerId: string;
+  familyId: string;
+  client: TokenClient;
+  expiresAt: Date;
+}
+
+// Общий хвост ротации: условный claim закрывает гонку между конкурентными
+// refresh-запросами; претендент, проигравший claim, получает replay.
+async function rotateFrom(
+  tx: Prisma.TransactionClient,
+  token: TokenRow,
+  customer: { id: string; role: Role },
+): Promise<RotationResult> {
+  const claimed = await tx.refreshToken.updateMany({
+    where: { id: token.id, revokedAt: null },
+    data: { revokedAt: new Date() },
+  });
+  if (claimed.count === 0) {
+    return {
+      kind: "replay",
+      customerId: token.customerId,
+      familyId: token.familyId,
+    };
+  }
+
+  const nextRaw = newRawToken();
+  // Вся семья живёт до исходного expiresAt: ротация не продлевает сессию бесконечно.
+  const successor = await tx.refreshToken.create({
+    data: {
+      tokenHash: hashToken(nextRaw),
+      customerId: token.customerId,
+      familyId: token.familyId,
+      client: token.client,
+      expiresAt: token.expiresAt,
+    },
+  });
+  await tx.refreshToken.update({
+    where: { id: token.id },
+    data: { replacedById: successor.id },
+  });
+
+  return {
+    kind: "rotated",
+    token: {
+      raw: nextRaw,
+      expiresAt: token.expiresAt,
+      customer,
+    },
+  };
+}
+
 export async function rotateRefreshToken(
   raw: string,
 ): Promise<RotatedRefreshToken> {
@@ -60,54 +123,60 @@ export async function rotateRefreshToken(
     if (!existing) {
       return { kind: "invalid" };
     }
-    if (existing.revokedAt) {
-      return {
-        kind: "replay",
-        customerId: existing.customerId,
-        familyId: existing.familyId,
-      };
-    }
     if (existing.expiresAt <= new Date() || !existing.customer.isActive) {
       return { kind: "invalid" };
     }
 
-    // Условный update закрывает гонку между конкурентными refresh-запросами.
-    const claimed = await tx.refreshToken.updateMany({
-      where: { id: existing.id, revokedAt: null },
-      data: { revokedAt: new Date() },
-    });
-    if (claimed.count === 0) {
-      return {
-        kind: "replay",
-        customerId: existing.customerId,
-        familyId: existing.familyId,
-      };
+    const customer = { id: existing.customer.id, role: existing.customer.role };
+
+    if (!existing.revokedAt) {
+      // Обычная ротация: условный claim внутри rotateFrom закрывает гонку
+      // конкурентных refresh-запросов на один и тот же токен.
+      const rotated = await rotateFrom(tx, existing, customer);
+      if (rotated.kind === "rotated") return rotated;
+      // Claim проигран — конкурент отозвал этот токен в эти же миллисекунды;
+      // решение ниже по свежести отзыва.
     }
 
-    const nextRaw = newRawToken();
-    // Вся семья живёт до исходного expiresAt: ротация не продлевает сессию бесконечно.
-    const expiresAt = existing.expiresAt;
-    const successor = await tx.refreshToken.create({
-      data: {
-        tokenHash: hashToken(nextRaw),
-        customerId: existing.customerId,
-        familyId: existing.familyId,
-        client: existing.client,
-        expiresAt,
-      },
-    });
-    await tx.refreshToken.update({
-      where: { id: existing.id },
-      data: { replacedById: successor.id },
-    });
+    const revokedAt =
+      existing.revokedAt ??
+      (
+        await tx.refreshToken.findUnique({
+          where: { id: existing.id },
+          select: { revokedAt: true },
+        })
+      )?.revokedAt;
+
+    // Отозван только что + у семьи есть живой токен = гонка ротации
+    // (пара вкладок, потерянный ответ), а не кража: продолжаем цепочку,
+    // семью не отзываем.
+    const withinGrace =
+      revokedAt != null &&
+      Date.now() - revokedAt.getTime() <= REPLAY_GRACE_MS;
+    if (withinGrace) {
+      for (let attempt = 0; ; attempt++) {
+        const live = await tx.refreshToken.findFirst({
+          where: {
+            familyId: existing.familyId,
+            revokedAt: null,
+            expiresAt: { gt: new Date() },
+          },
+          orderBy: { createdAt: "desc" },
+        });
+        if (!live) {
+          if (attempt >= GRACE_FIND_RETRIES) break;
+          await new Promise((resolve) => setTimeout(resolve, GRACE_FIND_BACKOFF_MS));
+          continue;
+        }
+        const next = await rotateFrom(tx, live, customer);
+        if (next.kind === "rotated") return next;
+      }
+    }
 
     return {
-      kind: "rotated",
-      token: {
-        raw: nextRaw,
-        expiresAt,
-        customer: { id: existing.customer.id, role: existing.customer.role },
-      },
+      kind: "replay",
+      customerId: existing.customerId,
+      familyId: existing.familyId,
     };
   });
 

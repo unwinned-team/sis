@@ -1,12 +1,17 @@
 import assert from "node:assert/strict";
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import test, { after, afterEach, before, beforeEach } from "node:test";
 import app from "../../src/app.js";
 import prisma from "../../src/prisma.js";
 import { signAccessToken } from "../../src/lib/jwt.js";
 import { hashPassword } from "../../src/lib/password.js";
+import { REPLAY_GRACE_MS } from "../../src/lib/refreshTokens.js";
+
+function hashToken(raw: string): string {
+  return createHash("sha256").update(raw).digest("hex");
+}
 
 interface ApiResult {
   status: number;
@@ -210,7 +215,7 @@ test("login failures are a uniform 401 Invalid credentials", async () => {
   }
 });
 
-test("web refresh rotates the token and replay revokes every session", async () => {
+test("web refresh rotates the token; fresh replay continues the chain, stale replay revokes the family", async () => {
   const registered = await api("POST", "/auth/web/register", { body: registerBody("rotate") });
   const first = refreshCookiePair(registered);
 
@@ -225,19 +230,38 @@ test("web refresh rotates the token and replay revokes every session", async () 
   assert.equal(rotatedAgain.status, 200);
   const third = refreshCookiePair(rotatedAgain);
 
-  // Реплей уже ротированного токена = кража: 401, cookie чистится...
-  const replay = await api("POST", "/auth/web/refresh", { cookie: first });
-  assert.equal(replay.status, 401);
-  const cleared = refreshSetCookie(replay);
+  // Свежий реплей ротированного токена = гонка вкладок: семья живёт,
+  // цепочка продолжается, отзыва нет.
+  const benign = await api("POST", "/auth/web/refresh", { cookie: first });
+  assert.equal(benign.status, 200);
+  const continued = refreshCookiePair(benign);
+  assert.notEqual(continued, third);
+  assert.equal(refreshSetCookie(benign)?.includes("refreshToken=;"), false);
+
+  // Живой токен семьи после гонки по-прежнему работает.
+  const stillAlive = await api("POST", "/auth/web/refresh", { cookie: continued });
+  assert.equal(stillAlive.status, 200);
+
+  // Реплей за пределами grace-окна = кража: 401, cookie чистится и отзывается
+  // вся семья, включая последний живой токен.
+  const stale = await prisma.refreshToken.findFirstOrThrow({
+    where: { tokenHash: hashToken(first.split("=")[1]!), revokedAt: { not: null } },
+  });
+  await prisma.refreshToken.update({
+    where: { id: stale.id },
+    data: { revokedAt: new Date(Date.now() - REPLAY_GRACE_MS - 1000) },
+  });
+  const stolen = await api("POST", "/auth/web/refresh", { cookie: first });
+  assert.equal(stolen.status, 401);
+  const cleared = refreshSetCookie(stolen);
   assert.ok(cleared);
   assert.match(cleared, /refreshToken=;/);
 
-  // ...и отзываются все токены пользователя, включая последний живой.
-  const afterReplay = await api("POST", "/auth/web/refresh", { cookie: third });
-  assert.equal(afterReplay.status, 401);
+  const afterStale = await api("POST", "/auth/web/refresh", { cookie: continued });
+  assert.equal(afterStale.status, 401);
 });
 
-test("mobile refresh rotates via the body and rejects the previous token", async () => {
+test("mobile refresh rotates via the body and a fresh replay continues the chain", async () => {
   const registered = await api("POST", "/auth/mobile/register", { body: registerBody("mrotate") });
   const first = registered.body.refreshToken;
 
@@ -248,13 +272,17 @@ test("mobile refresh rotates via the body and rejects the previous token", async
   assert.notEqual(rotated.body.refreshToken, first);
   assert.equal(refreshSetCookie(rotated), undefined);
 
+  // Реплей свежеотозванного токена — гонка, а не кража: семья живёт,
+  // выдаётся следующий токен цепочки.
   const replay = await api("POST", "/auth/mobile/refresh", { body: { refreshToken: first } });
-  assert.equal(replay.status, 401);
+  assert.equal(replay.status, 200);
+  assert.notEqual(replay.body.refreshToken, first);
+  assert.notEqual(replay.body.refreshToken, rotated.body.refreshToken);
 
   const afterReplay = await api("POST", "/auth/mobile/refresh", {
     body: { refreshToken: rotated.body.refreshToken },
   });
-  assert.equal(afterReplay.status, 401);
+  assert.equal(afterReplay.status, 200);
 });
 
 test("refresh rotation preserves the original session expiry", async () => {
@@ -276,7 +304,7 @@ test("refresh rotation preserves the original session expiry", async () => {
   assert.equal(successor.expiresAt.getTime(), original.expiresAt.getTime());
 });
 
-test("simultaneous refresh treats the losing request as replay and revokes the successor", async () => {
+test("simultaneous refresh with the same token keeps both sessions alive", async () => {
   const registered = await api("POST", "/auth/mobile/register", {
     body: registerBody("concurrent-refresh"),
   });
@@ -286,18 +314,19 @@ test("simultaneous refresh treats the losing request as replay and revokes the s
     api("POST", "/auth/mobile/refresh", { body }),
     api("POST", "/auth/mobile/refresh", { body }),
   ]);
-  const successful = results.find((result) => result.status === 200);
 
   assert.deepEqual(
     results.map((result) => result.status).sort(),
-    [200, 401],
+    [200, 200],
   );
-  assert.ok(successful?.body.refreshToken);
 
-  const afterReplay = await api("POST", "/auth/mobile/refresh", {
-    body: { refreshToken: successful.body.refreshToken },
-  });
-  assert.equal(afterReplay.status, 401);
+  // Оба выданных токена валидны — семья не отозвана, цепочка продолжилась.
+  for (const result of results) {
+    const next = await api("POST", "/auth/mobile/refresh", {
+      body: { refreshToken: result.body.refreshToken },
+    });
+    assert.equal(next.status, 200);
+  }
 });
 
 test("refresh without a token and with an unknown token returns 401", async () => {

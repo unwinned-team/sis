@@ -5,8 +5,13 @@ import test from "node:test";
 // (dotenv не перетирает уже установленные переменные окружения).
 process.env.JWT_ACCESS_SECRET = "integration-test-secret-0123456789abcdef";
 
-const { signAccessToken, verifyAccessToken } =
+const { signAccessToken, verifyAccessToken, accessTokenTtlSeconds } =
   await import("../../../src/lib/jwt.js");
+
+test("access token TTL is role-based: 60 min admin, 15 min customer", () => {
+  assert.equal(accessTokenTtlSeconds("ADMIN"), 60 * 60);
+  assert.equal(accessTokenTtlSeconds("CUSTOMER"), 15 * 60);
+});
 
 test("signed access token verifies and returns sub and role", async () => {
   const token = await signAccessToken({ sub: "customer-1", role: "ADMIN" });

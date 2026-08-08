@@ -1,4 +1,6 @@
-export type PaymentMethod = 'CARD' | 'CASH' | 'BONUS';
+// CARD_POSTPAY = картой при получении на почте. Оплату мы не видим, поэтому
+// на фронте он ведёт себя как CASH: без paymentRef, без поллинга статуса.
+export type PaymentMethod = 'CARD' | 'CASH' | 'BONUS' | 'CARD_POSTPAY';
 
 export type PaymentStatus = 'PENDING' | 'CLAIMED' | 'PAID' | 'FAILED';
 

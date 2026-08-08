@@ -31,6 +31,15 @@ const PAYMENT_LABELS: Record<Order['paymentStatus'], string> = {
   FAILED: 'Не оплачено',
 };
 
+// Значок оплаты есть только у CARD, поэтому метод пишем словами: иначе
+// CARD_POSTPAY в списке неотличим от обычной карты.
+const METHOD_LABELS: Record<Order['paymentMethod'], string> = {
+  CARD: 'Картка',
+  CARD_POSTPAY: 'Картка на пошті',
+  CASH: 'Готівка',
+  BONUS: 'Бонуси',
+};
+
 const PAYMENT_CLASSES: Record<Order['paymentStatus'], string> = {
   PENDING: 'bg-amber-100 text-amber-700',
   CLAIMED: 'bg-amber-100 text-amber-700',
@@ -101,7 +110,8 @@ function OrderRow({
             )}
           </p>
           <p className="text-xs text-slate-500">
-            {formatDateTime(order.createdAt)} · {order.paymentMethod} · #{order.id.slice(-6)}
+            {formatDateTime(order.createdAt)} · {METHOD_LABELS[order.paymentMethod] ?? order.paymentMethod} ·{' '}
+            #{order.id.slice(-6)}
           </p>
           {order.deliveryCity && (
             <p className="mt-1 text-xs text-slate-600">

@@ -15,6 +15,7 @@ const CARD_CLASS = 'rounded-3xl border border-white/60 bg-white/40 shadow-lg bac
 
 const PAYMENT_OPTIONS: Array<{ value: PaymentMethod; label: string }> = [
   { value: 'CARD', label: 'Карткою' },
+  { value: 'CARD_POSTPAY', label: 'Карткою при отриманні' },
   { value: 'CASH', label: 'Готівкою' },
   { value: 'BONUS', label: 'Бонусами' },
 ];

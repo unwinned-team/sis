@@ -91,6 +91,20 @@ test("order total accepts Decimal(10,2) boundary and rejects overflow", () => {
   assert.equal(isOrderTotalValid(new Prisma.Decimal("100000000.00")), false);
 });
 
+test("order input accepts CARD_POSTPAY payment method", () => {
+  assert.equal(
+    createOrderSchema.safeParse({
+      isAgeConfirmed: true,
+      paymentMethod: "CARD_POSTPAY",
+      deliveryCity: "Київ",
+      deliveryRegion: "Київська",
+      deliveryBranch: "42",
+      items: [item],
+    }).success,
+    true,
+  );
+});
+
 test("order updates reject payment method changes", () => {
   assert.equal(
     updateOrderSchema.safeParse({

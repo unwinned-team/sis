@@ -213,6 +213,7 @@ enum PaymentMethod {
   CARD
   CASH
   BONUS
+  CARD_POSTPAY // карта при получении на почте, поведение как CASH
 }
 
 enum PaymentStatus {

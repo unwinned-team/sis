@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 
-const paymentMethodSchema = z.enum(["CARD", "CASH", "BONUS"]);
+const paymentMethodSchema = z.enum(["CARD", "CASH", "BONUS", "CARD_POSTPAY"]);
 const orderStatusSchema = z.enum([
   "NEW",
   "PROCESSING",
